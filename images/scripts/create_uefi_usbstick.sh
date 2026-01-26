@@ -32,11 +32,22 @@ truncate -s $TOTAL_SIZE "$IMG_NAME"
 # -n 1:start:end : Create partition 1
 # -t 1:EF00 : Set type to EFI System Partition
 # -c 1:name : Set partition name
-/usr/sbin/sgdisk -o \
-    -n 1:$START_SECTOR:+$((ESP_SECTORS - 1)) \
-    -t 1:EF00 \
-    -c 1:"EFI System Partition" \
-    "$IMG_NAME" > /dev/null
+if [ -x /usr/sbin/sgdisk ]; then
+    /usr/sbin/sgdisk -o \
+		     -n 1:$START_SECTOR:+$((ESP_SECTORS - 1)) \
+		     -t 1:EF00 \
+		     -c 1:"EFI System Partition" \
+		     "$IMG_NAME" > /dev/null
+elif [ -x /usr/sbin/parted ]; then
+    /usr/sbin/parted -s "$IMG_NAME" \
+		     mklabel gpt \
+		     unit s \
+		     mkpart "EFI System Partition" fat32 $START_SECTOR $((START_SECTOR + ESP_SECTORS - 1)) \
+		     set 1 esp on
+else
+    echo "ERROR: neither sgdisk nor parted installed!" >&2
+    exit 1
+fi
 
 # Inject the formatted partition into the disk image
 dd if="$TEMP_PART" of="$IMG_NAME" bs="$SECTOR_SIZE" seek="$START_SECTOR" conv=notrunc,sparse,fsync status=progress oflag=direct
