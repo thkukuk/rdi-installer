@@ -20,5 +20,5 @@ custom_target('ifcfg-networkd.8',
               output : 'ifcfg-networkd.8',
               command : xslt_cmd + [custom_man_xsl, '@INPUT@'],
               install : want_man,
-              install_dir : mandir1)
+              install_dir : mandir8)
 endif
