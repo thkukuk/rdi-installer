@@ -2,34 +2,40 @@
 
 # SPDX-License-Identifier: MIT
 
-# Official openSUSE Color Palette
-OPENSUSE_GREEN="#73ba25"     # Green
-OPENSUSE_DARKBLUE="#173f4f"  # Dark Blue
-OPENSUSE_CYAN="#35b9ab"      # Cyan
-# Secondary colors
-OPENSUSE_DARKCYAN="#00a489"  # Dark Cyan
-OPENSUSE_DARKGREEN="#6da741" # Dark Green
-OPENSUSE_BLUE="#21a4df"      # Blue
+COLOR_GREEN=10
+COLOR_GRAY=250
+COLOR_RED=9
+COLOR_BLUE=21
+COLOR_DARKBLUE=18
+COLOR_CYAN=14
 
-COLOR_RED="#FF0000"
-
-COLOR_BACKGROUND=$OPENSUSE_DARKBLUE
-COLOR_FOREGROUND=$OPENSUSE_GREEN
-COLOR_TITLE=$OPENSUSE_BLUE
-COLOR_TEXT=$OPENSUSE_CYAN
-#COLOR_WARNING=$OPENSUSE_DARKCYAN
+COLOR_BACKGROUND=$COLOR_DARKBLUE
+COLOR_FOREGROUND=$COLOR_GREEN
+COLOR_ITEM=$COLOR_GRAY
+COLOR_TITLE=$COLOR_BLUE
+COLOR_TEXT=$COLOR_CYAN
 COLOR_WARNING=$COLOR_RED
+
+CURSOR="→"
 
 VERSION=@VERSION@
 
-KEYWAIT=keywait
+if [ -z "$RDII_DEBUG" ]; then
+    KEYWAIT=keywait
 
-# shellcheck source=keymap.sh
-source @RDIIDIR@/keymap.sh
-# shellcheck source=target_device.sh
-source @RDIIDIR@/target_device.sh
-# shellcheck source=select_image.sh
-source @RDIIDIR@/select_image.sh
+    # shellcheck source=../scripts/keymap.sh
+    source @RDIIDIR@/keymap.sh
+    # shellcheck source=../scripts/target_device.sh
+    source @RDIIDIR@/target_device.sh
+    # shellcheck source=../scripts/select_image.sh
+    source @RDIIDIR@/select_image.sh
+else
+    KEYWAIT=./keywait
+
+    source ../scripts/keymap.sh
+    source ../scripts/target_device.sh
+    source ../scripts/select_image.sh
+fi
 
 clear_and_print_title()
 {
@@ -92,13 +98,12 @@ while [ "$SELECTED" != "Install" ] && [ "$SELECTED" != "Abort" ] && [ -n "$SELEC
 
     SELECTED=$(gum choose \
 		   --header="Configuration Settings" \
-		   --cursor="➜ " \
+		   --cursor="${CURSOR} " \
 		   --cursor.foreground="$COLOR_FOREGROUND" \
-		   --item.foreground="250" \
+		   --item.foreground="$COLOR_ITEM" \
 		   --selected.foreground="$COLOR_FOREGROUND" \
 		   --header.foreground="$COLOR_TITLE" \
 		   --limit=1 \
-		   --height=5 \
 		   "Select Keymap ($DEFAULT_KEYMAP)" \
 		   "Select Target Device ($TARGET_DEVICE)" \
 		   "Select Image ($(basename "$SOURCE_IMAGE"))" \
@@ -145,11 +150,9 @@ done
 
 clear
 gum style \
-    --border rounded \
-    --margin "1 2" \
-    --padding "1 2" \
-    --border-foreground "$OPENSUSE_CYAN" \
-    --foreground "$OPENSUSE_GREEN" \
+    --align="center" \
+    --border-foreground "$COLOR_FOREGROUND" \
+    --foreground "$COLOR_FOREGROUND" \
     --bold \
     "Source Image:" \
     "$SOURCE_IMAGE" \
@@ -171,5 +174,31 @@ if gum confirm \
 	exit 1
     fi
 
-# Write the image
-dd if="$SOURCE_IMAGE" of="$TARGET_DEVICE" bs=4M status=progress conv=fsync oflag=direct
+if [ -z "$RDII_DEBUG" ]; then
+    # Write the image
+    if ! dd if="$SOURCE_IMAGE" of="$TARGET_DEVICE" bs=4M status=progress conv=fsync oflag=direct ; then
+	$KEYWAIT -s 0
+    else
+	$KEYWAIT -s 10
+    fi
+else
+    gum spin --spinner=globe --title.foreground="$COLOR_TITLE" --title="Press any key to continue or wait 5s..." -- $KEYWAIT -t "" -s 10
+fi
+clear_and_print_title
+ACTION=$(gum choose \
+	     --cursor="${CURSOR} " \
+	     --cursor.foreground="$COLOR_FOREGROUND" \
+	     --item.foreground="$COLOR_ITEM" \
+	     --selected.foreground="$COLOR_FOREGROUND" \
+	     --limit=1 \
+	     "Reboot" "PowerOff" "Quit (shell)")
+case $ACTION in
+    Reboot)
+	reboot
+	;;
+    PowerOff)
+	poweroff
+	;;
+    *)
+	;;
+esac

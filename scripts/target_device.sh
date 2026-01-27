@@ -33,15 +33,22 @@ select_target_device()
 
     if [ -z "$DEVICE_LIST" ]; then
 	gum style --foreground="$COLOR_WARNING" "No suitable drives >10GB found."
+	$KEYWAIT -s 0
+	if [ -z "$RDII_DEBUG" ]; then
+	    return
+	else
+	    DEVICE_LIST="/dev/dummy0 - DUMMY (none, 999TB)\n"
+	    DEVICE_LIST+="/dev/dummy1 - DUMMY (none, 20GB)\n"
+	    clear_and_print_title
+	fi
     fi
 
     SELECTION_STRING=$(echo -e "$DEVICE_LIST" | \
 			   gum choose \
 			       --header="Select Target Device" \
 			       --header.foreground="$COLOR_TITLE" \
-			       --cursor "➜ " \
-			       --cursor.foreground="$COLOR_FOREGROUND" \
-			       --height 8)
+			       --cursor="${CURSOR} " \
+			       --cursor.foreground="$COLOR_FOREGROUND")
 
     if [ -z "$SELECTION_STRING" ]; then
 	gum style --foreground="$COLOR_TEXT" "Cancelled."
@@ -56,6 +63,8 @@ select_target_device()
     clear_and_print_title
     if [ -n "$IS_MOUNTED" ]; then
 	gum style \
+	    --width 78 \
+	    --align="center" \
             --border double \
             --border-foreground $COLOR_WARNING \
             --foreground $COLOR_WARNING \
@@ -65,6 +74,8 @@ select_target_device()
             "Proceeding may cause data loss or corruption."
     else
 	gum style \
+	    --width 78 \
+	    --align="center" \
             --border normal \
             --border-foreground $COLOR_WARNING \
 	    --foreground $COLOR_WARNING \
