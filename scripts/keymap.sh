@@ -15,7 +15,7 @@ set_keymap()
     SELECTED_MAP=$(echo "$AVAILABLE_MAPS" | \
 	gum filter \
 		--limit=1 \
-		--indicator="➜" \
+		--indicator="$CURSOR" \
 		--indicator.foreground="$COLOR_FOREGROUND" \
 		--selected-indicator.foreground="$COLOR_FOREGROUND" \
 		--value "$DEFAULT_KEYMAP" \

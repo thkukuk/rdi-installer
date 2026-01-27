@@ -160,6 +160,8 @@ gum style \
     "$TARGET_DEVICE"
 
 
+clear_and_print_title
+
 if gum confirm \
        --default \
        --prompt.foreground "$COLOR_TEXT" \
