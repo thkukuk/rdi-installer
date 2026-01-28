@@ -78,9 +78,12 @@ rdi_installer = configure_file(
   install_dir: bindir
 )
 
+# rdi-installer
 install_data('scripts/keymap.sh', install_dir : rdiidir)
 install_data('scripts/select_image.sh', install_dir : rdiidir)
 install_data('scripts/target_device.sh', install_dir : rdiidir)
+# additional tools
+install_data('scripts/rdii-ssh-setup.sh', rename : 'rdii-ssh-setup', install_mode : 'rwxr-xr-x', install_dir : bindir)
 
 configure_file(output: 'config.h', configuration: conf)
 
