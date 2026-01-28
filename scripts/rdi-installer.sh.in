@@ -24,14 +24,10 @@ TEMP_DIR=$(mktemp -d)
 
 cleanup()
 {
-    local DIRECTORIES
     local exit_code=$?
 
-    if [ -d "${TEMP_DIR}/mounts" ]; then
-	DIRECTORIES=$(/bin/ls -d "${TEMP_DIR}/mounts/")
-	for dir in $DIRECTORIES; do
-	    umount -R -f "$dir" || echo "WARNING: Failed to unmount $dir"
-	done
+    if [ -d "${TEMP_DIR}/mount" ]; then
+        mountpoint -q "${TEMP_DIR}/mount" && umount -R -f "${TEMP_DIR}/mount" || echo "WARNING: Failed to unmount ${TEMP_DIR}/mount"
     fi
 
     if [[ -d "$TEMP_DIR" ]]; then
@@ -127,9 +123,9 @@ while [ "$SELECTED" != "Install" ] && [ "$SELECTED" != "Abort" ] && [ -n "$SELEC
 		   --item.foreground="$COLOR_ITEM" \
 		   --selected.foreground="$COLOR_FOREGROUND" \
 		   --limit=1 \
-		   "Select Keymap ($DEFAULT_KEYMAP)" \
-		   "Select Target Device ($TARGET_DEVICE)" \
 		   "Select Image ($SOURCE_IMAGE)" \
+		   "Select Target Device ($TARGET_DEVICE)" \
+		   "Select Keymap ($DEFAULT_KEYMAP)" \
 		   "Abort" \
 		   "Install"
 	    )
@@ -199,17 +195,47 @@ if gum confirm \
 	exit 1
     fi
 
-if [ -z "$RDII_DEBUG" ]; then
-    # XXX curl -L -C - --fail --retry 5 --no-progress-meter "https://download.opensuse.org/repositories/home:/kukuk:/mkosi-images/mkosi/raw-disk-image-installer-6.4.x86-64.efi" | dd of=tmp.img bs=4M status=progress conv=fsync oflag=direct
-    # Write the image
-    if ! pv "$SOURCE_IMAGE" | dd of="$TARGET_DEVICE" bs=4M conv=fsync oflag=direct ; then
-	$KEYWAIT -s 0
-    else
-	$KEYWAIT -s 10
-    fi
+# Check for URLs (http, https, ftp)
+if [[ "$SOURCE_IMAGE" =~ ^(https?|ftp):// ]]; then
+    echo "URL Detected: $SOURCE_IMAGE" | gum style --foreground "$COLOR_TEXT"
+    curl -L -C - --fail --retry 5 --no-progress-meter "$SOURCE_IMAGE" | dd of=tmp.img bs=4M status=progress conv=fsync oflag=direct
 else
-    gum spin --spinner=globe --title.foreground="$COLOR_TITLE" --title="Press any key to continue or wait 5s..." -- $KEYWAIT -t "" -s 10
+    if [[ "$SOURCE_IMAGE" == /* ]]; then
+	echo "Absolute Path Detected: $SOURCE_IMAGE"
+	IMAGE_TO_WRITE="$SOURCE_IMAGE"
+    elif [[ "$SOURCE_IMAGE" =~ (.*)\((/dev/.*)\)$ ]]; then
+        # Extract the parts using BASH_REMATCH array
+        prefix="${BASH_REMATCH[1]}"
+        device="${BASH_REMATCH[2]}"
+
+        # Verify if the extracted path is actually a block device
+        if [ -b "$device" ]; then
+            # Trim trailing space from prefix if present
+            prefix="${prefix%"${prefix##*[![:space:]]}"}"
+
+	    mount "$device" "${TEMP_DIR}/mount"
+	    IMAGE_TO_WRITE="${TEMP_DIR}/mount/${prefix}"
+        else
+            echo "Error: Argument '$SOURCE_IMAGE' matches format, but '$device' is not a valid block device." >&2
+	    exit 2 # XXX
+        fi
+    else
+	echo "INTERNAL ERROR: $SOURCE_IMAGE"
+	exit 3 # XXX
+    fi
+
+    if [ -n "$RDII_DEBUG" ]; then
+	gum spin --spinner=globe --title.foreground="$COLOR_TITLE" --title="Press any key to continue or wait 10s..." -- $KEYWAIT -t "" -s 10	# Write the image
+    else
+	if ! pv "$IMAGE_TO_WRITE" | dd of="$TARGET_DEVICE" bs=4M conv=fsync oflag=direct ; then
+	    $KEYWAIT -s 0
+	else
+	    $KEYWAIT -s 10
+	fi
+    fi
+    mountpoint -q "${TEMP_DIR}/mount" && umount "${TEMP_DIR}/mount"
 fi
+
 clear_and_print_title
 ACTION=$(gum choose \
 	     --cursor="${CURSOR} " \
@@ -217,7 +243,7 @@ ACTION=$(gum choose \
 	     --item.foreground="$COLOR_ITEM" \
 	     --selected.foreground="$COLOR_FOREGROUND" \
 	     --limit=1 \
-	     "Reboot" "PowerOff" "Quit (shell)")
+	     "Reboot" "PowerOff")
 case $ACTION in
     Reboot)
 	reboot

@@ -13,6 +13,52 @@ local_fs()
 		       --selected.foreground="$COLOR_FOREGROUND")
 }
 
+query_url()
+{
+    local TIMEOUT=5
+
+    clear_and_print_title
+    URL=$(gum input \
+	      --header="Please enter the image URL:" \
+	      --header.foreground="$COLOR_TITLE" \
+              --cursor.foreground="$COLOR_FOREGROUND" \
+	      --placeholder="https://")
+
+    if [[ -z "$URL" ]]; then
+	gum style --foreground="$COLOR_TEXT" "Cancelled."
+	$KEYWAIT -t "" -s 1
+	return
+    fi
+
+    REGEX='^(https?|ftp)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]$'
+    if [[ ! $URL =~ $REGEX ]]; then
+        gum style \
+	    --foreground=$COLOR_WARNING \
+	    "Error: Invalid URL syntax."
+	$KEYWAIT -s 0
+	return
+    fi
+
+    # XXX better error check
+    if ! gum spin \
+	 --spinner=globe \
+	 --title "Pinging $URL..." \
+	 --title.foreground="$COLOR_TITLE" -- \
+         curl -o /dev/null --silent --head --fail --max-time $TIMEOUT \
+	 "$URL"; then
+        gum style \
+            --foreground=$COLOR_WARNING \
+            "Unreachable: $URL"
+
+        gum style \
+	     --foreground=$COLOR_TEXT \
+	    "The URL has valid syntax, but the file does not exist or the server is not responding (Timeout: ${TIMEOUT}s)."
+	$KEYWAIT -s 0
+        return
+    fi
+    SOURCE_IMAGE="$URL"
+}
+
 select_image()
 {
     local SELECTED_IMG
@@ -20,7 +66,7 @@ select_image()
     local OLD_PATH
     local IMAGE_LIST="Provide URL\nUse file selection\n"
 
-    mkdir -p "${TEMP_DIR}/mounts"
+    mkdir -p "${TEMP_DIR}/mount"
 
     # lsblk "PATH" should be "DEVICE" to avoid a conflict
     local OLD_PATH=$PATH
@@ -30,7 +76,6 @@ select_image()
 	eval "$line"
 	DEVICE=$PATH
 	PATH=$OLD_PATH
-	local IS_TEMP_MOUNTED=false
 
 	# Skip if we have already processed this device path
 	if [[ -n "${PROCESSED_DEVICES[$DEVICE]}" ]]; then
@@ -49,12 +94,11 @@ select_image()
 		echo "Partition is already mounted at: $MOUNTPOINT"
 		SEARCH_DIR="$MOUNTPOINT"
             else
-		TEMP_MOUNT_DIR=$(mktemp -d --tmpdir="${TEMP_DIR}/mounts" XXXXXXXXXX)
+		TEMP_MOUNT_DIR="${TEMP_DIR}/mount"
 
 		# Try to mount the device to the temp directory
 		if mount -r "$DEVICE" "$TEMP_MOUNT_DIR" 2>/dev/null ; then
                     SEARCH_DIR="$TEMP_MOUNT_DIR"
-                    IS_TEMP_MOUNTED=true
 		else
                     rmdir "$TEMP_MOUNT_DIR"
                     continue
@@ -63,14 +107,14 @@ select_image()
 
             echo "Scanning for .raw and .img files..."
 	    while IFS= read -r -d '' file; do
-		if [ "$IS_TEMP_MOUNTED" = true ]; then
+		if [ -n "$TEMP_MOUNT_DIR" ]; then
 		    IMAGE_LIST+="$(basename "$file") ($DEVICE)\n"
 		else
 		    IMAGE_LIST+="$file\n"
 		fi
-	    done < <(find "$SEARCH_DIR" -type f \( -name "*.raw" -o -name "*.img" \) -print0)
+	    done < <(find "$SEARCH_DIR" -maxdepth 1 -type f \( -name "*.raw" -o -name "*.img" \) -print0)
 
-	    if [ "$IS_TEMP_MOUNTED" = true ]; then
+	    if [ -n "$TEMP_MUONT_DIR" ]; then
 		echo "Unmounting temporary mount..."
 		umount "$TEMP_MOUNT_DIR"
 		rmdir "$TEMP_MOUNT_DIR"
@@ -94,7 +138,7 @@ select_image()
 
     case "$SELECTED_IMG" in
 	"Provide URL")
-	    echo "Missing"
+	    query_url
 	    ;;
 	"Use file selection")
 	    local_fs
