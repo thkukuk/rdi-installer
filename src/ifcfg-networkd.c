@@ -9,21 +9,28 @@
 #include <string.h>
 #include <getopt.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
 #include "basics.h"
 
+static bool debug = false;
+
+static const char *output_dir = "/run/systemd/network";
+
 /* Configuration */
 #define CMDLINE_PATH "/proc/cmdline"
-#define OUTPUT_DIR "/run/systemd/network"
-#define FILE_PREFIX "60-ifcfg-"
+#define FILE_PREFIX "60-ifcfg"
 
 /* Helper to trim whitespace */
 static char *
 trim_whitespace(char *str)
 {
   char *end;
+
+  if (!str)
+    return NULL;
 
   while(isspace((unsigned char)*str))
     str++;
@@ -36,25 +43,6 @@ trim_whitespace(char *str)
 
   *(end+1) = 0;
   return str;
-}
-
-/*
-  Sanitizes the interface spec to create a valid filename.
-  Replaces '*', ':', etc. with underscores.
-*/
-static void
-sanitize_filename(char *dest, const char *src)
-{
-  while (*src)
-    {
-      if (isalnum(*src) || *src == '-' || *src == '.')
-	*dest = *src;
-      else
-	*dest = '_';
-      dest++;
-      src++;
-    }
-  *dest = '\0';
 }
 
 static int
@@ -82,33 +70,32 @@ split_and_print(FILE *fp, const char *key, const char *list)
 
 /* Writes the systemd-networkd .network file */
 static int
-write_network_file(const char *interface, int is_dhcp, int dhcp_v4,
-		   int dhcp_v6, int rfc2132, char *ip_list,
+write_network_file(int nr, const char *interface, int is_dhcp,
+		   int dhcp_v4, int dhcp_v6, int rfc2132, char *ip_list,
 		   char *gw_list, char *dns_list, char *domains)
 {
-  _cleanup_free_ char *filename = NULL;
   _cleanup_free_ char *filepath = NULL;
   _cleanup_fclose_ FILE *fp = NULL;
   int r;
 
-  filename = calloc(1, strlen(interface)+1);
-  if (!filename)
-    return -ENOMEM;
-
-  sanitize_filename(filename, interface);
-  if (asprintf(&filepath, "%s/%s%s.network",
-	       OUTPUT_DIR, FILE_PREFIX, filename) < 0)
+  if (asprintf(&filepath, "%s/%s-%02d.network",
+	       output_dir, FILE_PREFIX, nr) < 0)
     return -ENOMEM;
 
   printf("Creating config: %s for interface '%s'\n", filepath, interface);
 
-  fp = fopen(filepath, "w");
-  if (!fp)
+  if (debug)
+    fp = stdout;
+  else
     {
-      r = -errno;
-      fprintf(stderr, "Failed to open network file '%s' for writing: %s",
-	      filepath, strerror(-r));
-      return r;
+      fp = fopen(filepath, "w");
+      if (!fp)
+	{
+	  r = -errno;
+	  fprintf(stderr, "Failed to open network file '%s' for writing: %s",
+		  filepath, strerror(-r));
+	  return r;
+	}
     }
 
   /* [Match] Section: */
@@ -170,12 +157,16 @@ write_network_file(const char *interface, int is_dhcp, int dhcp_v4,
 	  fprintf(fp, "UseNTP=true\n");
 	}
     }
+
+  if (debug)
+    fp = NULL;
+
   return 0;
 }
 
 /* Parses a single ifcfg string */
 static int
-parse_ifcfg_arg(char *arg)
+parse_ifcfg_arg(int nr, char *arg)
 {
   char *interface = NULL;
   char *config = NULL;
@@ -184,11 +175,6 @@ parse_ifcfg_arg(char *arg)
   int dhcp_v4 = 1;
   int dhcp_v6 = 1;
   int rfc2132 = 0;
-  /* static */
-  char *ip_list = NULL;
-  char *gw_list = NULL;
-  char *dns_list = NULL;
-  char *domains = NULL;
 
   // Syntax: <interface>=<config>
   interface = arg;
@@ -203,63 +189,56 @@ parse_ifcfg_arg(char *arg)
   if (!interface || !config)
     return -ENOENT;
 
-#define MAX_TOKENS 10
-  char *tokens[MAX_TOKENS] = {0};
-  int token_count = 0;
-  char *cur = config;
-  char *comma;
+  printf("Configuration Found:\n");
+  printf("Interface - Config: '%s' - '%s'\n", interface, config);
 
-  while (token_count < MAX_TOKENS)
+  // Format: IP_LIST,GATEWAY_LIST,NAMESERVER_LIST,DOMAINSEARCH_LIST
+  char *ip_list = trim_whitespace(strsep(&config, ","));
+  char *gw_list = trim_whitespace(strsep(&config, ","));
+  char *dns_list = trim_whitespace(strsep(&config, ","));
+  char *domains = trim_whitespace( strsep(&config, ","));
+
+  if (strneq(ip_list, "dhcp", 4))
     {
-      comma = strchr(cur, ',');
-      if (comma)
-	{
-	  *comma = '\0';
-	  tokens[token_count++] = trim_whitespace(cur);
-	  cur = comma + 1;
-	}
-      else
-	{
-	  tokens[token_count++] = trim_whitespace(cur);
-	  break;
-	}
+      is_dhcp = 1;
+      if (streq(ip_list, "dhcp4"))
+	dhcp_v6 = 0;
+      else if (streq(ip_list, "dhcp6"))
+	dhcp_v4 = 0;
+      else if (streq(ip_list, "dhcp"))
+	{ /* both */ }
+
+      if (!isempty(gw_list) && streq(gw_list, "rfc2132"))
+	rfc2132 = 1;
     }
 
-    // Check first token for DHCP vs Static detection
-    int mode_idx = 0; // Index of the token that determines mode
-
-    if (mode_idx >= token_count)
-      return 0; // Empty config
-
-    char *mode_str = tokens[mode_idx];
-
-    if (strneq(mode_str, "dhcp", 4))
-      {
-        is_dhcp = 1;
-        if (streq(mode_str, "dhcp4"))
-	  dhcp_v6 = 0;
-        else if (strcmp(mode_str, "dhcp6") == 0) dhcp_v4 = 0;
-        else if (strcmp(mode_str, "dhcp") == 0) { /* both */ }
-
-        // Scan remaining tokens for options like rfc2132
-        for (int i = mode_idx + 1; i < token_count; i++) {
-            if (strcmp(tokens[i], "rfc2132") == 0) {
-                rfc2132 = 1;
-            }
-        }
-    } else {
-        // Static Mode
-        // Syntax: IP_LIST,GATEWAY_LIST,NAMESERVER_LIST,DOMAINSEARCH_LIST
-
-        if (mode_idx < token_count) ip_list = tokens[mode_idx];
-        if (mode_idx + 1 < token_count) gw_list = tokens[mode_idx + 1];
-        if (mode_idx + 2 < token_count) dns_list = tokens[mode_idx + 2];
-        if (mode_idx + 3 < token_count) domains = tokens[mode_idx + 3];
-    }
-
-    write_network_file(interface, is_dhcp, dhcp_v4, dhcp_v6, rfc2132, ip_list, gw_list, dns_list, domains);
+  write_network_file(nr, interface, is_dhcp, dhcp_v4, dhcp_v6,
+		       rfc2132, ip_list, gw_list, dns_list, domains);
 
     return 0;
+}
+
+  static void
+print_usage(FILE *stream)
+{
+  fprintf(stream, "Usage: ifcfg-networkd [--help]|[--version]|[--debug]\n");
+}
+
+static void
+print_help(void)
+{
+  fprintf(stdout, "ifcfg-networkd - wait for key pressed or timeout\n\n");
+  print_usage(stdout);
+
+  fputs("  -d, --debug     Write config to stdout\n", stdout);
+  fputs("  -h, --help      Give this help list\n", stdout);
+  fputs("  -v, --version   Print program version\n", stdout);
+}
+
+static void
+print_error(void)
+{
+  fputs("Try `ifcfg-networkd --help' for more information.\n", stderr);
 }
 
 /* Reads /proc/cmdline and parses quoted arguments */
@@ -270,12 +249,50 @@ main(int argc, char *argv[])
   _cleanup_fclose_ FILE *f = NULL;
   struct stat st;
   size_t len = 0;
+  char *cp;
   int r;
 
-  if (stat(OUTPUT_DIR, &st) == -1)
+  while (1)
+    {
+      int c;
+      int option_index = 0;
+      static struct option long_options[] =
+        {
+          {"debug",   no_argument, NULL, 'd' },
+	  {"help",    no_argument, NULL, 'h' },
+          {"version", no_argument, NULL, 'v' },
+          {NULL,      0,           NULL, '\0'}
+        };
+
+      c = getopt_long (argc, argv, "dhv",
+                       long_options, &option_index);
+      if (c == (-1))
+        break;
+
+      switch (c)
+        {
+        case 'd':
+	  debug = true;
+          break;
+        case 'h':
+          print_help();
+          return 0;
+        case 'v':
+          printf("expiry (%s) %s\n", PACKAGE, VERSION);
+          return 0;
+        default:
+          print_error();
+          return 1;
+        }
+    }
+
+  argc -= optind;
+  argv += optind;
+
+  if (!debug && stat(output_dir, &st) == -1)
     {
       // XXX use mkdir_p
-      if (mkdir(OUTPUT_DIR, 0755) == -1 && errno != EEXIST)
+      if (mkdir(output_dir, 0755) == -1 && errno != EEXIST)
 	{
 	  r = errno;
 	  fprintf(stderr, "Could not create output directory: %s\n",
@@ -284,15 +301,31 @@ main(int argc, char *argv[])
 	}
     }
 
-  // Allow overriding input for testing: ./app "ifcfg=..."
-  if (argc > 1)
+  // Allow overriding input for testing: ifcfg-networkd "ifcfg=..."
+  if (argc > 0)
     {
-      // XXX could be more than one ifcfg= parameter
-      cmdline = strdup(argv[1]);
-      if (!cmdline)
+      size_t total_length = 0;
+
+      for (int i = 0; i < argc; i++)
 	{
-	  fputs("Out of memory!\n", stderr);
+	  total_length += strlen(argv[i]);
+	  total_length++; // for ' ' or '\0'
+	}
+
+      cmdline = malloc(total_length);
+      if (cmdline == NULL)
+	{
+	  fprintf(stderr, "Out of memory!\n");
 	  return ENOMEM;
+	}
+
+      cp = cmdline;
+
+      for (int i = 0; i < argc; i++)
+	{
+	  cp = stpcpy(cp, argv[i]);
+	  if (i < argc - 1) // not last argument
+	  cp = stpcpy(cp, " ");
 	}
     }
   else
@@ -318,20 +351,24 @@ main(int argc, char *argv[])
 	}
     }
 
-  // Parse loop handling quotes
-  char *p = cmdline;
-  char *arg_start = p;
-  int in_quote = 0;
+  if (debug)
+    printf("cmdline=%s\n", cmdline);
 
-  while (*p)
+  // Parse loop handling quotes
+  cp = cmdline;
+  char *arg_start = cp;
+  int in_quote = 0;
+  int nr = 0;
+
+  while (*cp)
     {
-      if (*p == '"')
+      if (*cp == '"')
 	in_quote = !in_quote;
 
-      if (p[1] == '\0' || (*p == ' ' && !in_quote))
+      if (cp[1] == '\0' || (*cp == ' ' && !in_quote))
 	{
-	  if (*p == ' ')
-	    *p = '\0'; // Terminate current arg
+	  if (*cp == ' ')
+	    *cp = '\0'; // Terminate current arg
 
 	  if (strneq(arg_start, "ifcfg=", 6))
 	    {
@@ -345,11 +382,11 @@ main(int argc, char *argv[])
 		  if (l > 0 && val[l-1] == '"')
 		    val[l-1] = '\0';
 		}
-	      parse_ifcfg_arg(val);
+	      parse_ifcfg_arg(nr++, val);
 	    }
-	  arg_start = p + 1;
+	  arg_start = cp + 1;
 	}
-      p++;
+      cp++;
     }
 
     return 0;
