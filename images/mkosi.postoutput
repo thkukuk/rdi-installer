@@ -4,19 +4,59 @@ set -e
 
 IMAGE="${IMAGE_ID}-${IMAGE_VERSION}.${ARCHITECTURE}"
 IMAGE_UKI="${IMAGE_ID}-UKI-${IMAGE_VERSION}.${ARCHITECTURE}"
+IMAGE_SDBOOT="${IMAGE_ID}-sdboot-${IMAGE_VERSION}.${ARCHITECTURE}"
 
 echo "mkosi.postoutput ${IMAGE}" "$@"
 
 # we don't need the image symlink without extension
 rm -v "${OUTPUTDIR}/${IMAGE}"
 
-# Create UEFI bootable raw disk image
+# Create UEFI bootable raw disk images
 scripts/create_uefi_usbstick.sh "${OUTPUTDIR}/${IMAGE_UKI}.img"
+scripts/create_uefi_usbstick.sh "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"
 
+# UKI
+echo "Building ${IMAGE_UKI}.img"
 case $ARCHITECTURE in
     x86-64)
 	mmd -i "${OUTPUTDIR}/${IMAGE_UKI}.img"@@1048576 EFI EFI/BOOT
 	mcopy -i "${OUTPUTDIR}/${IMAGE_UKI}.img"@@1048576 "${OUTPUTDIR}/${IMAGE}.efi" ::EFI/BOOT/BOOTX64.EFI
+	;;
+    *)
+	echo "Unsupported architecture: '$ARCHITECTURE'" >&2
+	echo "No raw disk image will be generated." >&2
+esac
+
+# shim + systemd-boot
+echo "Building ${IMAGE_SDBOOT}.img"
+case $ARCHITECTURE in
+    x86-64)
+	cat <<EOF > loader.conf
+default  rdi-installer.conf
+timeout  8
+#console-mode keep
+EOF
+
+	KERNEL_VERSION=$(get_kernel_version "${OUTPUTDIR}/${IMAGE}.vmlinuz")
+
+	cat <<EOF > rdi-installer.conf
+title   RDI-Installer ${IMAGE_VERSION}
+version 1@$KERNEL_VERSION
+options quiet systemd.show_status=yes
+linux   /${KERNEL_VERSION}/linux
+initrd  /${KERNEL_VERSION}/initrd
+EOF
+	mmd -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 EFI EFI/BOOT EFI/systemd loader loader/entries "$KERNEL_VERSION"
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "/usr/share/efi/x86_64/shim.efi" ::EFI/BOOT/BOOTX64.EFI
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "/usr/share/efi/x86_64/MokManager.efi" ::EFI/BOOT/MokManager.efi
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "/usr/share/efi/x86_64/fallback.efi" ::EFI/BOOT/fallback
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "/usr/lib/systemd/boot/efi/systemd-bootx64.efi" ::EFI/systemd/grub.efi
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "loader.conf" ::EFI/loader/loader.conf
+	rm loader.conf
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "rdi-installer.conf" ::EFI/loader/entries/rdi-installer.conf
+	rm rdi-installer.conf
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${OUTPUTDIR}/${IMAGE}.vmlinuz" ::"${KERNEL_VERSION}/linux"
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${OUTPUTDIR}/${IMAGE}.initrd" ::"${KERNEL_VERSION}/initrd"
 	;;
     *)
 	echo "Unsupported architecture: '$ARCHITECTURE'" >&2
