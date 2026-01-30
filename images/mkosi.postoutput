@@ -8,14 +8,11 @@ IMAGE_SDBOOT="${IMAGE_ID}-sdboot-${IMAGE_VERSION}.${ARCHITECTURE}"
 
 echo "mkosi.postoutput ${IMAGE}" "$@"
 
-# Create UEFI bootable raw disk images
-scripts/create_uefi_usbstick.sh "${OUTPUTDIR}/${IMAGE_UKI}.img"
-scripts/create_uefi_usbstick.sh "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"
-
 # UKI
 echo "Building ${IMAGE_UKI}.img"
 case $ARCHITECTURE in
     x86-64)
+	scripts/create_uefi_usbstick.sh "${OUTPUTDIR}/${IMAGE_UKI}.img"
 	mmd -i "${OUTPUTDIR}/${IMAGE_UKI}.img"@@1048576 EFI EFI/BOOT
 	mcopy -i "${OUTPUTDIR}/${IMAGE_UKI}.img"@@1048576 "${OUTPUTDIR}/${IMAGE}.efi" ::EFI/BOOT/BOOTX64.EFI
 	;;
@@ -42,6 +39,9 @@ options quiet systemd.show_status=yes
 linux   /${KERNEL_VERSION}/linux
 initrd  /${KERNEL_VERSION}/initrd
 EOF
+	# create image
+	scripts/create_uefi_usbstick.sh "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"
+	# copy files to image
 	mmd -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 EFI EFI/BOOT loader loader/entries "$KERNEL_VERSION"
 	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "/usr/share/efi/x86_64/shim.efi" ::EFI/BOOT/BOOTX64.EFI
 	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "/usr/share/efi/x86_64/MokManager.efi" ::EFI/BOOT/MokManager.efi
