@@ -72,7 +72,7 @@ select_target_device()
             --border-foreground $COLOR_WARNING \
             --foreground $COLOR_WARNING \
             --padding "1" \
-            "⚠ CRITICAL WARNING: DRIVE IS CURRENTLY MOUNTED ⚠" \
+            "$WARN_SIGN CRITICAL WARNING: DRIVE IS CURRENTLY MOUNTED $WARN_SIGN" \
             "The device $SELECTED_DEV contains mounted partitions." \
             "Proceeding may cause data loss or corruption."
     else
@@ -83,7 +83,7 @@ select_target_device()
             --border-foreground $COLOR_WARNING \
 	    --foreground $COLOR_WARNING \
             --padding "1" \
-            "⚠ SAFETY CHECK ⚠"
+            "$WARN_SIGN SAFETY CHECK $WARN_SIGN"
     fi
 
     # Show Layout

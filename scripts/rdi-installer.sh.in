@@ -93,9 +93,11 @@ fi
 case $TERM in
     xterm-*)
 	SPINNER="--spinner=globe"
+	WARN_SIGN="⚠"
 	;;
     *)
-	SPINNER="--spinner=line"
+	SPINNER="--spinner=line --spinner.foreground=$COLOR_TEXT"
+	WARN_SIGN="!!!"
 	;;
 esac
 
