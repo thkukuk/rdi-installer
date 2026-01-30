@@ -8,6 +8,13 @@ IMAGE_SDBOOT="${IMAGE_ID}-sdboot-${IMAGE_VERSION}.${ARCHITECTURE}"
 
 echo "mkosi.postoutput ${IMAGE}" "$@"
 
+# Hack for OBS: it redefines the output directory
+if [ -d mkosi.output ]; then
+	BOOTLOADER_DIR="mkosi.output/bootloader"
+else
+	BOOTLOADER_DIR="/usr/src/packages/OTHER/bootloader"
+fi
+
 # UKI
 echo "Building ${IMAGE_UKI}.img"
 case $ARCHITECTURE in
@@ -44,10 +51,10 @@ EOF
 	scripts/create_uefi_usbstick.sh "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"
 	# copy files to image
 	mmd -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 EFI EFI/BOOT loader loader/entries "$KERNEL_VERSION"
-	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "mkosi.output/bootloader/usr/share/efi/x86_64/shim.efi" ::EFI/BOOT/BOOTX64.EFI
-	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "mkosi.output/bootloader/usr/share/efi/x86_64/MokManager.efi" ::EFI/BOOT/MokManager.efi
-	#mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "mkosi.output/bootloader/usr/share/efi/x86_64/fallback.efi" ::EFI/BOOT/fallback.efi
-	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "mkosi.output/bootloader/usr/lib/systemd/boot/efi/systemd-bootx64.efi" ::EFI/BOOT/grub.efi
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${BOOTLOADER_DIR}/usr/share/efi/x86_64/shim.efi" ::EFI/BOOT/BOOTX64.EFI
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${BOOTLOADER_DIR}/usr/share/efi/x86_64/MokManager.efi" ::EFI/BOOT/MokManager.efi
+	#mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${BOOTLOADER_DIR}/usr/share/efi/x86_64/fallback.efi" ::EFI/BOOT/fallback.efi
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${BOOTLOADER_DIR}/usr/lib/systemd/boot/efi/systemd-bootx64.efi" ::EFI/BOOT/grub.efi
 	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${TEMPDIR}/loader.conf" ::loader/loader.conf
 	rm "${TEMPDIR}/loader.conf"
 	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${TEMPDIR}/rdi-installer.conf" ::loader/entries/rdi-installer.conf
@@ -62,7 +69,7 @@ EOF
 esac
 
 # remove bootloader directory
-rm -fr "mkosi.output/bootloader"
+test -w "${BOOTLOADER_DIR}" && rm -fr "${BOOTLOADER_DIR}"
 # we don't need the image symlink without extension, kernel and initrd
 rm -v "${OUTPUTDIR}/${IMAGE}"
 rm -v "${OUTPUTDIR}/${IMAGE}.vmlinuz"
