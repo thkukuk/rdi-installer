@@ -25,14 +25,15 @@ esac
 echo "Building ${IMAGE_SDBOOT}.img"
 case $ARCHITECTURE in
     x86-64)
-	cat <<EOF > loader.conf
+	TEMPDIR=$(mktemp -d)
+	cat <<EOF > "${TEMPDIR}/loader.conf"
 timeout  8
 #console-mode keep
 EOF
 
 	KERNEL_VERSION=$(get_kernel_version "${OUTPUTDIR}/${IMAGE}.vmlinuz")
 
-	cat <<EOF > rdi-installer.conf
+	cat <<EOF > "${TEMPDIR}/rdi-installer.conf"
 title   RDI-Installer ${IMAGE_VERSION}
 version 1@$KERNEL_VERSION
 options quiet systemd.show_status=yes
@@ -43,22 +44,25 @@ EOF
 	scripts/create_uefi_usbstick.sh "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"
 	# copy files to image
 	mmd -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 EFI EFI/BOOT loader loader/entries "$KERNEL_VERSION"
-	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "/usr/share/efi/x86_64/shim.efi" ::EFI/BOOT/BOOTX64.EFI
-	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "/usr/share/efi/x86_64/MokManager.efi" ::EFI/BOOT/MokManager.efi
-	#mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "/usr/share/efi/x86_64/fallback.efi" ::EFI/BOOT/fallback.efi
-	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "/usr/lib/systemd/boot/efi/systemd-bootx64.efi" ::EFI/BOOT/grub.efi
-	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "loader.conf" ::loader/loader.conf
-	rm loader.conf
-	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "rdi-installer.conf" ::loader/entries/rdi-installer.conf
-	rm rdi-installer.conf
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "mkosi.output/bootloader/usr/share/efi/x86_64/shim.efi" ::EFI/BOOT/BOOTX64.EFI
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "mkosi.output/bootloader/usr/share/efi/x86_64/MokManager.efi" ::EFI/BOOT/MokManager.efi
+	#mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "mkosi.output/bootloader/usr/share/efi/x86_64/fallback.efi" ::EFI/BOOT/fallback.efi
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "mkosi.output/bootloader/usr/lib/systemd/boot/efi/systemd-bootx64.efi" ::EFI/BOOT/grub.efi
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${TEMPDIR}/loader.conf" ::loader/loader.conf
+	rm "${TEMPDIR}/loader.conf"
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${TEMPDIR}/rdi-installer.conf" ::loader/entries/rdi-installer.conf
+	rm "${TEMPDIR}/rdi-installer.conf"
 	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${OUTPUTDIR}/${IMAGE}.vmlinuz" ::"${KERNEL_VERSION}/linux"
 	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${OUTPUTDIR}/${IMAGE}.initrd" ::"${KERNEL_VERSION}/initrd"
+	rm -rf "$TEMPDIR"
 	;;
     *)
 	echo "Unsupported architecture: '$ARCHITECTURE'" >&2
 	echo "No raw disk image will be generated." >&2
 esac
 
+# remove bootloader directory
+rm -fr "mkosi.output/bootloader"
 # we don't need the image symlink without extension, kernel and initrd
 rm -v "${OUTPUTDIR}/${IMAGE}"
 rm -v "${OUTPUTDIR}/${IMAGE}.vmlinuz"
