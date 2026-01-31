@@ -34,7 +34,7 @@ truncate -s $TOTAL_SIZE "$IMG_NAME"
 # -c 1:name : Set partition name
 if [ -x /usr/sbin/sgdisk ]; then
     /usr/sbin/sgdisk -o \
-		     -n 1:$START_SECTOR:+$((ESP_SECTORS - 1)) \
+		     -n 1:$START_SECTOR:+$ESP_SECTORS \
 		     -t 1:EF00 \
 		     -c 1:"EFI System Partition" \
 		     "$IMG_NAME" > /dev/null
