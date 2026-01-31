@@ -4,8 +4,8 @@ After=local-fs.target
 Before=sshd.service getty.target
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
+#Type=oneshot
+#RemainAfterExit=yes
 ExecStart=/usr/bin/rdii-ssh-setup
 
 [Install]
