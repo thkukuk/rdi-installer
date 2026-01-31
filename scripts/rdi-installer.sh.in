@@ -221,7 +221,7 @@ else
             # Trim trailing space from prefix if present
             prefix="${prefix%"${prefix##*[![:space:]]}"}"
 
-	    mount "$device" "${TEMP_DIR}/mount"
+	    mount -r "$device" "${TEMP_DIR}/mount"
 	    IMAGE_TO_WRITE="${TEMP_DIR}/mount/${prefix}"
         else
             echo "Error: Argument '$SOURCE_IMAGE' matches format, but '$device' is not a valid block device." >&2
@@ -241,7 +241,7 @@ else
 	    $KEYWAIT -s 0
 	else
 	    gum style --foreground="$COLOR_TEXT" "Image successfully written"
-	    $KEYWAIT -s 30
+	    $KEYWAIT
 	fi
     fi
     mountpoint -q "${TEMP_DIR}/mount" && umount "${TEMP_DIR}/mount"
