@@ -29,40 +29,42 @@ trim_whitespace(char *str)
 {
   char *end;
 
-  if (!str)
+  if (isempty(str))
     return NULL;
 
-  while(isspace((unsigned char)*str))
+  while(isspace(*str))
     str++;
-  if(*str == 0)
+  if(*str == '\0')
     return str;
   end = str + strlen(str) - 1;
 
-  while(end > str && isspace((unsigned char)*end))
+  while(end > str && isspace(*end))
     end--;
 
-  *(end+1) = 0;
+  *(end+1) = '\0';
   return str;
 }
 
 static int
-split_and_print(FILE *fp, const char *key, const char *list)
+split_and_write(FILE *fp, const char *key, const char *list)
 {
-  char *token = NULL, *saveptr = NULL;
-  _cleanup_free_ char *copy = NULL;
+  _cleanup_free_ char *values = NULL; // initial pointer to free memory
+  char *token = NULL;
+  char *copy = NULL;
 
   if (isempty(list))
     return 0;
 
-  copy = strdup(list);
-  if (!copy)
+  values = strdup(list);
+  if (!values)
     return -ENOMEM;
 
-  token = strtok_r(copy, " ", &saveptr);
+  copy = values;
+  token = strsep(&copy, " ");
   while (token)
     {
       fprintf(fp, "%s=%s\n", key, token);
-      token = strtok_r(NULL, " ", &saveptr);
+      token = strsep(&copy, " ");
     }
   return 0;
 }
@@ -121,15 +123,15 @@ write_network_file(int nr, const char *interface, int is_dhcp,
     }
 
   /* Static IPs (space separated) */
-  r = split_and_print(fp, "Address", ip_list);
+  r = split_and_write(fp, "Address", ip_list);
   if (r < 0)
     return r;
 
-  r = split_and_print(fp, "Gateway", gw_list);
+  r = split_and_write(fp, "Gateway", gw_list);
   if (r < 0)
     return r;
 
-  r = split_and_print(fp, "DNS", dns_list);
+  r = split_and_write(fp, "DNS", dns_list);
   if (r < 0)
     return r;
 
@@ -231,6 +233,7 @@ print_help(void)
   print_usage(stdout);
 
   fputs("  -d, --debug     Write config to stdout\n", stdout);
+  fputs("  -o, --output    Directory in which to write config\n", stdout);
   fputs("  -h, --help      Give this help list\n", stdout);
   fputs("  -v, --version   Print program version\n", stdout);
 }
@@ -258,13 +261,14 @@ main(int argc, char *argv[])
       int option_index = 0;
       static struct option long_options[] =
         {
-          {"debug",   no_argument, NULL, 'd' },
-	  {"help",    no_argument, NULL, 'h' },
-          {"version", no_argument, NULL, 'v' },
-          {NULL,      0,           NULL, '\0'}
+          {"debug",   no_argument,       NULL, 'd' },
+	  {"output",  required_argument, NULL, 'o' },
+	  {"help",    no_argument,       NULL, 'h' },
+          {"version", no_argument,       NULL, 'v' },
+          {NULL,      0,                 NULL, '\0'}
         };
 
-      c = getopt_long (argc, argv, "dhv",
+      c = getopt_long (argc, argv, "do:hv",
                        long_options, &option_index);
       if (c == (-1))
         break;
@@ -274,6 +278,9 @@ main(int argc, char *argv[])
         case 'd':
 	  debug = true;
           break;
+	case 'o':
+	  output_dir = optarg;
+	  break;
         case 'h':
           print_help();
           return 0;
@@ -358,7 +365,7 @@ main(int argc, char *argv[])
   cp = cmdline;
   char *arg_start = cp;
   int in_quote = 0;
-  int nr = 0;
+  int nr = 1;
 
   while (*cp)
     {

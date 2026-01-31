@@ -1,0 +1,9 @@
+[Match]
+Name=eth1
+
+[Network]
+Address=192.168.0.2/24
+Address=192.158.10.12/24
+Gateway=192.168.0.1
+DNS=8.8.8.8
+Domains=mydomain.com

@@ -11,3 +11,6 @@ test('shellcheck-rdii-ssh-setup',
   args: [files('../scripts/rdii-ssh-setup.sh')]
 )
 endif
+
+test('tst_ifcfg_networkd_1', find_program('tst-ifcfg-networkd-1.sh'))
+
