@@ -48,12 +48,15 @@ if [ -z "$RDII_DEBUG" ]; then
     source @RDIIDIR@/target_device.sh
     # shellcheck source=../scripts/select_image.sh
     source @RDIIDIR@/select_image.sh
+    # shellcheck source=../scripts/system_info.sh
+    source @RDIIDIR@/system_info.sh
 else
     KEYWAIT=./keywait
 
     source ../scripts/keymap.sh
     source ../scripts/target_device.sh
     source ../scripts/select_image.sh
+    source ../scripts/system_info.sh
 fi
 
 clear_and_print_title()
@@ -134,6 +137,8 @@ while true; do
 		   "Select Image ($SOURCE_IMAGE)" \
 		   "Select Target Device ($TARGET_DEVICE)" \
 		   "Select Keymap ($DEFAULT_KEYMAP)" \
+		   "System Information" \
+		   "Refresh" \
 		   "Abort" \
 		   "Start Installation"
 	    )
@@ -147,6 +152,12 @@ while true; do
 	    ;;
 	"Select Image"*)
 	    select_image
+	    ;;
+	"System Information")
+	    system_information
+	    ;;
+	"Refresh")
+	    clear_and_print_title
 	    ;;
 	"Abort" | "")
 	    gum style --foreground="$COLOR_TITLE" "Exiting..."
