@@ -83,8 +83,15 @@ fi
 # Read current KEYMAP from /etc/vconsole.conf
 DEFAULT_KEYMAP="us"
 VCONSOLE_FILE="/etc/vconsole.conf"
+RDII_CONFIG_FILE="/run/rdi-installer/rdii-config"
 TARGET_DEVICE=""
 SOURCE_IMAGE=""
+
+# Parse rdii-config file
+# shellcheck source=/dev/null
+test -f "$RDII_CONFIG_FILE" && source "$RDII_CONFIG_FILE"
+
+SOURCE_IMAGE=$(sed -n 's/.*installer\.url=\([^ ]*\).*/\1/p' /proc/cmdline)
 
 if [ -f "$VCONSOLE_FILE" ]; then
     # sourcing in a subshell to avoid polluting current environment,

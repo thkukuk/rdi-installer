@@ -1,0 +1,7 @@
+[Match]
+Name=Vlan0066
+Type=vlan
+
+[Network]
+Address=10.0.1.1/24
+Gateway=10.0.1.254

@@ -21,7 +21,9 @@ static const char *output_dir = "/run/systemd/network";
 
 /* Configuration */
 #define CMDLINE_PATH "/proc/cmdline"
-#define FILE_PREFIX "60-ifcfg"
+#define NETDEV_PREFIX  "62-ifcfg-vlan"
+#define VLAN_PREFIX    "64-ifcfg-vlan"
+#define IFCFG_PREFIX   "66-ifcfg-dev"
 
 /* Helper to trim whitespace */
 static char *
@@ -69,27 +71,22 @@ split_and_write(FILE *fp, const char *key, const char *list)
   return 0;
 }
 
-
-/* Writes the systemd-networkd .network file */
 static int
-write_network_file(int nr, const char *interface, int is_dhcp,
-		   int dhcp_v4, int dhcp_v6, int rfc2132, char *ip_list,
-		   char *gw_list, char *dns_list, char *domains)
+write_vlan_file(const char *interface, int vlanid)
 {
   _cleanup_free_ char *filepath = NULL;
   _cleanup_fclose_ FILE *fp = NULL;
   int r;
 
-  if (asprintf(&filepath, "%s/%s-%02d.network",
-	       output_dir, FILE_PREFIX, nr) < 0)
+  if (asprintf(&filepath, "%s/%s-%s.network",
+	       output_dir, VLAN_PREFIX, interface) < 0)
     return -ENOMEM;
 
-  printf("Creating config: %s for interface '%s'\n", filepath, interface);
+  printf("Creating vlan config: %s for interface '%s.%d'\n", filepath,
+	 interface, vlanid);
 
-  if (debug)
-    fp = stdout;
-  else
-    {
+  if (access(filepath, F_OK) != 0)
+    { // file does not exist
       fp = fopen(filepath, "w");
       if (!fp)
 	{
@@ -98,16 +95,78 @@ write_network_file(int nr, const char *interface, int is_dhcp,
 		  filepath, strerror(-r));
 	  return r;
 	}
+
+      fprintf(fp, "[Match]\n");
+      fprintf(fp, "Name=%s\n", interface);
+      fprintf(fp, "Type=ether\n");
+
+      fprintf(fp, "\n[Network]\n");
+      fprintf(fp, "Description=The unconfigured physical ethernet device\n");
+      fprintf(fp, "VLAN=Vlan%04d\n", vlanid);
+      fprintf(fp, "# 'tagged only' setup\n");
+      fprintf(fp, "LinkLocalAddressing=no\n");
+      fprintf(fp, "LLDP=no\n");
+      fprintf(fp, "EmitLLDP=no\n");
+      fprintf(fp, "IPv6AcceptRA=no\n");
+      fprintf(fp, "IPv6SendRA=no\n");
+    }
+  else
+    {
+      fp = fopen(filepath, "a");
+      if (!fp)
+	{
+	  r = -errno;
+	  fprintf(stderr, "Failed to open network file '%s' for appending: %s",
+		  filepath, strerror(-r));
+	  return r;
+	}
+      fprintf(fp, "VLAN=Vlan%04d\n", vlanid);
+    }
+
+  return 0;
+}
+
+/* Writes the systemd-networkd .network file */
+static int
+write_network_file(int nr, const char *interface, int is_dhcp,
+		   int dhcp_v4, int dhcp_v6, int rfc2132, char *ip_list,
+		   char *gw_list, char *dns_list, char *domains, int vlanid)
+{
+  _cleanup_free_ char *filepath = NULL;
+  _cleanup_fclose_ FILE *fp = NULL;
+  int r;
+
+  if (asprintf(&filepath, "%s/%s-%02d.network",
+	       output_dir, IFCFG_PREFIX, nr) < 0)
+    return -ENOMEM;
+
+  printf("Creating config: %s for interface '%s'\n", filepath, interface);
+
+  fp = fopen(filepath, "w");
+  if (!fp)
+    {
+      r = -errno;
+      fprintf(stderr, "Failed to open network file '%s' for writing: %s",
+	      filepath, strerror(-r));
+      return r;
     }
 
   /* [Match] Section: */
   fprintf(fp, "[Match]\n");
-  /* Heuristic: If the interface contains ':', assume MAC.
-     Otherwise Name (supports globs like eth*). */
-  if (strchr(interface, ':'))
-    fprintf(fp, "Name=*\nMACAddress=%s\n", interface);
+  if (vlanid)
+    {
+      fprintf(fp, "Name=Vlan%04d\n", vlanid);
+      fprintf(fp, "Type=vlan\n");
+    }
   else
-    fprintf(fp, "Name=%s\n", interface);
+    {
+      /* Heuristic: If the interface contains ':', assume MAC.
+	 Otherwise Name (supports globs like eth*). */
+      if (strchr(interface, ':'))
+	fprintf(fp, "Name=*\nMACAddress=%s\n", interface);
+      else
+	fprintf(fp, "Name=%s\n", interface);
+    }
 
   /* [Network] Section: */
   fprintf(fp, "\n[Network]\n");
@@ -160,9 +219,72 @@ write_network_file(int nr, const char *interface, int is_dhcp,
 	}
     }
 
-  if (debug)
-    fp = NULL;
+  if (vlanid)
+    return write_vlan_file(interface, vlanid);
 
+  return 0;
+}
+
+/* VLAN functions */
+#define VLAN_CAPACITY 10
+static const int vlan_capacity = VLAN_CAPACITY;
+static int vlans[VLAN_CAPACITY];
+static int nr_vlanids = 0;
+
+static bool
+is_duplicate(int *list, int count, int new_id)
+{
+  for (int i = 0; i < count; i++)
+    if (list[i] == new_id)
+	return true;
+
+  return false;
+}
+
+static int
+write_netdev_file(int vlanid)
+{
+  _cleanup_free_ char *filepath = NULL;
+  _cleanup_fclose_ FILE *fp = NULL;
+  int r;
+
+  if (asprintf(&filepath, "%s/%s%04d.netdev",
+	       output_dir, NETDEV_PREFIX, vlanid) < 0)
+    return -ENOMEM;
+
+  printf("Creating vlan netdev: %s for vlan id '%d'\n", filepath,
+	 vlanid);
+
+  fp = fopen(filepath, "w");
+  if (!fp)
+    {
+      r = -errno;
+      fprintf(stderr, "Failed to open network file '%s' for writing: %s",
+	      filepath, strerror(-r));
+      return r;
+    }
+
+  fprintf(fp, "[NetDev]\n");
+  fprintf(fp, "Name=Vlan%04d\n", vlanid);
+  fprintf(fp, "Kind=vlan\n");
+
+  fprintf(fp, "\n[VLAN]\n");
+  fprintf(fp, "Id=Vlan%d\n", vlanid);
+
+  return 0;
+}
+
+static int
+create_netdev_files(int *list, int count)
+{
+  int r;
+
+  for (int i = 0; i < count; i++)
+    {
+      r = write_netdev_file(list[i]);
+      if (r != 0)
+	return r;
+    }
   return 0;
 }
 
@@ -170,6 +292,9 @@ write_network_file(int nr, const char *interface, int is_dhcp,
 static int
 parse_ifcfg_arg(int nr, char *arg)
 {
+  /* vlan */
+  int vlanid = 0;
+  /* interface */
   char *interface = NULL;
   char *config = NULL;
   /* dhcp */
@@ -177,6 +302,10 @@ parse_ifcfg_arg(int nr, char *arg)
   int dhcp_v4 = 1;
   int dhcp_v6 = 1;
   int rfc2132 = 0;
+  int r;
+
+  if (debug)
+    printf("parse_ifcfg_arg=%d - '%s'\n", nr, arg);
 
   // Syntax: <interface>=<config>
   interface = arg;
@@ -191,8 +320,41 @@ parse_ifcfg_arg(int nr, char *arg)
   if (!interface || !config)
     return -ENOENT;
 
-  printf("Configuration Found:\n");
-  printf("Interface - Config: '%s' - '%s'\n", interface, config);
+  if (debug)
+    printf("Interface - Config: '%s' - '%s'\n", interface, config);
+
+  char *vlanid_str = strrchr(interface, '.');
+  if (vlanid_str != NULL)
+    {
+      char *ep;
+      long l;
+
+      *vlanid_str++ = '\0';
+
+      l = strtol(vlanid_str, &ep, 10);
+      // valid: 1 <= VLAN ID <= 4095
+      if (errno == ERANGE || l < 1 || l > 4095 ||
+          vlanid_str == ep || *ep != '\0')
+	{
+	  fprintf(stderr, "Invalid VLAN interface: %s\n", interface);
+	  return -EINVAL;
+	}
+      vlanid = l;
+
+      if (!is_duplicate(vlans, nr_vlanids, vlanid))
+	{
+	  if ((nr_vlanids+1) == vlan_capacity)
+	    {
+	      fprintf(stderr, "Too many vlans!\n");
+	      return -ENOMEM;
+	    }
+
+	  vlans[nr_vlanids] = vlanid;
+	  nr_vlanids++;
+	  if (debug)
+	    printf("Stored VLAN ID: %d\n", vlanid);
+	}
+    }
 
   // Format: IP_LIST,GATEWAY_LIST,NAMESERVER_LIST,DOMAINSEARCH_LIST
   char *ip_list = trim_whitespace(strsep(&config, ","));
@@ -214,13 +376,16 @@ parse_ifcfg_arg(int nr, char *arg)
 	rfc2132 = 1;
     }
 
-  write_network_file(nr, interface, is_dhcp, dhcp_v4, dhcp_v6,
-		       rfc2132, ip_list, gw_list, dns_list, domains);
+  r = write_network_file(nr, interface, is_dhcp, dhcp_v4, dhcp_v6,
+			 rfc2132, ip_list, gw_list, dns_list, domains,
+			 vlanid);
+  if (r == -ENOMEM)
+    return r;
 
-    return 0;
+  return 0;
 }
 
-  static void
+static void
 print_usage(FILE *stream)
 {
   fprintf(stream, "Usage: ifcfg-networkd [--help]|[--version]|[--debug]\n");
@@ -389,12 +554,23 @@ main(int argc, char *argv[])
 		  if (l > 0 && val[l-1] == '"')
 		    val[l-1] = '\0';
 		}
-	      parse_ifcfg_arg(nr++, val);
+	      r = parse_ifcfg_arg(nr++, val);
+	      // quit if out of memory, else ignore entry
+	      if (r != 0)
+		{
+		  if (r == -ENOMEM)
+		    exit(ENOMEM);
+		  else
+		    fprintf(stderr, "Skip '%s' due to errors\n", val);
+		}
 	    }
 	  arg_start = cp + 1;
 	}
       cp++;
     }
 
-    return 0;
+  if (nr_vlanids > 0)
+    return create_netdev_files(vlans, nr_vlanids);
+
+  return 0;
 }

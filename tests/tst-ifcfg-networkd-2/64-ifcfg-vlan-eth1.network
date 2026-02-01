@@ -1,0 +1,13 @@
+[Match]
+Name=eth1
+Type=ether
+
+[Network]
+Description=The unconfigured physical ethernet device
+VLAN=Vlan0033
+# 'tagged only' setup
+LinkLocalAddressing=no
+LLDP=no
+EmitLLDP=no
+IPv6AcceptRA=no
+IPv6SendRA=no

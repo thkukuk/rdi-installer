@@ -23,6 +23,43 @@ Currently Secure Boot needs be disabled, since the EFI binary file is not signed
 Simple utility that pauses execution until the user presses a key
 or a specified timeout period elapses, whichever happens first.
 
+### ifcfg-networkd
+
+`ifcfg-networkd` is a systemd service, which parses network configuration
+parameters passed via the kernel command line (specifically the openSUSE
+linuxrc style **ifcfg** option) and generates transient configuration files
+for `systemd-networkd`(8).
+
+The program reads from `/proc/cmdline` by default. It looks for all occurrences
+of `ifcfg=`, parses the arguments according to the syntax defined below, and writes
+corresponding `.network` files to `/run/systemd/network/`.
+
+
+* DHCP Configuration: `ifcfg=interface=dhcp*[,rfc2132]`
+    * dhcp - Enables both IPv4 and IPv6 DHCP.
+    * dhcp4 - Enables only IPv4 DHCP.
+    * dhcp6 - Enables only IPv6 DHCP.
+    * rfc2132 - Configures the DHCP client to send the MAC address as the client identifier. This maps to ClientIdentifier=mac in the generated systemd configuration.
+
+* Static Configuration: `ifcfg=interface=IP_LIST,GW_LIST,DNS_LIST,DOMAIN_LIST`
+
+Lists (IPs, Gateways, DNS, Domains) are space-separated. If a list
+contains spaces, the entire `ifcfg` string must be quoted on the kernel
+command line.
+
+* _IP\_LIST_ - IP addresses in address/prefix notation (e.g., 192.168.1.5/24).
+* _GW\_LIST_ - List of default gateways.
+* _DNS\_LIST_ - List of DNS servers.
+
+The _interface_ specifier supports:
+* Exact interface names (e.g. `eth0`).
+* Exact interface names with .VlanID for vlan (e.g. `eth0.42`).
+* MAC addresses (e.g. `12:34:56:78:9A:BC`).
+* Shell globs (e.g. `eth*`, `*:BC`).
+
+Vlans can be setup by adding a vlan id to the _interface_
+(e.g. `eth0.42`). The interface will be configured for **tagged only** setups.
+
 ### rdii-ssh-setup
 
 This script provides a systemd service and a bash script that parses

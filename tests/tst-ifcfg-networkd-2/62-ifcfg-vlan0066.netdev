@@ -1,0 +1,6 @@
+[NetDev]
+Name=Vlan0066
+Kind=vlan
+
+[VLAN]
+Id=Vlan66

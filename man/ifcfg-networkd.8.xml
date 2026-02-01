@@ -114,9 +114,14 @@
       </para>
       <itemizedlist>
         <listitem><para>Exact interface names (e.g., <literal>eth0</literal>).</para></listitem>
+        <listitem><para>Exact interface names with .VlanID for vlan (e.g., <literal>eth0.vlanid</literal>).</para></listitem>
         <listitem><para>MAC addresses (e.g., <literal>12:34:56:78:9A:BC</literal>).</para></listitem>
         <listitem><para>Shell globs (e.g., <literal>eth*</literal>, <literal>*:BC</literal>).</para></listitem>
       </itemizedlist>
+      <para>
+	Vlans can be setup by adding a vlan id to the <replaceable>interface</replaceable> (e.g., <literal>eth0.vlanid</literal>).
+	The interface will be configured for'tagged only' setups.
+      </para>
     </refsect2>
   </refsect1>
 
