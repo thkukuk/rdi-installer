@@ -450,7 +450,7 @@ main(int argc, char *argv[])
           print_help();
           return 0;
         case 'v':
-          printf("expiry (%s) %s\n", PACKAGE, VERSION);
+          printf("ifcfg-networkd (%s) %s\n", PACKAGE, VERSION);
           return 0;
         default:
           print_error();
