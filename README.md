@@ -16,6 +16,15 @@ This project will build several images:
 **Secure Boot:**
 Currently Secure Boot needs be disabled, since the EFI binary file is not signed with the Microsoft Key.
 
+## Options
+
+The options can be provided either via the kernel cmdline during boot or with a configuration file.
+
+| Parameter | Format | Description |
+| --------- | ------ | ----------- |
+| rdii.url  | http url | Specifies a the URL under which the to be installed image can be downloaded |
+| rdii.device | /dev/... | Device on which the image should be installed |
+
 ## Utilities
 
 ### keywait
