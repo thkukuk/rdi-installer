@@ -1,5 +1,7 @@
 enable ca-certificates-setup.service
 enable ifcfg-networkd.service
+enable rdii-fetch-config.service
+enable rdii-fetch-config-early.service
 enable rdii-ssh-setup.service
 enable systemd-networkd.service
 enable systemd-networkd-wait-online.service
