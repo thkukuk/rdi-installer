@@ -1,7 +1,8 @@
 [Unit]
 Description=Fetch rdi-installer config
 After=local-fs.target
-After=systemd-networkd.service
+After=network-online.target
+Wants=network-online.target
 Before=rdii-ssh-setup.service
 Before=sshd.service getty.target
 ConditionPathExists=!/run/rdi-installer/rdii-config
