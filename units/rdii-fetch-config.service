@@ -1,0 +1,15 @@
+[Unit]
+Description=Fetch rdi-installer config
+After=local-fs.target
+After=systemd-networkd.service
+Before=rdii-ssh-setup.service
+Before=sshd.service getty.target
+ConditionPathExists=!/run/rdi-installer/rdii-config
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/rdii-fetch-config
+
+[Install]
+WantedBy=multi-user.target

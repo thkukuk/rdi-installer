@@ -1,0 +1,13 @@
+[Unit]
+Description=Fetch rdi-installer config (early, local disk only)
+After=local-fs.target
+Before=systemd-networkd.service ifcfg-networkd.service rdii-ssh-setup.service
+Before=sshd.service getty.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/rdii-fetch-config --local-only
+
+[Install]
+WantedBy=multi-user.target

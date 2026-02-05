@@ -58,12 +58,22 @@ datadir = get_option('datadir')
 rdiidir = join_paths(prefixdir, get_option('libexecdir'), 'rdi-installer')
 systemunitdir = join_paths(prefixdir, 'lib/systemd/system')
 
+libcurl = dependency('libcurl', required: true)
+
 executable('ifcfg-networkd', 'src/ifcfg-networkd.c',
            include_directories : inc,
            install : true)
 
 executable('keywait', 'src/keywait.c',
            include_directories : inc,
+           install : true)
+
+rdii_fetch_config_c = ['src/rdii-fetch-config.c', 'src/efivars.c',
+           'src/mkdir_p.c', 'src/download.c']
+executable('rdii-fetch-config',
+           rdii_fetch_config_c,
+           include_directories : inc,
+           dependencies : [libcurl],
            install : true)
 
 rdi_installer = configure_file(
