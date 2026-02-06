@@ -1,6 +1,7 @@
 [Unit]
 Description=Configure SSH from Kernel Command Line
 After=local-fs.target
+After=rdii-fetch-config.service
 Before=sshd.service getty.target
 
 [Service]
