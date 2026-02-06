@@ -7,10 +7,10 @@ that hardware.
 
 ## Images
 
-This project will build several images:
+This project will build the folowing images:
 
 * `rdi-installer-<version>.<arch>.efi` is an EFI binary file that can be stored on an ESP partition and booted directly from the UEFI firmware.
-* `rdi-installer-<version>.<arch>.img` is a disk image which can be written to an USB stick and contains the EFI binary file. There is a script `add_extra_partition.sh` with extends the image with a second partition with the filesystem label "images". A raw disk image with the OS can be copied to this partition and the installer will automatically mount the partition and provides the images on it as installation source.
+* `rdi-installer-<version>.<arch>.img` is a disk image which can be written to an USB stick and contains the EFI binary file. There is a script [add_extra_partition.sh](images/scripts/add_extra_partition.sh) with extends the image with an additional partition. This can be used to create a parition `images`, on which raw disk images can be copied and the installer will automatically mount the partition and provides the images on it as installation source. Or a `combustion` partition with a combustion config to personalize the image later. The script can create as many partitions with a filesystem, label and size as needed.
 * `rdi-installer-<version>.<arch>.efi` is a disk image which can be written to an USB stick and uses `systemd-boot` as bootloader with the classical linux kernel and initrd setup. This image allows to modify the kernel cmdline.
 
 **Secure Boot:**
