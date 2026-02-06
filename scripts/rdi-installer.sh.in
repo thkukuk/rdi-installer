@@ -98,9 +98,11 @@ CONFIG_SOURCE_IMAGE=""
 if [ -f "$RDII_CONFIG_FILE" ]; then
     CONFIG_TARGET_DEVICE=$(sed -n 's/.*rdii\.device=\([^ ]*\).*/\1/p' $RDII_CONFIG_FILE)
     CONFIG_SOURCE_IMAGE=$(sed -n 's/.*rdii\.url=\([^ ]*\).*/\1/p' $RDII_CONFIG_FILE)
+    CONFIG_KEYMAP=$(sed -n 's/.*rdii\.keymap=\([^ ]*\).*/\1/p' $RDII_CONFIG_FILE)
 fi
 CMDLINE_TARGET_DEVICE=$(sed -n 's/.*rdii\.device=\([^ ]*\).*/\1/p' /proc/cmdline)
 CMDLINE_SOURCE_IMAGE=$(sed -n 's/.*rdii\.url=\([^ ]*\).*/\1/p' /proc/cmdline)
+CMDLINE_KEYMAP=$(sed -n 's/.*rdii\.keymap=\([^ ]*\).*/\1/p' /proc/cmdline)
 
 if [ -n "$CMDLINE_SOURCE_IMAGE" ]; then
     SOURCE_IMAGE="$CMDLINE_SOURCE_IMAGE"
@@ -119,6 +121,12 @@ if [ -f "$VCONSOLE_FILE" ]; then
     # shellcheck source=/dev/null
     DEFAULT_KEYMAP=$(source "$VCONSOLE_FILE" && echo "$KEYMAP")
 fi
+if [ -n "$CMDLINE_KEYMAP" ]; then
+    DEFAULT_KEYMAP="$CMDLINE_KEYMAP"
+elif [ -n "$CONFIG_KEYMAP" ]; then
+    DEFAULT_KEYMAP="$CONFIG_KEYMAP"
+fi
+
 
 case $TERM in
     xterm-*)

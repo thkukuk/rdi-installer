@@ -24,6 +24,7 @@ The options can be provided either via the kernel cmdline during boot or with a 
 | --------- | ------ | ----------- |
 | rdii.url  | http url | Specifies a the URL under which the to be installed image can be downloaded |
 | rdii.device | /dev/... | Device on which the image should be installed |
+| rdii.keymap | name | Configures the key mapping table for the keyboard |
 
 ## Utilities
 
