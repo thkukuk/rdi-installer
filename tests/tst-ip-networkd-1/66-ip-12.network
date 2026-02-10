@@ -1,0 +1,16 @@
+[Match]
+Name=eth0
+
+[Network]
+DHCP=yes
+DNS=10.10.10.10
+
+[DHCP]
+Hostname=hogehoge
+
+[Address]
+Address=192.168.0.10/24
+Peer=192.168.0.2
+
+[Route]
+Gateway=192.168.0.1

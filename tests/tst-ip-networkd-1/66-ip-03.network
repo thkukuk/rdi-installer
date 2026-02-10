@@ -1,0 +1,8 @@
+[Match]
+Name=eth0
+
+[Link]
+MTUBytes=1530
+
+[Network]
+DHCP=ipv4

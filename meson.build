@@ -60,7 +60,8 @@ systemunitdir = join_paths(prefixdir, 'lib/systemd/system')
 
 libcurl = dependency('libcurl', required: true)
 
-executable('ifcfg-networkd', 'src/ifcfg-networkd.c',
+executable('rdii-networkd', 'src/rdii-networkd.c', 'lib/mkdir_p.c',
+           'lib/string-util-fundamental.c', 'src/ip.c', 'src/ifcfg.c',
            include_directories : inc,
            install : true)
 
@@ -69,7 +70,7 @@ executable('keywait', 'src/keywait.c',
            install : true)
 
 rdii_fetch_config_c = ['src/rdii-fetch-config.c', 'src/efivars.c',
-           'src/mkdir_p.c', 'src/download.c']
+           'lib/mkdir_p.c', 'src/download.c']
 executable('rdii-fetch-config',
            rdii_fetch_config_c,
            include_directories : inc,
