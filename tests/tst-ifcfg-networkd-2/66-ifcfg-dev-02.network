@@ -4,7 +4,6 @@ Type=vlan
 
 [Network]
 DHCP=yes
-Address=dhcp
 
 [DHCPv4]
 UseHostname=false
