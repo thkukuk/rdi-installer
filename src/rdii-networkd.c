@@ -27,9 +27,9 @@ static const char *output_dir = "/run/systemd/network";
 #define CMDLINE_PATH "/proc/cmdline"
 
 int
-return_syntax_error(const char *value, const int ret)
+return_syntax_error(int line, const char *value, const int ret)
 {
-  fprintf(stderr, "Syntax error: '%s'\n", value);
+  fprintf(stderr, "Syntax error in line %d: '%s'\n", line, value);
   return ret;
 }
 
@@ -45,6 +45,7 @@ print_help(void)
   fprintf(stdout, "rdii-networkd - create networkd config from cmdline\n\n");
   print_usage(stdout);
 
+  fputs("  -a, --parse-all      Parse all network options on cmdline\n", stdout);
   fputs("  -c, --config <file>  File with configuration\n", stdout);
   fputs("  -d, --debug          Write config to stdout\n", stdout);
   fputs("  -o, --output         Directory in which to write config\n", stdout);
@@ -68,6 +69,7 @@ main(int argc, char *argv[])
   ssize_t nread;
   const char *cfgfile = NULL;
   struct stat st;
+  bool parse_all = false;
   int r;
 
   while (1)
@@ -76,21 +78,25 @@ main(int argc, char *argv[])
       int option_index = 0;
       static struct option long_options[] =
         {
-	  {"config",  required_argument, NULL, 'c' },
-          {"debug",   no_argument,       NULL, 'd' },
-	  {"output",  required_argument, NULL, 'o' },
-	  {"help",    no_argument,       NULL, 'h' },
-          {"version", no_argument,       NULL, 'v' },
-          {NULL,      0,                 NULL, '\0'}
+	  {"config",    required_argument, NULL, 'c' },
+          {"debug",     no_argument,       NULL, 'd' },
+	  {"output",    required_argument, NULL, 'o' },
+	  {"parse-all", no_argument,       NULL, 'a' },
+	  {"help",      no_argument,       NULL, 'h' },
+          {"version",   no_argument,       NULL, 'v' },
+          {NULL,        0,                 NULL, '\0'}
         };
 
-      c = getopt_long (argc, argv, "c:do:hv",
+      c = getopt_long (argc, argv, "ac:do:hv",
                        long_options, &option_index);
       if (c == (-1))
         break;
 
       switch (c)
         {
+	case 'a':
+	  parse_all = true;
+	  break;
 	case 'c':
 	  cfgfile = optarg;
 	  break;
@@ -159,10 +165,16 @@ main(int argc, char *argv[])
 
 	  if (startswith(line, "ip="))
 	    r = parse_ip_arg(output_dir, line_count, line+3);
+	  else if (startswith(line, "nameserver="))
+	    r = parse_nameserver_arg(output_dir, line_count, line+11);
+	  else if (startswith(line, "rd.peerdns="))
+	    r = parse_rd_peerdns_arg(output_dir, line_count, line+11);
+	  else if (startswith(line, "rd.route="))
+	    r = parse_rd_route_arg(output_dir, line_count, line+9);
 	  else if (startswith(line, "ifcfg="))
 	    r = parse_ifcfg_arg(output_dir, line_count, line+6);
-	  else
-	    return return_syntax_error(line, -EINVAL);
+	  else if (debug)
+	    printf("Ignoring: '%s'\n", line);
 
 	  if (r < 0)
 	    return -r;
@@ -250,7 +262,7 @@ main(int argc, char *argv[])
 	      if (*cp == ' ')
 		*cp = '\0'; // Terminate current arg
 
-	      if (strneq(arg_start, "ifcfg=", 6))
+	      if (startswith(arg_start, "ifcfg="))
 		{
 		  char *val = arg_start + 6;
 
@@ -271,6 +283,18 @@ main(int argc, char *argv[])
 		      else
 			fprintf(stderr, "Skip '%s' due to errors\n", val);
 		    }
+		}
+	      else if (parse_all)
+		{
+		  // this options are normally handled by systemd-network-generator
+		  if (startswith(arg_start, "ip="))
+		    r = parse_ip_arg(output_dir, nr++, arg_start+3);
+		  else if (startswith(arg_start, "nameserver="))
+		    r = parse_nameserver_arg(output_dir, nr++, arg_start+11);
+		  else if (startswith(arg_start, "rd.peerdns="))
+		    r = parse_rd_peerdns_arg(output_dir, nr++, arg_start+11);
+		  else if (startswith(arg_start, "rd.route="))
+		    r = parse_rd_route_arg(output_dir, nr++, arg_start+9);
 		}
 	      arg_start = cp + 1;
 	    }

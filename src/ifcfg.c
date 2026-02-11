@@ -123,6 +123,7 @@ write_vlan_file(const char *output_dir, const char *interface, int vlanid)
   return 0;
 }
 
+// XXX merge with ip.c
 /* Writes the systemd-networkd .network file */
 static int
 write_network_file(const char *output_dir, int nr, ip_t *cfg,
@@ -321,12 +322,12 @@ parse_ifcfg_arg(const char *output_dir, int nr, const char *arg)
 
   r = extract_word(&str, "=", true, &token);
   if (r < 0)
-    return return_syntax_error(arg, -EINVAL);
+    return return_syntax_error(nr, arg, -EINVAL);
 
   cfg.interface = token;
 
   if (isempty(cfg.interface) || isempty(str))
-    return return_syntax_error(arg, -ENOENT);
+    return return_syntax_error(nr, arg, -ENOENT);
 
   if (debug)
     printf("Interface - Config: '%s' - '%s'\n",
