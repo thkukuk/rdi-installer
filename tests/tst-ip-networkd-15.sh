@@ -18,12 +18,12 @@ trap cleanup EXIT
 
 TEMPDIR=$(mktemp -d)
 
-./rdii-networkd -o "$TEMPDIR" -a ip=dhcp6
+./rdii-networkd -o "$TEMPDIR" -a ip=[2001:1234:56:8f63::10]::[2001:1234:56:8f63::1]:64:hogehoge:eth0:on
 
 for cfg in "${TEMPDIR}"/*; do
     cfg=$(basename "$cfg")
-    if ! cmp "$TEMPDIR/$cfg" "../tests/tst-ip-networkd-01/$cfg" ; then
-       diff -u "../tests/tst-ip-networkd-01/$cfg" "$TEMPDIR/$cfg"
+    if ! cmp "$TEMPDIR/$cfg" "../tests/tst-ip-networkd-15/$cfg" ; then
+       diff -u "../tests/tst-ip-networkd-15/$cfg" "$TEMPDIR/$cfg"
        exit 1
     fi
 done

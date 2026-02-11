@@ -1,0 +1,7 @@
+[Match]
+Kind=!*
+Type=!loopback
+
+[Route]
+Destination=10.1.2.3/16
+Gateway=10.0.2.3

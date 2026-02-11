@@ -1,0 +1,6 @@
+[Match]
+Kind=!*
+Type=!loopback
+
+[Network]
+DNS=10.1.2.3

@@ -1,0 +1,6 @@
+[Match]
+Kind=!*
+Type=!loopback
+
+[DHCP]
+UseDNS=no

@@ -18,12 +18,12 @@ trap cleanup EXIT
 
 TEMPDIR=$(mktemp -d)
 
-./rdii-networkd -o "$TEMPDIR" -a ip=dhcp6
+./rdii-networkd -o "$TEMPDIR" -a nameserver=10.1.2.3
 
 for cfg in "${TEMPDIR}"/*; do
     cfg=$(basename "$cfg")
-    if ! cmp "$TEMPDIR/$cfg" "../tests/tst-ip-networkd-01/$cfg" ; then
-       diff -u "../tests/tst-ip-networkd-01/$cfg" "$TEMPDIR/$cfg"
+    if ! cmp "$TEMPDIR/$cfg" "../tests/tst-nameserver-networkd-1/$cfg" ; then
+       diff -u "../tests/tst-nameserver-networkd-1/$cfg" "$TEMPDIR/$cfg"
        exit 1
     fi
 done

@@ -1,0 +1,6 @@
+[Match]
+Name=ens10
+
+[Route]
+Destination=2001:DB8:3::/8
+Gateway=2001:DB8:2::1

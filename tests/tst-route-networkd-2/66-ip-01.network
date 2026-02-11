@@ -1,0 +1,6 @@
+[Match]
+Name=eth0
+
+[Route]
+Destination=10.1.2.3/16
+Gateway=10.0.2.3
