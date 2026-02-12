@@ -1,13 +1,13 @@
 [Unit]
 Description=Configure network via networkd from Kernel Command Line
-Documentation=man:ifcfg-networkd(8)
+Documentation=man:rdii-networkd(8)
 After=local-fs.target
 Before= systemd-networkd.service sshd.service getty.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/usr/bin/ifcfg-networkd
+ExecStart=/usr/bin/rdii-networkd
 
 [Install]
 WantedBy=multi-user.target
