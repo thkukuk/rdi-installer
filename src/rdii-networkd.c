@@ -117,43 +117,49 @@ strjoin(const char *str1, const char *str2, const char *str3)
 static int
 dup_config(ip_t *cfg, int slot)
 {
-  // XXX check for OOM
   if (!isempty(cfg->client_ip))
-    configs[slot].client_ip = strdup(cfg->client_ip);
+    configs[slot].client_ip = cfg->client_ip;
   if (!isempty(cfg->peer_ip))
-    configs[slot].peer_ip = strdup(cfg->peer_ip);
+    configs[slot].peer_ip = cfg->peer_ip;
   if (!isempty(cfg->gateway))
     {
       // XXX hack for rd.route=<destination>:<gateway>,
       // ip= has no destination.
       if (configs[slot].gateway)
-	configs[slot].gateway1 = configs[slot].gateway;
-      configs[slot].gateway = strdup(cfg->gateway);
+	{
+	  if (configs[slot].gateway1)
+	    {
+	      fprintf(stderr, "Too many gateways specified!\n");
+	      return -ENOMEM;
+	    }
+	  configs[slot].gateway1 = configs[slot].gateway;
+	}
+      configs[slot].gateway = cfg->gateway;
     }
   if (!isempty(cfg->destination))
-    configs[slot].destination = strdup(cfg->destination);
+    configs[slot].destination = cfg->destination;
   if (cfg->netmask)
     configs[slot].netmask = cfg->netmask;
   if (!isempty(cfg->hostname))
-    configs[slot].hostname = strdup(cfg->hostname);
+    configs[slot].hostname = cfg->hostname;
   if (!isempty(cfg->interface))
-    configs[slot].interface = strdup(cfg->interface);
+    configs[slot].interface = cfg->interface;
   if (!isempty(cfg->autoconf))
-    configs[slot].autoconf = strdup(cfg->autoconf);
+    configs[slot].autoconf = cfg->autoconf;
   if (cfg->use_dns)
     configs[slot].use_dns = cfg->use_dns;
   if (!isempty(cfg->dns1))
-    configs[slot].dns1 = strdup(cfg->dns1);
+    configs[slot].dns1 = cfg->dns1;
   if (!isempty(cfg->dns2))
-    configs[slot].dns2 = strdup(cfg->dns2);
+    configs[slot].dns2 = cfg->dns2;
   if (!isempty(cfg->ntp))
-    configs[slot].ntp = strdup(cfg->ntp);
+    configs[slot].ntp = cfg->ntp;
   if (!isempty(cfg->mtu))
-    configs[slot].mtu = strdup(cfg->mtu);
+    configs[slot].mtu = cfg->mtu;
   if (!isempty(cfg->macaddr))
-    configs[slot].macaddr = strdup(cfg->macaddr);
+    configs[slot].macaddr = cfg->macaddr;
   if (!isempty(cfg->domains))
-    configs[slot].domains = strdup(cfg->domains);
+    configs[slot].domains = cfg->domains;
   if (cfg->vlan1)
     {
       if (configs[slot].vlan1 == 0)
