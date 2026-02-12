@@ -82,39 +82,6 @@ map_dracut_to_networkd(const char *input)
   return NULL;
 }
 
-#if 0 // XXX strjoin needed?
-static char *
-strjoin(const char *str1, const char *str2, const char *str3)
-{
-  size_t length = 0;
-  char *cp;
-
-  if (!isempty(str1))
-    length += strlen(str1);
-  if (!isempty(str2))
-    length += strlen(str2);
-  if (!isempty(str3))
-    length += strlen(str3);
-
-  length += 1; // for \0
-
-  _cleanup_free_ char *result = malloc(length);
-  if (result == NULL)
-    return NULL;
-
-  cp = result;
-
-  if (!isempty(str1))
-    cp = stpcpy(cp, str1);
-  if (!isempty(str2))
-    cp = stpcpy(cp, str2);
-  if (!isempty(str3))
-    cp = stpcpy(cp, str3);
-
-  return TAKE_PTR(result);
-}
-#endif
-
 static int
 dup_config(ip_t *cfg, int slot)
 {
