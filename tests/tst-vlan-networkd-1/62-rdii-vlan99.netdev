@@ -1,5 +1,5 @@
 [NetDev]
-Name=vlan0099
+Name=vlan99
 Kind=vlan
 
 [VLAN]

@@ -25,10 +25,22 @@ bool debug = false;
 #define CMDLINE_PATH "/proc/cmdline"
 
 #define IP_PREFIX   "66-ip" // XXX replace with 66-rdii
+#define NETDEV_PREFIX "62-rdii"
 
 #define MAX_INTERFACES 10
 static ip_t configs[MAX_INTERFACES] = {0};
 static int used_configs = 0;
+
+/* VLAN */
+typedef struct {
+  int id;
+  const char *name;
+} vlan_t;
+
+#define VLAN_CAPACITY 10
+static const int vlan_capacity = VLAN_CAPACITY;
+static vlan_t vlans[VLAN_CAPACITY];
+static int nr_vlanids = 0;
 
 typedef struct {
     const char *dracut;
@@ -207,6 +219,18 @@ merge_configs(ip_t *cfg)
   return 0;
 }
 
+static int
+write_vlan_entry(FILE *fp, int vlanid)
+{
+  for (int i = 0; i < nr_vlanids; i++)
+    if (vlans[i].id == vlanid)
+      {
+	fprintf(fp, "VLAN=%s\n", vlans[i].name);
+	return 0;
+      }
+  return -ENOKEY;
+}
+
 int
 write_network_config(const char *output_dir, int line_num, ip_t *cfg)
 {
@@ -273,11 +297,11 @@ write_network_config(const char *output_dir, int line_num, ip_t *cfg)
       if (!isempty(cfg->ntp))
         fprintf(fp, "NTP=%s\n", cfg->ntp);
       if (cfg->vlan1)
-	fprintf(fp, "VLAN=vlan%04d\n", cfg->vlan1);
+	write_vlan_entry(fp, cfg->vlan1); // XXX return value
       if (cfg->vlan2)
-	fprintf(fp, "VLAN=vlan%04d\n", cfg->vlan2);
+	write_vlan_entry(fp, cfg->vlan2); // XXX return value
       if (cfg->vlan3)
-	fprintf(fp, "VLAN=vlan%04d\n", cfg->vlan3);
+	write_vlan_entry(fp, cfg->vlan3); // XXX return value
     }
 
   if (!isempty(cfg->hostname) || cfg->use_dns > 0)
@@ -318,26 +342,20 @@ write_network_config(const char *output_dir, int line_num, ip_t *cfg)
 }
 
 /* VLAN functions */
-#define NETDEV_PREFIX "62-rdii-vlan"
-#define VLAN_CAPACITY 10
-static const int vlan_capacity = VLAN_CAPACITY;
-static int vlans[VLAN_CAPACITY];
-static int nr_vlanids = 0;
-
 static int
-write_netdev_file(const char *output_dir, int vlanid)
+write_netdev_file(const char *output_dir, vlan_t *vlan)
 {
   _cleanup_free_ char *filepath = NULL;
   _cleanup_fclose_ FILE *fp = NULL;
   int r;
 
-  if (asprintf(&filepath, "%s/%s%04d.netdev",
-               output_dir, NETDEV_PREFIX, vlanid) < 0)
+  if (asprintf(&filepath, "%s/%s-%s.netdev",
+               output_dir, NETDEV_PREFIX, vlan->name) < 0)
     return -ENOMEM;
 
   if (debug)
     printf("Creating vlan netdev: %s for vlan id '%d'\n", filepath,
-	   vlanid);
+	   vlan->id);
 
   fp = fopen(filepath, "w");
   if (!fp)
@@ -349,11 +367,11 @@ write_netdev_file(const char *output_dir, int vlanid)
     }
 
   fprintf(fp, "[NetDev]\n");
-  fprintf(fp, "Name=vlan%04d\n", vlanid);
+  fprintf(fp, "Name=%s\n", vlan->name);
   fprintf(fp, "Kind=vlan\n");
 
   fprintf(fp, "\n[VLAN]\n");
-  fprintf(fp, "Id=%d\n", vlanid);
+  fprintf(fp, "Id=%d\n", vlan->id);
 
   return 0;
 }
@@ -365,7 +383,7 @@ write_netdev_config(const char *output_dir)
 
   for (int i = 0; i < nr_vlanids; i++)
     {
-      r = write_netdev_file(output_dir, vlans[i]);
+      r = write_netdev_file(output_dir, &vlans[i]);
       if (r != 0)
         return r;
     }
@@ -374,10 +392,10 @@ write_netdev_config(const char *output_dir)
 
 
 static bool
-is_duplicate(int *list, int count, int new_id)
+is_duplicate(vlan_t *list, int count, int new_id)
 {
   for (int i = 0; i < count; i++)
-    if (list[i] == new_id)
+    if (list[i].id == new_id)
         return true;
 
   return false;
@@ -419,10 +437,11 @@ get_vlan_id(const char *vlan_name, int *ret)
 		return -ENOMEM;
 	      }
 
-	    vlans[nr_vlanids] = vlanid;
+	    vlans[nr_vlanids].id = vlanid;
+	    vlans[nr_vlanids].name = vlan_name;
 	    nr_vlanids++;
 	    if (debug)
-	      printf("Stored VLAN ID: %d\n", vlanid);
+	      printf("Stored VLAN ID: %d (%s)\n", vlanid, vlan_name);
 	  }
 	*ret = vlanid;
 	return 0;

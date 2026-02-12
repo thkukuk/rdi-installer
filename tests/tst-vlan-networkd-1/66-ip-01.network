@@ -2,5 +2,5 @@
 Name=eth0
 
 [Network]
-VLAN=vlan0099
-VLAN=vlan0098
+VLAN=vlan99
+VLAN=vlan98
