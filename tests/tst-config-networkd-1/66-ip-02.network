@@ -1,0 +1,5 @@
+[Match]
+Name=vlan98
+
+[Network]
+DHCP=yes

@@ -1,0 +1,6 @@
+[Match]
+Name=eth0
+
+[Network]
+VLAN=vlan99
+VLAN=vlan98

@@ -45,3 +45,5 @@ test('tst_vlan_networkd_1', find_program('tst-vlan-networkd-1.sh'))
 
 test('tst_multiple_networkd_1', find_program('tst-multiple-networkd-1.sh'))
 test('tst_multiple_networkd_2', find_program('tst-multiple-networkd-2.sh'))
+
+test('tst_config_networkd_1', find_program('tst-config-networkd-1.sh'))

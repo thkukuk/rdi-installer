@@ -4,6 +4,7 @@
 
 #include <errno.h>
 #include <ctype.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -183,6 +184,9 @@ merge_configs(ip_t *cfg)
 {
   bool found = false;
   int r;
+
+  if (debug)
+    printf("merge_configs called\n");
 
   if (used_configs == MAX_INTERFACES)
     {
@@ -572,10 +576,11 @@ main(int argc, char *argv[])
 
   if (!isempty(cfgfile))
     {
-      size_t line_count = 0;
+      _cleanup_close_ int fd = -EBADF;
+      size_t file_size = 0;
 
-      fp = fopen(cfgfile, "r");
-      if (!fp)
+      fd = open(cfgfile, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+      if (fd == -1)
 	{
 	  r = errno;
 	  fprintf(stderr, "Error opening '%s': %s\n",
@@ -583,179 +588,184 @@ main(int argc, char *argv[])
 	  return r;
 	}
 
-
-      while ((nread = getline(&line, &line_size, fp)) != -1)
-	{
-	  ip_t cfg = {0};
-
-	  line_count++;
-
-	  if (isempty(line) || line[0] == '#' || line[0] == '\n')
-	    continue;
-
-	  if (line[nread-1] == '\n')
-	    line[nread-1] = '\0';
-
-	  if (startswith(line, "ip="))
-	    r = parse_ip_arg(line_count, line+3, &cfg);
-	  else if (startswith(line, "nameserver="))
-	    r = parse_nameserver_arg(line_count, line+11, &cfg);
-	  else if (startswith(line, "rd.peerdns="))
-	    r = parse_rd_peerdns_arg(line_count, line+11, &cfg);
-	  else if (startswith(line, "rd.route="))
-	    r = parse_rd_route_arg(line_count, line+9, &cfg);
-	  else if (startswith(line, "vlan="))
-	    r = parse_vlan_arg(line_count, line+5, &cfg);
-	  else if (startswith(line, "ifcfg="))
-	    r = parse_ifcfg_arg(output_dir, line_count, line+6);
-	  else
-	    {
-	      r = 255;
-	      if (debug)
-		printf("Ignoring: '%s'\n", line);
-	    }
-
-	  if (r < 0)
-	    return -r;
-
-	  if (r == 0)
-	    merge_configs(&cfg);
-	}
-
-      if (ferror(fp))
+      if (fstat(fd, &st) == -1)
 	{
 	  r = errno;
-	  fprintf(stderr, "Error reading '%s': %s\n",
-		  cfgfile, strerror(errno));
+	  fprintf(stderr, "fstat(%s) failed: %s\n",
+		  cfgfile, strerror(r));
 	  return r;
 	}
+      file_size = st.st_size;
+      line = malloc(file_size);
+      if (line == NULL)
+	{
+	  fprintf(stderr, "Out of memory!\n");
+	  return ENOMEM;
+	}
+
+      size_t total_read = 0;
+      while (total_read < file_size)
+	{
+	  ssize_t bytes_read_now = read(fd, line + total_read,
+					file_size - total_read);
+
+	  if (bytes_read_now == -1)
+	    {
+	      r = errno;
+	      if (r == EINTR) // signal interrupt, try again
+                continue;
+	      else
+		{
+		  fprintf(stderr, "Error reading config file: %s\n",
+			  strerror(r));
+		  return r;
+		}
+	    }
+	  if (bytes_read_now == 0)
+            break;
+
+	  total_read += bytes_read_now;
+	}
+
+      line[total_read] = '\0';
+
+      char *ptr = line;
+      while (*ptr)
+	{
+	  if (*ptr == '\n')
+            *ptr = ' ';
+	  ptr++;
+	}
+
+      parse_all = true;
+    }
+  else if (argc > 0)
+    {
+      // Allow overriding input for testing: rdii-networkd "ifcfg=..."
+      size_t total_length = 0;
+
+      for (int i = 0; i < argc; i++)
+	{
+	  total_length += strlen(argv[i]);
+	  total_length++; // for ' ' or '\0'
+	}
+
+      line = malloc(total_length);
+      if (line == NULL)
+	{
+	  fprintf(stderr, "Out of memory!\n");
+	  return ENOMEM;
+	}
+
+      char *cp = line;
+
+      for (int i = 0; i < argc; i++)
+	{
+	  cp = stpcpy(cp, argv[i]);
+	  if (i < argc - 1) // not last argument
+	    cp = stpcpy(cp, " ");
+	}
+
+      parse_all = true;
     }
   else
     {
-      // do cmdline parsing...
-      char *cp;
-
-      if (argc > 0)
+      fp = fopen(CMDLINE_PATH, "r");
+      if (!fp)
 	{
-	  // Allow overriding input for testing: rdii-networkd "ifcfg=..."
-	  size_t total_length = 0;
-
-	  for (int i = 0; i < argc; i++)
-	    {
-	      total_length += strlen(argv[i]);
-	      total_length++; // for ' ' or '\0'
-	    }
-
-	  line = malloc(total_length);
-	  if (line == NULL)
-	    {
-	      fprintf(stderr, "Out of memory!\n");
-	      return ENOMEM;
-	    }
-
-	  cp = line;
-
-	  for (int i = 0; i < argc; i++)
-	    {
-	      cp = stpcpy(cp, argv[i]);
-	      if (i < argc - 1) // not last argument
-		cp = stpcpy(cp, " ");
-	    }
-	}
-      else
-	{
-	  fp = fopen(CMDLINE_PATH, "r");
-	  if (!fp)
-	    {
-	      r = errno;
-	      fprintf(stderr, "Failed to open %s: %s",
-		      CMDLINE_PATH, strerror(r));
-	      return r;
-	    }
-
-	  nread = getline(&line, &line_size, fp);
-	  if (nread == -1)
-	    {
-	      fprintf(stderr, "Failed to read %s: %s",
-		      CMDLINE_PATH, strerror(r));
-	      return errno;
-
-	      if (nread > 0 && line[nread-1] == '\n')
-		line[nread-1] = '\0';
-	    }
+	  r = errno;
+	  fprintf(stderr, "Failed to open %s: %s",
+		  CMDLINE_PATH, strerror(r));
+	  return r;
 	}
 
-      if (debug)
-	printf("cmdline=%s\n", line);
-
-      // Parse loop handling quotes
-      cp = line;
-      char *arg_start = cp;
-      int in_quote = 0;
-      int nr = 1;
-
-      while (*cp)
+      nread = getline(&line, &line_size, fp);
+      if (nread == -1)
 	{
-	  if (*cp == '"')
-	    in_quote = !in_quote;
+	  fprintf(stderr, "Failed to read %s: %s",
+		  CMDLINE_PATH, strerror(r));
+	  return errno;
 
-	  if (cp[1] == '\0' || (*cp == ' ' && !in_quote))
-	    {
-	      if (*cp == ' ')
-		*cp = '\0'; // Terminate current arg
-
-	      if (startswith(arg_start, "ifcfg="))
-		{
-		  char *val = arg_start + 6;
-
-		  // Strip quotes surround the value part
-		  if (val[0] == '"')
-		    {
-		      val++;
-		      size_t l = strlen(val);
-		      if (l > 0 && val[l-1] == '"')
-			val[l-1] = '\0';
-		    }
-		  r = parse_ifcfg_arg(output_dir, nr++, val);
-		  // quit if out of memory, else ignore entry
-		  if (r != 0)
-		    {
-		      if (r == -ENOMEM)
-			exit(ENOMEM);
-		      else
-			fprintf(stderr, "Skip '%s' due to errors\n", val);
-		    }
-		}
-	      else if (parse_all)
-		{
-		  ip_t cfg = {0};
-
-		  // this options are normally handled by systemd-network-generator
-		  if (startswith(arg_start, "ip="))
-		    r = parse_ip_arg(nr++, arg_start+3, &cfg);
-		  else if (startswith(arg_start, "nameserver="))
-		    r = parse_nameserver_arg(nr++, arg_start+11, &cfg);
-		  else if (startswith(arg_start, "rd.peerdns="))
-		    r = parse_rd_peerdns_arg(nr++, arg_start+11, &cfg);
-		  else if (startswith(arg_start, "rd.route="))
-		    r = parse_rd_route_arg(nr++, arg_start+9, &cfg);
-		  else if (startswith(line, "vlan="))
-		    r = parse_vlan_arg(nr++, arg_start+5, &cfg);
-		  else
-		    r = 255;
-
-		  if (r < 0)
-		    return -r;
-
-		  if (r == 0)
-		    merge_configs(&cfg);
-		}
-	      arg_start = cp + 1;
-	    }
-	  cp++;
+	  if (nread > 0 && line[nread-1] == '\n')
+	    line[nread-1] = '\0';
 	}
     }
 
+  if (debug)
+    printf("cmdline=%s\n", line);
+
+  // Parse loop handling quotes
+  char *cp = line;
+  char *arg_start = cp;
+  int in_quote = 0;
+  int nr = 1;
+
+  while (*cp)
+    {
+      if (*cp == '"')
+	in_quote = !in_quote;
+
+      if (cp[1] == '\0' || (*cp == ' ' && !in_quote))
+	{
+	  if (*cp == ' ')
+	    *cp = '\0'; // Terminate current arg
+
+	  if (startswith(arg_start, "ifcfg="))
+	    {
+	      char *val = arg_start + 6;
+
+	      // Strip quotes surround the value part
+	      if (val[0] == '"')
+		{
+		  val++;
+		  size_t l = strlen(val);
+		  if (l > 0 && val[l-1] == '"')
+		    val[l-1] = '\0';
+		}
+	      r = parse_ifcfg_arg(output_dir, nr++, val);
+	      // quit if out of memory, else ignore entry
+	      if (r != 0)
+		{
+		  if (r == -ENOMEM)
+		    exit(ENOMEM);
+		  else
+		    fprintf(stderr, "Skip '%s' due to errors\n", val);
+		}
+	    }
+	  else if (parse_all)
+	    {
+	      ip_t cfg = {0};
+
+	      // this options are normally handled by systemd-network-generator
+	      if (startswith(arg_start, "ip="))
+		r = parse_ip_arg(nr++, arg_start+3, &cfg);
+	      else if (startswith(arg_start, "nameserver="))
+		r = parse_nameserver_arg(nr++, arg_start+11, &cfg);
+	      else if (startswith(arg_start, "rd.peerdns="))
+		r = parse_rd_peerdns_arg(nr++, arg_start+11, &cfg);
+	      else if (startswith(arg_start, "rd.route="))
+		r = parse_rd_route_arg(nr++, arg_start+9, &cfg);
+	      else if (startswith(arg_start, "vlan="))
+		r = parse_vlan_arg(nr++, arg_start+5, &cfg);
+	      else
+		{
+		  if (debug)
+		    printf("skip: '%s'\n", arg_start);
+		  r = 255;
+		}
+
+	      if (r < 0)
+		return -r;
+
+	      if (r == 0)
+		merge_configs(&cfg);
+	    }
+	  arg_start = cp + 1;
+	}
+      cp++;
+    }
+
+  // write networkd config files
   for (int i = 0; i < used_configs; i++)
     write_network_config(output_dir, i+1, &configs[i]);
 
