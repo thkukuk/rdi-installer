@@ -40,3 +40,8 @@ test('tst_nameserver_networkd_1', find_program('tst-nameserver-networkd-1.sh'))
 
 test('tst_peerdns_networkd_1', find_program('tst-peerdns-networkd-1.sh'))
 test('tst_peerdns_networkd_2', find_program('tst-peerdns-networkd-2.sh'))
+
+test('tst_vlan_networkd_1', find_program('tst-vlan-networkd-1.sh'))
+
+test('tst_multiple_networkd_1', find_program('tst-multiple-networkd-1.sh'))
+test('tst_multiple_networkd_2', find_program('tst-multiple-networkd-2.sh'))

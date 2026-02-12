@@ -12,47 +12,6 @@
 #include "rdii-networkd.h"
 #include "ip.h"
 
-#define IP_PREFIX   "66-ip"
-
-typedef struct {
-    const char *dracut;
-    const char *networkd;
-} dhcp_dracut_networkd_t;
-
-static const char*
-map_dracut_to_networkd(const char *input)
-{
-  const dhcp_dracut_networkd_t mappings[] =
-    {
-      { "none",       "no" },
-      { "off",        "no" },
-      { "on",         "yes" },
-      { "any",        "yes" },
-      { "dhcp",       "ipv4" },
-      { "dhcp6",      "ipv6" },
-      { "auto6",      "no" },
-      { "either6",    "ipv6" },
-      { "ibft",       "no" },
-      { "link6",      "no" },
-      { "link-local", "no" },
-      { NULL,         NULL }
-    };
-
-  if (isempty(input))
-    return NULL;
-
-  for (int i = 0; mappings[i].dracut != NULL; i++)
-    {
-      // Use strcmp for exact match, or strcasecmp for case-insensitive
-      if (streq(input, mappings[i].dracut))
-	return mappings[i].networkd;
-    }
-
-  fprintf(stderr, "Unknown autoconf option '%s', valid are {dhcp|on|any|dhcp6|auto6|either6|link6|single-dhcp}\n", input);
-
-  return NULL;
-}
-
 /* Converts a netmask string (e.g., "255.255.0.0") to a CIDR integer (e.g., 16).
    Returns -1 if the format is invalid or if the mask is not contiguous. */
 static int
@@ -74,118 +33,20 @@ netmask_to_cidr(const char *netmask_str, int *cidr)
     {
       // Check if the most significant bit (leftmost) is set
       if ((mask & 0x80000000) != 0)
-	{
-	  bits++;
-	  mask <<= 1; // Shift left to bring the next bit to the MSB position
+       {
+         bits++;
+         mask <<= 1; // Shift left to bring the next bit to the MSB position
         }
       else
-	{
-	  // Once we hit a '0', the rest of the mask MUST be 0
-	  if (mask != 0)
-	    return -EINVAL;
+       {
+         // Once we hit a '0', the rest of the mask MUST be 0
+         if (mask != 0)
+           return -EINVAL;
 
-	  break;
+         break;
         }
     }
   *cidr = bits;
-  return 0;
-}
-
-static int
-write_network_config(const char *output_dir, int line_num, ip_t *cfg)
-{
-  _cleanup_free_ char *filepath = NULL;
-  _cleanup_fclose_ FILE *fp = NULL;
-
-  if (asprintf(&filepath, "%s/%s-%02d.network",
-	       output_dir, IP_PREFIX, line_num) < 0)
-    return -ENOMEM;
-
-  if (debug)
-    printf("Line %2d: %s config\n", line_num, filepath);
-
-  fp = fopen(filepath, "w");
-  if (!fp)
-    {
-      int r = -errno;
-      fprintf(stderr, "Failed to open network file '%s' for writing: %s",
-	      filepath, strerror(-r));
-      return r;
-    }
-
-  fputs("[Match]\n", fp);
-
-  if (isempty(cfg->interface) || streq(cfg->interface, "*"))
-    fputs("Kind=!*\n"
-	  "Type=!loopback\n", fp);
-  else
-    {
-      /* Heuristic: If the interface contains ':', assume MAC.
-	 Otherwise Name (supports globs like eth*). */
-      if (strchr(cfg->interface, ':'))
-	fprintf(fp, "Name=*\nMACAddress=%s\n", cfg->interface);
-      else
-	fprintf(fp, "Name=%s\n", cfg->interface);
-    }
-
-  if (!isempty(cfg->mtu) || !isempty(cfg->macaddr))
-    {
-      fputs("\n[Link]\n", fp);
-      if (!isempty(cfg->macaddr))
-	fprintf(fp, "MACAddress=%s\n", cfg->macaddr);
-      if (!isempty(cfg->mtu))
-	fprintf(fp, "MTUBytes=%s\n", cfg->mtu);
-    }
-
-  if (!isempty(cfg->autoconf) || !isempty(cfg->dns1) || !isempty(cfg->dns2) ||
-      !isempty(cfg->ntp))
-    {
-      fputs("\n[Network]\n", fp);
-      if (!isempty(cfg->autoconf))
-	{
-	  fprintf(fp, "DHCP=%s\n", map_dracut_to_networkd(cfg->autoconf));
-	  if (streq(cfg->autoconf, "off"))
-	    fputs("LinkLocalAddressing=no\n"
-		  "IPv6AcceptRA=no\n", fp);
-	}
-      if (!isempty(cfg->dns1))
-	fprintf(fp, "DNS=%s\n", cfg->dns1);
-      if (!isempty(cfg->dns2))
-	fprintf(fp, "DNS=%s\n", cfg->dns2);
-      if (!isempty(cfg->domains))
-	fprintf(fp, "Domains=%s\n", cfg->domains);
-      if (!isempty(cfg->ntp))
-	fprintf(fp, "NTP=%s\n", cfg->ntp);
-    }
-
-  if (!isempty(cfg->hostname) || cfg->use_dns > 0)
-    {
-      fputs("\n[DHCP]\n", fp);
-      if (cfg->hostname)
-	fprintf(fp, "Hostname=%s\n", cfg->hostname);
-      if (cfg->use_dns == 1)
-	fputs("UseDNS=no\n", fp);
-      if (cfg->use_dns == 2)
-	fputs("UseDNS=yes\n", fp);
-    }
-
-  if (!isempty(cfg->client_ip))
-    {
-      fputs("\n[Address]\n", fp);
-      fprintf(fp, "Address=%s/%d\n", cfg->client_ip, cfg->netmask);
-      if (!isempty(cfg->peer_ip))
-	fprintf(fp, "Peer=%s\n", cfg->peer_ip);
-    }
-
-  if (!isempty(cfg->gateway) || !isempty(cfg->destination))
-    {
-      fputs("\n[Route]\n", fp);
-      if (!isempty(cfg->destination))
-	fprintf(fp, "Destination=%s/%d\n", cfg->destination, cfg->netmask);
-      if (!isempty(cfg->gateway))
-	fprintf(fp, "Gateway=%s\n", cfg->gateway);
-    }
-
   return 0;
 }
 
@@ -263,15 +124,13 @@ extract_word(char **str, bool required, char **ret)
 }
 
 int
-parse_ip_arg(const char *output_dir, int nr, const char *arg)
+parse_ip_arg(int nr, char *arg, ip_t *cfg)
 {
-  ip_t cfg = {0}; // Initialize all pointers to NULL
   char *token;
-  _cleanup_free_ char *copy_to_free = strdup(arg); // to free everything
-  char *str = copy_to_free; // Pointer for strsep
+  _cleanup_free_ char *orig = strdup(arg); // for syntax error msg
   int r;
 
-  if (copy_to_free == NULL)
+  if (orig == NULL)
     return -ENOMEM;
 
   // Dracut format is roughly:
@@ -285,38 +144,38 @@ parse_ip_arg(const char *output_dir, int nr, const char *arg)
     {
       // If there are no colons, dracut treats the whole string as the autoconf method
       // OR a single client IP. Context depends on the content, but usually single word = autoconf
-      cfg.autoconf = str;
+      cfg->autoconf = arg;
     }
   else
     {
       // IP or interface
-      r = extract_ip_addr(&str, true, &token);
+      r = extract_ip_addr(&arg, true, &token);
       if (r == 0)
 	{
 	  // <client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:...
-	  cfg.client_ip = token;
+	  cfg->client_ip = token;
 
-	  r = extract_ip_addr(&str, false, &token);
+	  r = extract_ip_addr(&arg, false, &token);
 	  if (r < 0)
-	    return return_syntax_error(nr, arg, r);
-	  cfg.peer_ip = token;
+	    return return_syntax_error(nr, orig, r);
+	  cfg->peer_ip = token;
 
-	  r = extract_ip_addr(&str, true, &token);
+	  r = extract_ip_addr(&arg, true, &token);
 	  if (r < 0)
-	    return return_syntax_error(nr, arg, r);
-	  cfg.gateway = token;
+	    return return_syntax_error(nr, orig, r);
+	  cfg->gateway = token;
 
-	  r = extract_word(&str, true, &token);
+	  r = extract_word(&arg, true, &token);
 	  if (r < 0)
-	    return return_syntax_error(nr, arg, r);
+	    return return_syntax_error(nr, orig, r);
 	  if (strchr(token, '.')) // something like 255.255.0.0
 	    {
 	      int cidr;
 
 	      r = netmask_to_cidr(token, &cidr);
 	      if (r < 0)
-		return return_syntax_error(nr, arg, r);
-	      cfg.netmask = cidr;
+		return return_syntax_error(nr, orig, r);
+	      cfg->netmask = cidr;
 	    }
 	  else
 	    {
@@ -330,81 +189,81 @@ parse_ip_arg(const char *output_dir, int nr, const char *arg)
 		  fprintf(stderr, "Invalid netmask: %s\n", token);
 		  return -EINVAL;
 		}
-	      cfg.netmask = l;
+	      cfg->netmask = l;
 	    }
 
-	  r = extract_word(&str, false, &token);
+	  r = extract_word(&arg, false, &token);
 	  if (r < 0)
-	    return return_syntax_error(nr, arg, r);
-	  cfg.hostname = token;
+	    return return_syntax_error(nr, orig, r);
+	  cfg->hostname = token;
 
-	  r = extract_word(&str, true, &token);
+	  r = extract_word(&arg, true, &token);
 	  if (r < 0)
-	    return return_syntax_error(nr, arg, r);
-	  cfg.interface = token;
+	    return return_syntax_error(nr, orig, r);
+	  cfg->interface = token;
 
-	  r = extract_word(&str, false, &token);
+	  r = extract_word(&arg, false, &token);
 	  if (r < 0)
-	    return return_syntax_error(nr, arg, r);
-	  cfg.autoconf = token;
+	    return return_syntax_error(nr, orig, r);
+	  cfg->autoconf = token;
 
 	  // either <mtu>:<macaddr> or <dns1>:<dns2>:<ntp>
-	  if (!isempty(str))
+	  if (!isempty(arg))
 	    {
-	      r = extract_word(&str, false, &token);
+	      r = extract_word(&arg, false, &token);
 	      if (r < 0)
-		return return_syntax_error(nr, arg, r);
+		return return_syntax_error(nr, orig, r);
 
 	      // XXX IPv6 with [] are broken here!
 	      if (is_ip_addr(token))
 		{
-		  cfg.dns1 = token;
-		  if (!isempty(str))
+		  cfg->dns1 = token;
+		  if (!isempty(arg))
 		    {
-		      r = extract_ip_addr(&str, false, &token);
+		      r = extract_ip_addr(&arg, false, &token);
 		      if (r < 0)
-			return return_syntax_error(nr, arg, r);
-		      cfg.dns2 = token;
-		      if (!isempty(str))
+			return return_syntax_error(nr, orig, r);
+		      cfg->dns2 = token;
+		      if (!isempty(arg))
 			{
-			  r = extract_ip_addr(&str, false, &token);
+			  r = extract_ip_addr(&arg, false, &token);
 			  if (r < 0)
-			    return return_syntax_error(nr, arg, r);
-			  cfg.ntp = token;
+			    return return_syntax_error(nr, orig, r);
+			  cfg->ntp = token;
 			}
 		      // we are at the end, if there is more stuff...
-		      if (!isempty(str))
-			return return_syntax_error(nr, arg, -EINVAL);
+		      if (!isempty(arg))
+			return return_syntax_error(nr, orig, -EINVAL);
 		    }
 		}
 	      else if (!isempty(token))
 		{
 		  // must be <mtu>:<macaddr>
-		  cfg.mtu = token;
-		  cfg.macaddr = str;
+		  cfg->mtu = token;
+		  cfg->macaddr = arg;
 		}
-	      else if (isempty(token) && !isempty(str))
+	      else if (isempty(token) && !isempty(arg))
 		{
 		  int count = 0;
 
-		  for (size_t i = 0; i < strlen(str); i++)
-		    if (str[i] == ':')
+		  for (size_t i = 0; i < strlen(arg); i++)
+		    if (arg[i] == ':')
 		      count++;
 		  if (count == 5)
-		    cfg.macaddr = str; // must be macaddr
+		    cfg->macaddr = arg; // must be macaddr
 		  else
 		    {
-		      r = extract_word(&str, false, &token);
+		      r = extract_word(&arg, false, &token);
 		      if (r < 0)
-			return return_syntax_error(nr, arg, r);
-		      cfg.dns2 = token;
+			return return_syntax_error(nr, orig, r);
+		      cfg->dns2 = token;
 
-		      if (!isempty(str))
+		      if (!isempty(arg))
 			{
-			  if (is_ip_addr(str)) // XXX IPv6
-			    cfg.ntp = str;
+			  if (is_ip_addr(arg)) // XXX IPv6
+			    cfg->ntp = arg;
 			  else
-			    return return_syntax_error(nr, arg, r);
+			    return return_syntax_error(nr, orig, r);
 			}
 		    }
 		}
@@ -413,101 +272,89 @@ parse_ip_arg(const char *output_dir, int nr, const char *arg)
       else
 	{
 	  // - ip=<interface>:{dhcp|on|any|dhcp6|auto6|link6}[:[<mtu>][:<macaddr>]]
-	  cfg.interface = token;
-	  token = strsep(&str, ":");
-	  cfg.autoconf = token;
-	  if (!isempty(str))
+	  cfg->interface = token;
+	  token = strsep(&arg, ":");
+	  cfg->autoconf = token;
+	  if (!isempty(arg))
 	    {
 	      /* [<mtu>][:<macaddr>] */
 
-	      token = strsep(&str, ":");
+	      token = strsep(&arg, ":");
 	      /* XXX verify that mtu is in bytes and is >= 68 for IPv4
 		 and >= 1280 for IPv6 */
-	      cfg.mtu = token;
+	      cfg->mtu = token;
 
-	      if (!isempty(str))
+	      if (!isempty(arg))
 		{
-		  if (str[strlen(str)-1] == ':')
-		    return return_syntax_error(nr, arg, -EINVAL);
-		  cfg.macaddr = str;
+		  if (arg[strlen(arg)-1] == ':')
+		    return return_syntax_error(nr, orig, -EINVAL);
+		  cfg->macaddr = arg;
 		}
 	    }
 	}
     }
 
-  write_network_config(output_dir, nr, &cfg);
+  return 0;
+}
+
+int
+parse_nameserver_arg(int nr, char *arg, ip_t *cfg)
+{
+  char *token;
+  _cleanup_free_ char *orig = strdup(arg); // for syntax error msg
+  int r;
+
+  if (orig == NULL)
+    return -ENOMEM;
+
+  r = extract_ip_addr(&arg, true, &token);
+  if (r < 0)
+    return return_syntax_error(nr, orig, r);
+  cfg->dns1 = token;
+
+  if (!isempty(arg))
+    return return_syntax_error(nr, orig, -EINVAL);
 
   return 0;
 }
 
 int
-parse_nameserver_arg(const char *output_dir, int nr, const char *arg)
+parse_rd_peerdns_arg(int nr, char *arg, ip_t *cfg)
 {
-  ip_t cfg = {0}; // Initialize all pointers to NULL
   char *token;
-  _cleanup_free_ char *copy_to_free = strdup(arg); // to free everything
-  char *str = copy_to_free; // Pointer for strsep
+  _cleanup_free_ char *orig = strdup(arg); // for syntax error msg
   int r;
 
-  if (copy_to_free == NULL)
+  if (orig == NULL)
     return -ENOMEM;
 
-  r = extract_ip_addr(&str, true, &token);
+  r = extract_word(&arg, true, &token);
   if (r < 0)
-    return return_syntax_error(nr, arg, r);
-  cfg.dns1 = token;
-
-  if (!isempty(str))
-    return return_syntax_error(nr, arg, -EINVAL);
-
-  write_network_config(output_dir, nr, &cfg);
-
-  return 0;
-}
-
-int
-parse_rd_peerdns_arg(const char *output_dir, int nr, const char *arg)
-{
-  ip_t cfg = {0}; // Initialize all pointers to NULL
-  char *token;
-  _cleanup_free_ char *copy_to_free = strdup(arg); // to free everything
-  char *str = copy_to_free; // Pointer for strsep
-  int r;
-
-  if (copy_to_free == NULL)
-    return -ENOMEM;
-
-  r = extract_word(&str, true, &token);
-  if (r < 0)
-    return return_syntax_error(nr, arg, r);
+    return return_syntax_error(nr, orig, r);
   if (streq(token, "0"))
-    cfg.use_dns = 1;
+    cfg->use_dns = 1;
   else if (streq(token, "1"))
-    cfg.use_dns = 2;
+    cfg->use_dns = 2;
   else
-    return return_syntax_error(nr, arg, -EINVAL);
+    return return_syntax_error(nr, orig, -EINVAL);
 
-  if (!isempty(str))
-    return return_syntax_error(nr, arg, -EINVAL);
-
-  write_network_config(output_dir, nr, &cfg);
+  if (!isempty(arg))
+    return return_syntax_error(nr, orig, -EINVAL);
 
   return 0;
 }
 
 int
-parse_rd_route_arg(const char *output_dir, int nr, const char *arg)
+parse_rd_route_arg(int nr, char *arg, ip_t *cfg)
 {
-  ip_t cfg = {0}; // Initialize all pointers to NULL
-  char *token, *cp;
-  _cleanup_free_ char *copy_to_free = strdup(arg); // to free everything
-  char *str = copy_to_free; // Pointer for strsep
+  char *token;
+  _cleanup_free_ char *orig = strdup(arg); // for syntax error msg
   int r;
 
-  if (copy_to_free == NULL)
+  if (orig == NULL)
     return -ENOMEM;
 
-  r = extract_word(&str, true, &token);
+  r = extract_word(&arg, true, &token);
   if (r < 0)
     return return_syntax_error(nr, arg, r);
 
@@ -518,44 +365,52 @@ parse_rd_route_arg(const char *output_dir, int nr, const char *arg)
 	return return_syntax_error(nr, arg, r);
       token[strlen(token)-1] = '\0';
     }
+  cfg->destination=token;
 
-  cp = strchr(token, '/');
-  if (!cp)
-    return return_syntax_error(nr, arg, -EINVAL);
-  else
-    {
-      char *ep;
-      long l;
-
-      l = strtol(cp+1, &ep, 10);
-      if (errno == ERANGE || l < 0 || l > 128 ||
-	  (cp+1) == ep || *ep != '\0')
-	{
-	  fprintf(stderr, "Invalid netmask: %s\n", (cp+1));
-	  return -EINVAL;
-	}
-      cfg.netmask = l;
-    }
-  *cp = '\0';
-  cfg.destination=token;
-
-  r = extract_ip_addr(&str, false, &token);
+  r = extract_ip_addr(&arg, false, &token);
   if (r < 0)
-    return return_syntax_error(nr, arg, r);
-  cfg.gateway = token;
+    return return_syntax_error(nr, orig, r);
+  cfg->gateway = token;
 
-  if (!isempty(str))
+  if (!isempty(arg))
     { // interface is optional
-      r = extract_word(&str, true, &token);
+      r = extract_word(&arg, true, &token);
       if (r < 0)
-	return return_syntax_error(nr, arg, r);
-      cfg.interface = token;
+	return return_syntax_error(nr, orig, r);
+      cfg->interface = token;
     }
 
-  if (!isempty(str))
-    return return_syntax_error(nr, arg, -EINVAL);
+  if (!isempty(arg))
+    return return_syntax_error(nr, orig, -EINVAL);
 
-  write_network_config(output_dir, nr, &cfg);
+  return 0;
+}
+
+int
+parse_vlan_arg(int nr, char *arg, ip_t *cfg)
+{
+  char *token;
+  _cleanup_free_ char *orig = strdup(arg); // for syntax error msg
+  int r;
+
+  if (orig == NULL)
+    return -ENOMEM;
+
+  r = extract_word(&arg, true, &token);
+  if (r < 0)
+    return return_syntax_error(nr, orig, r);
+
+  r = get_vlan_id(token, &cfg->vlan1);
+  if (r < 0)
+    return return_syntax_error(nr, orig, r);
+
+  r = extract_word(&arg, true, &token);
+  if (r < 0)
+    return return_syntax_error(nr, orig, r);
+  cfg->interface = token;
+
+  if (!isempty(arg))
+    return return_syntax_error(nr, orig, -EINVAL);
 
   return 0;
 }

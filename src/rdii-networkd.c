@@ -21,15 +21,420 @@
 
 bool debug = false;
 
-static const char *output_dir = "/run/systemd/network";
-
 /* Configuration */
 #define CMDLINE_PATH "/proc/cmdline"
 
-int
-return_syntax_error(int line, const char *value, const int ret)
+#define IP_PREFIX   "66-ip" // XXX replace with 66-rdii
+
+#define MAX_INTERFACES 10
+static ip_t configs[MAX_INTERFACES] = {0};
+static int used_configs = 0;
+
+typedef struct {
+    const char *dracut;
+    const char *networkd;
+} dhcp_dracut_networkd_t;
+
+static const char*
+map_dracut_to_networkd(const char *input)
 {
-  fprintf(stderr, "Syntax error in line %d: '%s'\n", line, value);
+  const dhcp_dracut_networkd_t mappings[] =
+    {
+      { "none",       "no" },
+      { "off",        "no" },
+      { "on",         "yes" },
+      { "any",        "yes" },
+      { "dhcp",       "ipv4" },
+      { "dhcp6",      "ipv6" },
+      { "auto6",      "no" },
+      { "either6",    "ipv6" },
+      { "ibft",       "no" },
+      { "link6",      "no" },
+      { "link-local", "no" },
+      { NULL,         NULL }
+    };
+
+  if (isempty(input))
+    return NULL;
+
+  for (int i = 0; mappings[i].dracut != NULL; i++)
+    {
+      // Use strcmp for exact match, or strcasecmp for case-insensitive
+      if (streq(input, mappings[i].dracut))
+        return mappings[i].networkd;
+    }
+
+  fprintf(stderr, "Unknown autoconf option '%s', valid are {dhcp|on|any|dhcp6|auto6|either6|link6|single-dhcp}\n", input);
+
+  return NULL;
+}
+
+#if 0 // XXX strjoin needed?
+static char *
+strjoin(const char *str1, const char *str2, const char *str3)
+{
+  size_t length = 0;
+  char *cp;
+
+  if (!isempty(str1))
+    length += strlen(str1);
+  if (!isempty(str2))
+    length += strlen(str2);
+  if (!isempty(str3))
+    length += strlen(str3);
+
+  length += 1; // for \0
+
+  _cleanup_free_ char *result = malloc(length);
+  if (result == NULL)
+    return NULL;
+
+  cp = result;
+
+  if (!isempty(str1))
+    cp = stpcpy(cp, str1);
+  if (!isempty(str2))
+    cp = stpcpy(cp, str2);
+  if (!isempty(str3))
+    cp = stpcpy(cp, str3);
+
+  return TAKE_PTR(result);
+}
+#endif
+
+static int
+dup_config(ip_t *cfg, int slot)
+{
+  // XXX check for OOM
+  if (!isempty(cfg->client_ip))
+    configs[slot].client_ip = strdup(cfg->client_ip);
+  if (!isempty(cfg->peer_ip))
+    configs[slot].peer_ip = strdup(cfg->peer_ip);
+  if (!isempty(cfg->gateway))
+    {
+      // XXX hack for rd.route=<destination>:<gateway>,
+      // ip= has no destination.
+      if (configs[slot].gateway)
+	configs[slot].gateway1 = configs[slot].gateway;
+      configs[slot].gateway = strdup(cfg->gateway);
+    }
+  if (!isempty(cfg->destination))
+    configs[slot].destination = strdup(cfg->destination);
+  if (cfg->netmask)
+    configs[slot].netmask = cfg->netmask;
+  if (!isempty(cfg->hostname))
+    configs[slot].hostname = strdup(cfg->hostname);
+  if (!isempty(cfg->interface))
+    configs[slot].interface = strdup(cfg->interface);
+  if (!isempty(cfg->autoconf))
+    configs[slot].autoconf = strdup(cfg->autoconf);
+  if (cfg->use_dns)
+    configs[slot].use_dns = cfg->use_dns;
+  if (!isempty(cfg->dns1))
+    configs[slot].dns1 = strdup(cfg->dns1);
+  if (!isempty(cfg->dns2))
+    configs[slot].dns2 = strdup(cfg->dns2);
+  if (!isempty(cfg->ntp))
+    configs[slot].ntp = strdup(cfg->ntp);
+  if (!isempty(cfg->mtu))
+    configs[slot].mtu = strdup(cfg->mtu);
+  if (!isempty(cfg->macaddr))
+    configs[slot].macaddr = strdup(cfg->macaddr);
+  if (!isempty(cfg->domains))
+    configs[slot].domains = strdup(cfg->domains);
+  if (cfg->vlan1)
+    {
+      if (configs[slot].vlan1 == 0)
+	configs[slot].vlan1 = cfg->vlan1;
+      else if (configs[slot].vlan2 == 0)
+	configs[slot].vlan2 = cfg->vlan1;
+      else if (configs[slot].vlan3 == 0)
+	configs[slot].vlan3 = cfg->vlan1;
+      else
+	{
+	  fprintf(stderr, "More than 3 VLAN IDs!\n");
+	  return -ENOMEM;
+	}
+    }
+
+  return 0;
+}
+
+static int
+merge_configs(ip_t *cfg)
+{
+  bool found = false;
+  int r;
+
+  if (used_configs == MAX_INTERFACES)
+    {
+      fprintf(stderr, "Too many interfaces!\n");
+      return -ENOMEM;
+    }
+
+  if (used_configs != 0)
+    {
+      for (int i = 0; i < used_configs; i++)
+	{
+	  if (configs[i].interface && cfg->interface &&
+	      streq(configs[i].interface, cfg->interface))
+	    {
+	      r = dup_config(cfg, i);
+	      if (r < 0)
+		return r;
+	      return 0;
+	    }
+	  if (configs[i].interface && !cfg->interface)
+	    {
+	      // existing config contains interface, new one not.
+	      // "merge" them. (e.g. ip=xxx rd.route=yyy)
+	      r = dup_config(cfg, i);
+	      if (r < 0)
+		return r;
+	      found = true;
+	    }
+	}
+    }
+
+  if (!found)
+    {
+      r = dup_config(cfg, used_configs);
+      if (r < 0)
+	return r;
+      used_configs++;
+    }
+
+  return 0;
+}
+
+int
+write_network_config(const char *output_dir, int line_num, ip_t *cfg)
+{
+  _cleanup_free_ char *filepath = NULL;
+  _cleanup_fclose_ FILE *fp = NULL;
+
+  if (asprintf(&filepath, "%s/%s-%02d.network",
+               output_dir, IP_PREFIX, line_num) < 0)
+    return -ENOMEM;
+
+  if (debug)
+    printf("Entry %2d: %s config\n", line_num, filepath);
+
+  fp = fopen(filepath, "w");
+  if (!fp)
+    {
+      int r = -errno;
+      fprintf(stderr, "Failed to open network file '%s' for writing: %s",
+              filepath, strerror(-r));
+      return r;
+    }
+
+  fputs("[Match]\n", fp);
+
+  if (isempty(cfg->interface) || streq(cfg->interface, "*"))
+    fputs("Kind=!*\n"
+          "Type=!loopback\n", fp);
+  else
+    {
+      /* Heuristic: If the interface contains ':', assume MAC.
+         Otherwise Name (supports globs like eth*). */
+      if (strchr(cfg->interface, ':'))
+        fprintf(fp, "Name=*\nMACAddress=%s\n", cfg->interface);
+      else
+        fprintf(fp, "Name=%s\n", cfg->interface);
+    }
+
+  if (!isempty(cfg->mtu) || !isempty(cfg->macaddr))
+    {
+      fputs("\n[Link]\n", fp);
+      if (!isempty(cfg->macaddr))
+        fprintf(fp, "MACAddress=%s\n", cfg->macaddr);
+      if (!isempty(cfg->mtu))
+        fprintf(fp, "MTUBytes=%s\n", cfg->mtu);
+    }
+
+  if (!isempty(cfg->autoconf) || !isempty(cfg->dns1) || !isempty(cfg->dns2) ||
+      !isempty(cfg->ntp) || cfg->vlan1)
+    {
+      fputs("\n[Network]\n", fp);
+      if (!isempty(cfg->autoconf))
+        {
+          fprintf(fp, "DHCP=%s\n", map_dracut_to_networkd(cfg->autoconf));
+          if (streq(cfg->autoconf, "off"))
+            fputs("LinkLocalAddressing=no\n"
+                  "IPv6AcceptRA=no\n", fp);
+        }
+      if (!isempty(cfg->dns1))
+        fprintf(fp, "DNS=%s\n", cfg->dns1);
+      if (!isempty(cfg->dns2))
+        fprintf(fp, "DNS=%s\n", cfg->dns2);
+      if (!isempty(cfg->domains))
+        fprintf(fp, "Domains=%s\n", cfg->domains);
+      if (!isempty(cfg->ntp))
+        fprintf(fp, "NTP=%s\n", cfg->ntp);
+      if (cfg->vlan1)
+	fprintf(fp, "VLAN=vlan%04d\n", cfg->vlan1);
+      if (cfg->vlan2)
+	fprintf(fp, "VLAN=vlan%04d\n", cfg->vlan2);
+      if (cfg->vlan3)
+	fprintf(fp, "VLAN=vlan%04d\n", cfg->vlan3);
+    }
+
+  if (!isempty(cfg->hostname) || cfg->use_dns > 0)
+    {
+      fputs("\n[DHCP]\n", fp);
+      if (cfg->hostname)
+        fprintf(fp, "Hostname=%s\n", cfg->hostname);
+      if (cfg->use_dns == 1)
+        fputs("UseDNS=no\n", fp);
+      if (cfg->use_dns == 2)
+        fputs("UseDNS=yes\n", fp);
+    }
+
+  if (!isempty(cfg->client_ip))
+    {
+      fputs("\n[Address]\n", fp);
+      fprintf(fp, "Address=%s/%d\n", cfg->client_ip, cfg->netmask);
+      if (!isempty(cfg->peer_ip))
+        fprintf(fp, "Peer=%s\n", cfg->peer_ip);
+    }
+
+  if (!isempty(cfg->gateway) || !isempty(cfg->destination))
+    {
+      fputs("\n[Route]\n", fp);
+      if (!isempty(cfg->destination))
+        fprintf(fp, "Destination=%s\n", cfg->destination);
+      if (!isempty(cfg->gateway))
+        fprintf(fp, "Gateway=%s\n", cfg->gateway);
+    }
+
+  if (!isempty(cfg->gateway1))
+    {
+      fputs("\n[Route]\n", fp);
+      fprintf(fp, "Gateway=%s\n", cfg->gateway1);
+    }
+
+  return 0;
+}
+
+/* VLAN functions */
+#define NETDEV_PREFIX "62-rdii-vlan"
+#define VLAN_CAPACITY 10
+static const int vlan_capacity = VLAN_CAPACITY;
+static int vlans[VLAN_CAPACITY];
+static int nr_vlanids = 0;
+
+static int
+write_netdev_file(const char *output_dir, int vlanid)
+{
+  _cleanup_free_ char *filepath = NULL;
+  _cleanup_fclose_ FILE *fp = NULL;
+  int r;
+
+  if (asprintf(&filepath, "%s/%s%04d.netdev",
+               output_dir, NETDEV_PREFIX, vlanid) < 0)
+    return -ENOMEM;
+
+  if (debug)
+    printf("Creating vlan netdev: %s for vlan id '%d'\n", filepath,
+	   vlanid);
+
+  fp = fopen(filepath, "w");
+  if (!fp)
+    {
+      r = -errno;
+      fprintf(stderr, "Failed to open network file '%s' for writing: %s",
+              filepath, strerror(-r));
+      return r;
+    }
+
+  fprintf(fp, "[NetDev]\n");
+  fprintf(fp, "Name=vlan%04d\n", vlanid);
+  fprintf(fp, "Kind=vlan\n");
+
+  fprintf(fp, "\n[VLAN]\n");
+  fprintf(fp, "Id=%d\n", vlanid);
+
+  return 0;
+}
+
+static int
+write_netdev_config(const char *output_dir)
+{
+  int r;
+
+  for (int i = 0; i < nr_vlanids; i++)
+    {
+      r = write_netdev_file(output_dir, vlans[i]);
+      if (r != 0)
+        return r;
+    }
+  return 0;
+}
+
+
+static bool
+is_duplicate(int *list, int count, int new_id)
+{
+  for (int i = 0; i < count; i++)
+    if (list[i] == new_id)
+        return true;
+
+  return false;
+}
+
+int
+get_vlan_id(const char *vlan_name, int *ret)
+{
+  /* From dracut.cmdline(7):
+   * We support the four styles of vlan names:
+   *   VLAN_PLUS_VID (vlan0005),
+   *   VLAN_PLUS_VID_NO_PAD (vlan5),
+   *   DEV_PLUS_VID (eth0.0005), and
+   *   DEV_PLUS_VID_NO_PAD (eth0.5). */
+
+  for (const char *p = vlan_name + strlen(vlan_name) - 1; p > vlan_name; p--)
+    if (!isdigit(*p))
+      {
+	char *ep;
+	long l;
+	int vlanid = 0;
+
+	p++;
+	l = strtol(p, &ep, 10);
+	// valid: 1 <= VLAN ID <= 4095
+	if (errno == ERANGE || l < 1 || l > 4095 ||
+	    p == ep || *ep != '\0')
+	  {
+	    fprintf(stderr, "Invalid VLAN interface: %s\n", vlan_name);
+	    return -EINVAL;
+	  }
+	vlanid = l;
+
+	if (!is_duplicate(vlans, nr_vlanids, vlanid))
+	  {
+	    if ((nr_vlanids+1) == vlan_capacity)
+	      {
+		fprintf(stderr, "Too many vlans!\n");
+		return -ENOMEM;
+	      }
+
+	    vlans[nr_vlanids] = vlanid;
+	    nr_vlanids++;
+	    if (debug)
+	      printf("Stored VLAN ID: %d\n", vlanid);
+	  }
+	*ret = vlanid;
+	return 0;
+      }
+
+  return -EINVAL;
+}
+
+int
+return_syntax_error(int nr, const char *value, const int ret)
+{
+  fprintf(stderr, "Syntax error in entry %d: '%s'\n", nr, value);
   return ret;
 }
 
@@ -63,6 +468,7 @@ print_error(void)
 int
 main(int argc, char *argv[])
 {
+  const char *output_dir = "/run/systemd/network";
   _cleanup_fclose_ FILE *fp = NULL;
   _cleanup_free_ char *line = NULL;
   size_t line_size = 0;
@@ -155,6 +561,8 @@ main(int argc, char *argv[])
 
       while ((nread = getline(&line, &line_size, fp)) != -1)
 	{
+	  ip_t cfg = {0};
+
 	  line_count++;
 
 	  if (isempty(line) || line[0] == '#' || line[0] == '\n')
@@ -164,20 +572,29 @@ main(int argc, char *argv[])
 	    line[nread-1] = '\0';
 
 	  if (startswith(line, "ip="))
-	    r = parse_ip_arg(output_dir, line_count, line+3);
+	    r = parse_ip_arg(line_count, line+3, &cfg);
 	  else if (startswith(line, "nameserver="))
-	    r = parse_nameserver_arg(output_dir, line_count, line+11);
+	    r = parse_nameserver_arg(line_count, line+11, &cfg);
 	  else if (startswith(line, "rd.peerdns="))
-	    r = parse_rd_peerdns_arg(output_dir, line_count, line+11);
+	    r = parse_rd_peerdns_arg(line_count, line+11, &cfg);
 	  else if (startswith(line, "rd.route="))
-	    r = parse_rd_route_arg(output_dir, line_count, line+9);
+	    r = parse_rd_route_arg(line_count, line+9, &cfg);
+	  else if (startswith(line, "vlan="))
+	    r = parse_vlan_arg(line_count, line+5, &cfg);
 	  else if (startswith(line, "ifcfg="))
 	    r = parse_ifcfg_arg(output_dir, line_count, line+6);
-	  else if (debug)
-	    printf("Ignoring: '%s'\n", line);
+	  else
+	    {
+	      r = 255;
+	      if (debug)
+		printf("Ignoring: '%s'\n", line);
+	    }
 
 	  if (r < 0)
 	    return -r;
+
+	  if (r == 0)
+	    merge_configs(&cfg);
 	}
 
       if (ferror(fp))
@@ -286,15 +703,27 @@ main(int argc, char *argv[])
 		}
 	      else if (parse_all)
 		{
+		  ip_t cfg = {0};
+
 		  // this options are normally handled by systemd-network-generator
 		  if (startswith(arg_start, "ip="))
-		    r = parse_ip_arg(output_dir, nr++, arg_start+3);
+		    r = parse_ip_arg(nr++, arg_start+3, &cfg);
 		  else if (startswith(arg_start, "nameserver="))
-		    r = parse_nameserver_arg(output_dir, nr++, arg_start+11);
+		    r = parse_nameserver_arg(nr++, arg_start+11, &cfg);
 		  else if (startswith(arg_start, "rd.peerdns="))
-		    r = parse_rd_peerdns_arg(output_dir, nr++, arg_start+11);
+		    r = parse_rd_peerdns_arg(nr++, arg_start+11, &cfg);
 		  else if (startswith(arg_start, "rd.route="))
-		    r = parse_rd_route_arg(output_dir, nr++, arg_start+9);
+		    r = parse_rd_route_arg(nr++, arg_start+9, &cfg);
+		  else if (startswith(line, "vlan="))
+		    r = parse_vlan_arg(nr++, arg_start+5, &cfg);
+		  else
+		    r = 255;
+
+		  if (r < 0)
+		    return -r;
+
+		  if (r == 0)
+		    merge_configs(&cfg);
 		}
 	      arg_start = cp + 1;
 	    }
@@ -302,13 +731,18 @@ main(int argc, char *argv[])
 	}
     }
 
-  // XXX for ifcfg, we don't know if necessary
-  r = create_netdev_files(output_dir);
-  if (r < 0)
+  for (int i = 0; i < used_configs; i++)
+    write_network_config(output_dir, i+1, &configs[i]);
+
+  if (nr_vlanids > 0)
     {
-      fprintf(stderr, "Error writing .netdev files: %s\n",
-	      strerror(-r));
-      return -r;
+      r = write_netdev_config(output_dir);
+      if (r < 0)
+	{
+	  fprintf(stderr, "Error writing .netdev files: %s\n",
+		  strerror(-r));
+	  return -r;
+	}
     }
 
   return 0;

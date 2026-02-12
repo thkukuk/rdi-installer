@@ -2,7 +2,10 @@
 
 #pragma once
 
-extern int parse_ip_arg(const char *output_dir, int nr, const char *arg);
-extern int parse_nameserver_arg(const char *output_dir, int nr, const char *arg);
-extern int parse_rd_route_arg(const char *output_dir, int nr, const char *arg);
-extern int parse_rd_peerdns_arg(const char *output_dir, int nr, const char *arg);
+#include "rdii-networkd.h"
+
+extern int parse_ip_arg(int nr, char *arg, ip_t *cfg);
+extern int parse_nameserver_arg(int nr, char *arg, ip_t *cfg);
+extern int parse_rd_route_arg(int nr, char *arg, ip_t *cfg);
+extern int parse_rd_peerdns_arg(int nr, char *arg, ip_t *cfg);
+extern int parse_vlan_arg(int nr, char *arg, ip_t *cfg);
