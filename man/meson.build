@@ -22,9 +22,9 @@ custom_target('keywait.1',
               install : want_man,
               install_dir : mandir1)
 
-custom_target('ifcfg-networkd.8',
-              input : 'ifcfg-networkd.8.xml',
-              output : 'ifcfg-networkd.8',
+custom_target('rdii-networkd.8',
+              input : 'rdii-networkd.8.xml',
+              output : 'rdii-networkd.8',
               command : xslt_cmd + [custom_man_xsl, '@INPUT@'],
               install : want_man,
               install_dir : mandir8)

@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<refentry xmlns="http://docbook.org/ns/docbook" version="5.0" xml:id="rdii-networkd" xml:lang="en">
+  <refmeta>
+    <refentrytitle>rdii-networkd</refentrytitle>
+    <manvolnum>8</manvolnum>
+    <refmiscinfo class="source">rdi-installer %version%</refmiscinfo>
+    <refmiscinfo class="manual">rdii-networkd</refmiscinfo>
+  </refmeta>
+
+  <refnamediv>
+    <refname>rdii-networkd</refname>
+    <refname>rdii-networkd.service</refname>
+    <refpurpose>Generate systemd-networkd configuration from rdi-installer config</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>rdii-networkd.service</command>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>rdii-networkd</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt" rep="repeat"><replaceable>CMDLINE_ARGS</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      <command>rdii-networkd</command> is a tool which parses network
+      configuration parameters and generates transient configuration files for
+      <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
+    <para>
+      It primarily handles the dracut-style network options: <option>ip=</option>, <option>nameserver=</option>,
+      <option>rd.route=</option>, <option>rd.peerdns=</option>, and <option>vlan=</option> (as defined in
+      <citerefentry><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
+      but also supports the openSUSE <literal>linuxrc</literal> style <option>ifcfg=</option> option.
+    </para>
+    <para>
+      The program processes input in the following order:
+      <orderedlist>
+        <listitem><para>Configuration file (specified by <option>--config</option>)</para></listitem>
+        <listitem><para>Command line arguments</para></listitem>
+        <listitem><para><filename>/proc/cmdline</filename> (kernel boot parameters)</para></listitem>
+      </orderedlist>
+    </para>
+    <para>
+      <emphasis role="bold">Note:</emphasis> The dracut-style options
+      (<option>ip=</option>, etc.) are <emphasis>not</emphasis> evaluated
+      when reading from <filename>/proc/cmdline</filename> by default, because
+      <citerefentry><refentrytitle>systemd-network-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      handles them already. To force evaluation of these options from the
+      kernel command line, the <option>--parse-all</option> option must be
+      specified. However, these options are always evaluated if they appear
+      in a config file or as direct arguments to the command.
+    </para>
+    <para>
+      Generated
+      <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+      <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      files are written to <filename>/run/systemd/network/</filename> by default,
+      or to the directory specified by <option>--output</option>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>-a</option>, <option>--parse-all</option></term>
+        <listitem>
+          <para>
+            Parse all network options (including <option>ip=</option>,
+	    <option>vlan=</option>, etc.) when reading from
+            <filename>/proc/cmdline</filename>. Without this option, only
+	    <option>ifcfg=</option> is parsed from the kernel command line.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-c</option>, <option>--config</option> <replaceable>FILE</replaceable></term>
+        <listitem>
+          <para>
+	    Read configuration from the specified <replaceable>FILE</replaceable>
+	    if that exists. Else this it's ignored.
+	    The file contains the same options as used for the kernel
+	    command line. Every line contains one option, unknown options
+	    are ignored.
+	  </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-d</option>, <option>--debug</option></term>
+        <listitem>
+          <para>
+	    Write the generated configuration to standard output instead of
+	    writing files to disk.
+	  </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-o</option>, <option>--output</option> <replaceable>DIRECTORY</replaceable></term>
+        <listitem>
+          <para>
+            Directory in which to write the generated configuration files.
+            Defaults to <filename>/run/systemd/network/</filename>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--verify</option></term>
+        <listitem>
+          <para>
+	    Verify the syntax of the input without writing any configuration files.
+	    The first entry found with a syntax error will be printed to stderr.
+	  </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-h</option>, <option>--help</option></term>
+        <listitem>
+          <para>Print a help message and exit.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-v</option>, <option>--version</option></term>
+        <listitem>
+          <para>Print the program version and exit.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Dracut Network Configuration Syntax</title>
+    <para>
+      The following options are supported:
+    </para>
+    <variablelist>
+      <varlistentry>
+	<term><option>ip=</option>{dhcp|on|any|dhcp6|auto6|either6|link6|single-dhcp}</term>
+      </varlistentry>
+      <varlistentry>
+	<term><option>ip=</option><replaceable>interface</replaceable>:{dhcp|on|any|dhcp6|auto6|link6}[:[mtu][:macaddr]]</term>
+      </varlistentry>
+      <varlistentry>
+	<term><option>ip=</option>client-IP:[peer]:gateway-IP:netmask:client_hostname:interface:{none|off|dhcp|on|any|dhcp6|auto6|ibft}[:[mtu][:macaddr]]</term>
+      </varlistentry>
+      <varlistentry>
+	<term><option>ip=</option>client-IP:[peer]:gateway-IP:netmask:client_hostname:interface:{none|off|dhcp|on|any|dhcp6|auto6|ibft}[:[dns1[:dns2]][:ntp]]</term>
+      </varlistentry>
+      <varlistentry>
+	<term><option>nameserver=</option>IP</term>
+      </varlistentry>
+      <varlistentry>
+	<term><option>rd.peerdns=</option>0</term>
+      </varlistentry>
+      <varlistentry>
+	<term><option>rd.route=</option>net/netmask:gateway[:interface]</term>
+      </varlistentry>
+      <varlistentry>
+	<term><option>vlan=</option>vlanname:phydevice</term>
+      </varlistentry>
+    </variablelist>
+    <para>
+      For details on this options, please refer to
+      <citerefentry><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>IFCFG Command Line Syntax</title>
+    <para>
+      The syntax below describes the <option>ifcfg</option> option used by openSUSE's <literal>linuxrc</literal>.
+    </para>
+
+    <refsect2>
+      <title>DHCP Configuration</title>
+      <para>
+        <synopsis>ifcfg=<replaceable>interface</replaceable>=dhcp*[,rfc2132]</synopsis>
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><literal>dhcp</literal></term>
+          <listitem><para>Enables both IPv4 and IPv6 DHCP.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>dhcp4</literal></term>
+          <listitem><para>Enables only IPv4 DHCP.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>dhcp6</literal></term>
+          <listitem><para>Enables only IPv6 DHCP.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>rfc2132</literal></term>
+          <listitem>
+            <para>
+              Configures the DHCP client to send the MAC address as the client identifier.
+              This maps to <literal>ClientIdentifier=mac</literal> in the generated systemd configuration.
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Static Configuration</title>
+      <para>
+        <synopsis>ifcfg=<replaceable>interface</replaceable>=<replaceable>IP_LIST</replaceable>,<replaceable>GW_LIST</replaceable>,<replaceable>DNS_LIST</replaceable>,<replaceable>DOMAIN_LIST</replaceable></synopsis>
+      </para>
+      <para>
+        Lists (IPs, Gateways, DNS, Domains) are space-separated. If a list contains spaces,
+        the entire <option>ifcfg</option> string must be quoted on the kernel command line.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><replaceable>IP_LIST</replaceable></term>
+          <listitem><para>IP addresses in <literal>address/prefix</literal> notation (e.g., <literal>192.168.1.5/24</literal>).</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>GW_LIST</replaceable></term>
+          <listitem><para>List of default gateways.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><replaceable>DNS_LIST</replaceable></term>
+          <listitem><para>List of DNS servers.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Interface Specifications</title>
+      <para>
+        The <replaceable>interface</replaceable> specifier supports:
+      </para>
+      <itemizedlist>
+        <listitem><para>Exact interface names (e.g., <literal>eth0</literal>).</para></listitem>
+        <listitem><para>Exact interface names with .VlanID for vlan (e.g., <literal>eth0.vlanid</literal>).</para></listitem>
+        <listitem><para>MAC addresses (e.g., <literal>12:34:56:78:9A:BC</literal>).</para></listitem>
+        <listitem><para>Shell globs (e.g., <literal>eth*</literal>, <literal>*:BC</literal>).</para></listitem>
+      </itemizedlist>
+      <para>
+	Vlans can be setup by adding a vlan id to the <replaceable>interface</replaceable>
+	(e.g., <literal>eth0.vlanid</literal>). The interface will be configured for
+	'tagged only' setups.
+      </para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para>Run DHCP on <literal>eth0</literal>:</para>
+    <programlisting>ifcfg=eth0=dhcp</programlisting>
+
+    <para>Run DHCP on all interfaces matching the glob <literal>eth*</literal>:</para>
+    <programlisting>ifcfg=eth*=dhcp</programlisting>
+
+    <para>Configure a specific MAC address via DHCP using RFC2132 client ID:</para>
+    <programlisting>ifcfg=00:11:22:33:44:55=dhcp,rfc2132</programlisting>
+
+    <para>Static configuration (requires quoting on kernel command line due to spaces):</para>
+    <programlisting>ifcfg="eth1=192.168.0.2/24 192.168.10.12/24,192.168.0.1,8.8.8.8,mydomain.com"</programlisting>
+
+    <para>Manually testing a config file with dracut options:</para>
+    <programlisting>rdii-networkd -c myconfig.txt --debug</programlisting>
+
+    <para>Forcing evaluation of dracut options from the kernel command line:</para>
+    <programlisting>rdii-networkd --parse-all</programlisting>
+  </refsect1>
+
+  <refsect1>
+    <title>Files</title>
+    <variablelist>
+      <varlistentry>
+        <term><filename>/proc/cmdline</filename></term>
+        <listitem><para>Read to obtain kernel boot parameters (evaluated last).</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>/run/systemd/network/6?-rdii-*.*</filename></term>
+        <listitem>
+	  <para>
+	    Generated configuration files. These files are transient
+	    and will be lost on reboot.
+	  </para>
+	</listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit Status</title>
+    <para>
+      <command>rdii-networkd</command> returns 0 on success, or a corresponding errno code on failures.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-network-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
