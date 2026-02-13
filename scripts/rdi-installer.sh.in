@@ -81,7 +81,7 @@ fi
 # Initialize some defaults
 #
 # Read current KEYMAP from /etc/vconsole.conf
-DEFAULT_KEYMAP="us"
+DEFAULT_KEYMAP=""
 VCONSOLE_FILE="/etc/vconsole.conf"
 RDII_CONFIG_FILE="/run/rdi-installer/rdii-config"
 TARGET_DEVICE=""
@@ -127,6 +127,10 @@ elif [ -n "$CONFIG_KEYMAP" ]; then
     DEFAULT_KEYMAP="$CONFIG_KEYMAP"
 fi
 
+# set keymap
+if [ -n "$DEFAULT_KEYMAP" ]; then
+    loadkeys "$DEFAULT_KEYMAP"
+fi
 
 case $TERM in
     xterm-*)
@@ -155,7 +159,8 @@ gum style \
     --foreground "$COLOR_LIGHT_FOREGROUND" \
     "Raw Disk Image Installer ${VERSION}"
 
-gum spin "$SPINNER" --title.foreground="$COLOR_TITLE" --title="Press any key to continue or wait 5s..." -- $KEYWAIT -t ""
+# shellcheck disable=SC2086
+gum spin $SPINNER --title.foreground="$COLOR_TITLE" --title="Press any key to continue or wait 5s..." -- $KEYWAIT -t ""
 
 # We quit if user hits ESC, Ctrl-C or selects Install/Abort
 while true; do
@@ -250,7 +255,15 @@ if gum confirm \
 # Check for URLs (http, https, ftp)
 if [[ "$SOURCE_IMAGE" =~ ^(https?|ftp):// ]]; then
     echo "URL Detected: $SOURCE_IMAGE" | gum style --foreground "$COLOR_TEXT"
-    if ! curl -L -C - --fail --retry 5 --no-progress-meter "$SOURCE_IMAGE" | dd of="$TARGET_DEVICE" status=progress conv=fsync oflag=direct; then
+    curl -L -C - --fail --retry 5 --no-progress-meter "$SOURCE_IMAGE" | dd of="$TARGET_DEVICE" status=progress conv=fsync oflag=direct
+    exit_codes=("${PIPESTATUS[@]}")
+    curl_status=${exit_codes[0]}
+    dd_status=${exit_codes[1]}
+    if [ "$curl_status" -ne 0 ]; then
+	echo "Error: Download failed with exit code $curl_status"
+    	$KEYWAIT -s 0
+    elif [ "$dd_status" -ne 0 ]; then
+	echo "Error: Write to device failed with exit code $dd_status"
 	$KEYWAIT -s 0
     fi
 else
@@ -279,7 +292,8 @@ else
     fi
 
     if [ -n "$RDII_DEBUG" ]; then
-	gum spin "$SPINNER" --title.foreground="$COLOR_TITLE" --title="NOTHING WILL HAPPEN - Press any key to continue or wait 10s..." -- $KEYWAIT -t "" -s 10
+	# shellcheck disable=SC2086
+	gum spin $SPINNER --title.foreground="$COLOR_TITLE" --title="NOTHING WILL HAPPEN - Press any key to continue or wait 10s..." -- $KEYWAIT -t "" -s 10
     else
 	# Write the image
 	if ! pv "$IMAGE_TO_WRITE" | dd of="$TARGET_DEVICE" bs=4M conv=fsync oflag=direct ; then
