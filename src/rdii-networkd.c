@@ -443,13 +443,14 @@ print_usage(FILE *stream)
 static void
 print_help(void)
 {
-  fprintf(stdout, "rdii-networkd - create networkd config from cmdline\n\n");
+  fprintf(stdout, "rdii-networkd - create networkd config files\n\n");
   print_usage(stdout);
 
-  fputs("  -a, --parse-all      Parse all network options on cmdline\n", stdout);
+  fputs("  -a, --parse-all      Parse all network options from kernel cmdline\n", stdout);
   fputs("  -c, --config <file>  File with configuration\n", stdout);
   fputs("  -d, --debug          Write config to stdout\n", stdout);
   fputs("  -o, --output         Directory in which to write config\n", stdout);
+  fputs("      --verify         Verify input, don't write config\n", stdout);
   fputs("  -h, --help           Give this help list\n", stdout);
   fputs("  -v, --version        Print program version\n", stdout);
 }
@@ -472,6 +473,7 @@ main(int argc, char *argv[])
   const char *cfgfile = NULL;
   struct stat st;
   bool parse_all = false;
+  bool verify_only = false;
   int r;
 
   while (1)
@@ -484,6 +486,7 @@ main(int argc, char *argv[])
           {"debug",     no_argument,       NULL, 'd' },
 	  {"output",    required_argument, NULL, 'o' },
 	  {"parse-all", no_argument,       NULL, 'a' },
+	  {"verify",    no_argument,       NULL, '\254' },
 	  {"help",      no_argument,       NULL, 'h' },
           {"version",   no_argument,       NULL, 'v' },
           {NULL,        0,                 NULL, '\0'}
@@ -507,6 +510,9 @@ main(int argc, char *argv[])
           break;
 	case 'o':
 	  output_dir = optarg;
+	  break;
+	case '\254':
+	  verify_only = true;
 	  break;
         case 'h':
           print_help();
@@ -731,6 +737,9 @@ main(int argc, char *argv[])
 	}
       cp++;
     }
+
+  if (verify_only) // don't write configs
+    return 0;
 
   // write networkd config files
   for (int i = 0; i < used_configs; i++)
