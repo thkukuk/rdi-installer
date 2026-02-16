@@ -8,18 +8,23 @@ IMAGE_SDBOOT="${IMAGE_ID}-sdboot-${IMAGE_VERSION}.${ARCHITECTURE}"
 
 echo "mkosi.postoutput ${IMAGE}" "$@"
 
-# Hack for OBS: it redefines the output directory
+# Hack for OBS: it redefines the directories
 if [ -d mkosi.output ]; then
 	BOOTLOADER_DIR="mkosi.output/bootloader"
 else
 	BOOTLOADER_DIR="/usr/src/packages/OTHER/bootloader"
+fi
+if [ -d scripts ]; then
+	SCRIPTS_DIR="scripts"
+else
+	SCRIPTS_DIR="/usr/src/packages/SOURCES/rdii-mkosi-config/scripts"
 fi
 
 # UKI
 echo "Building ${IMAGE_UKI}.img"
 case $ARCHITECTURE in
     x86-64)
-	scripts/create_uefi_usbstick.sh "${OUTPUTDIR}/${IMAGE_UKI}.img"
+	"${SCRIPTS_DIR}/create_uefi_usbstick.sh" "${OUTPUTDIR}/${IMAGE_UKI}.img"
 	mmd -i "${OUTPUTDIR}/${IMAGE_UKI}.img"@@1048576 EFI EFI/BOOT
 	mcopy -i "${OUTPUTDIR}/${IMAGE_UKI}.img"@@1048576 "${OUTPUTDIR}/${IMAGE}.efi" ::EFI/BOOT/BOOTX64.EFI
 	;;
@@ -50,7 +55,7 @@ title Memtest86+
 efi   /memtest86+/memtest.efi
 EOF
 	# create image
-	scripts/create_uefi_usbstick.sh "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"
+	"${SCRIPTS_DIR}/create_uefi_usbstick.sh" "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"
 	# copy files to image
 	mmd -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 EFI EFI/BOOT loader loader/entries "$KERNEL_VERSION" memtest86+
 	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${BOOTLOADER_DIR}/usr/share/efi/x86_64/shim.efi" ::EFI/BOOT/BOOTX64.EFI
