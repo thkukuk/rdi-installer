@@ -9,12 +9,13 @@ that hardware.
 
 This project will build the folowing images:
 
-* `rdi-installer-<version>.<arch>.efi` is an EFI binary file that can be stored on an ESP partition and booted directly from the UEFI firmware.
-* `rdi-installer-<version>.<arch>.img` is a disk image which can be written to an USB stick and contains the EFI binary file. There is a script [add_extra_partition.sh](images/scripts/add_extra_partition.sh) with extends the image with an additional partition. This can be used to create a parition `images`, on which raw disk images can be copied and the installer will automatically mount the partition and provides the images on it as installation source. Or a `combustion` partition with a combustion config to personalize the image later. The script can create as many partitions with a filesystem, label and size as needed.
-* `rdi-installer-<version>.<arch>.efi` is a disk image which can be written to an USB stick and uses `systemd-boot` as bootloader with the classical linux kernel and initrd setup. This image allows to modify the kernel cmdline.
+* `rdi-installer-<version>.<arch>.efi` is an EFI binary file that can be stored on an ESP partition, on a tftpboot server or on a http server and booted directly from the UEFI firmware from disk, PXE or HTTP boot.
+* `rdi-installer-sdboot-<version>.<arch>.img` is a disk image which can be written to an USB stick and uses `systemd-boot` as bootloader with the classical linux kernel and initrd setup. This image allows to modify the kernel cmdline. There is a script [add_extra_partition.sh](images/scripts/add_extra_partition.sh) with extends the image with an additional partition. This can be used to create a parition `images`, on which raw disk images can be copied and the installer will automatically mount the partition and provides the images on it as installation source. Or a `combustion` partition with a combustion config to personalize the image later. The script can create as many partitions with a filesystem, label and size as needed.
+
+Images will be build in the [home:kukuk:mkosi-images](https://build.opensuse.org/project/monitor/home:kukuk:mkosi-images) OBS project.
 
 **Secure Boot:**
-Currently Secure Boot needs be disabled, since the EFI binary file is not signed with the Microsoft Key.
+The `rdi-installer-sdboot-<version>.<arch>.img` image uses `shim` and `systemd-boot` signed with official keys. The EFI binary is signed with the deel project key. To be able to boot it the key of the devel project needs to be enrolled in the UEFI firmware.
 
 ## Options
 
@@ -33,17 +34,24 @@ The options can be provided either via the kernel cmdline during boot or with a 
 Simple utility that pauses execution until the user presses a key
 or a specified timeout period elapses, whichever happens first.
 
-### ifcfg-networkd
+### rdii-networkd
 
-`ifcfg-networkd` is a systemd service, which parses network configuration
-parameters passed via the kernel command line (specifically the openSUSE
-linuxrc style **ifcfg** option) and generates transient configuration files
-for `systemd-networkd`(8).
+`rdii-networkd` is a systemd service which parses network configuration
+parameters and generates transient configuration files for
+[systemd-networkd(8)](https://manpages.opensuse.org/systemd-networkd.8).
 
-The program reads from `/proc/cmdline` by default. It looks for all occurrences
-of `ifcfg=`, parses the arguments according to the syntax defined below, and writes
-corresponding `.network` files to `/run/systemd/network/`.
+The program processes input in the following order:
 
+1. Configuration file (specified by --config)
+2. Command line arguments
+3. /proc/cmdline (kernel boot parameters)
+
+Note: The dracut-style options (**ip=**, etc.) are not evaluated when
+reading from `/proc/cmdline` by default, because
+[systemd-network-generator(8)](https://manpages.opensuse.org/systemd-network-generator.8)
+handles them already.
+
+#### ifcfg option
 
 * DHCP Configuration: `ifcfg=interface=dhcp*[,rfc2132]`
     * dhcp - Enables both IPv4 and IPv6 DHCP.
