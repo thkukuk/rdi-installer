@@ -9,6 +9,8 @@ build
 *~
 mkosi.log
 mkosi.output
+mkosi.crt
+mkosi.key
 *.raw
 *.efi
 *.manifest
