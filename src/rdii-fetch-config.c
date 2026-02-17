@@ -3,8 +3,10 @@
 #include "config.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <getopt.h>
+#include <sys/sendfile.h>
 #include <curl/curl.h>
 
 #include "basics.h"
@@ -73,13 +75,6 @@ replace_suffix(const char *str, const char *suffix,
 
   return 0;
 }
-#include <fcntl.h>      // For open()
-#include <unistd.h>     // For close(), unlink()
-#include <sys/sendfile.h> // For sendfile()
-#include <sys/stat.h>   // For fstat()
-#include <sys/types.h>
-#include <stdio.h>
-#include <errno.h>
 
 static int
 copy_file(const char *src, const char *dst)
