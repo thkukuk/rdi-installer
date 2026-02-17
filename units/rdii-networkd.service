@@ -7,7 +7,7 @@ Before= systemd-networkd.service sshd.service getty.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/usr/bin/rdii-networkd
+ExecStart=/usr/bin/rdii-networkd --config=/run/rdi-installer/rdii-config
 
 [Install]
 WantedBy=multi-user.target
