@@ -8,8 +8,6 @@ IMAGE_SDBOOT="${IMAGE_ID}-sdboot-${IMAGE_VERSION}.${ARCHITECTURE}"
 
 echo "mkosi.postoutput ${IMAGE}" "$@"
 
-exit 0
-
 # Hack for OBS: it redefines the directories
 if [ -d mkosi.output ]; then
 	BOOTLOADER_DIR="mkosi.output/bootloader"
