@@ -3,7 +3,6 @@
 set -e
 
 IMAGE="${IMAGE_ID}-${IMAGE_VERSION}.${ARCHITECTURE}"
-IMAGE_UKI="${IMAGE_ID}-UKI-${IMAGE_VERSION}.${ARCHITECTURE}"
 IMAGE_SDBOOT="${IMAGE_ID}-sdboot-${IMAGE_VERSION}.${ARCHITECTURE}"
 
 echo "mkosi.postoutput ${IMAGE}" "$@"
@@ -19,19 +18,6 @@ if [ -d scripts ]; then
 else
 	SCRIPTS_DIR="/usr/src/packages/SOURCES/rdii-mkosi-config/scripts"
 fi
-
-# UKI
-echo "Building ${IMAGE_UKI}.img"
-case $ARCHITECTURE in
-    x86-64)
-	"${SCRIPTS_DIR}/create_uefi_usbstick.sh" "${OUTPUTDIR}/${IMAGE_UKI}.img"
-	mmd -i "${OUTPUTDIR}/${IMAGE_UKI}.img"@@1048576 EFI EFI/BOOT
-	mcopy -i "${OUTPUTDIR}/${IMAGE_UKI}.img"@@1048576 "${OUTPUTDIR}/${IMAGE}.efi" ::EFI/BOOT/BOOTX64.EFI
-	;;
-    *)
-	echo "Unsupported architecture: '$ARCHITECTURE'" >&2
-	echo "No raw disk image will be generated." >&2
-esac
 
 # shim + systemd-boot
 echo "Building ${IMAGE_SDBOOT}.img"
