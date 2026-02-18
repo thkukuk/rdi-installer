@@ -77,6 +77,12 @@ executable('rdii-fetch-config',
            dependencies : [libcurl],
            install : true)
 
+rdii_helper_c = ['src/rdii-helper.c', 'src/efivars.c']
+executable('rdii-helper',
+           rdii_helper_c,
+           include_directories : inc,
+           install : true)
+
 rdi_installer = configure_file(
   input: 'scripts/rdi-installer.sh.in',
   output: 'rdi-installer',

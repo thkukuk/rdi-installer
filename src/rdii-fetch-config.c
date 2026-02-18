@@ -114,9 +114,7 @@ copy_file(const char *src, const char *dst)
 int
 main(int argc, char **argv)
 {
-  _cleanup_free_ char *loader_url = NULL;
-  _cleanup_free_ char *loader_dev = NULL;
-  _cleanup_free_ char *loader_img = NULL;
+  _cleanup_efivars_ efivars_t *efi = NULL;
   _cleanup_free_ char *cfgfile = NULL;
   const char *arg_url = NULL;
   bool no_network = false;
@@ -214,13 +212,13 @@ main(int argc, char **argv)
   else
     {
       // no url provided, try to guess one based on EFI boot values
-      r = efi_get_boot_source(&loader_url, &loader_dev, &loader_img);
+      r = efi_get_boot_source(&efi);
       if (r < 0)
 	{
 	  fprintf(stderr, "Couldn't get boot source: %s\n", strerror(-r));
 	  return -r;
 	}
-      if (!isempty(loader_url))
+      if (!isempty(efi->url))
 	{
 	  _cleanup_free_ char *config_url = NULL;
 
@@ -230,7 +228,7 @@ main(int argc, char **argv)
 	      return 0;
 	    }
 
-	  r = replace_suffix(loader_url, ".efi", ".rdii-config", &config_url);
+	  r = replace_suffix(efi->url, ".efi", ".rdii-config", &config_url);
 	  if (r < 0)
 	    {
 	      fprintf(stderr, "Error in string manipulation: %s\n",
@@ -247,12 +245,12 @@ main(int argc, char **argv)
 	      return -r;
 	    }
 	}
-      else if (!isempty(loader_dev) && !isempty(loader_img))
+      else if (!isempty(efi->device) && !isempty(efi->image))
 	{
 	  _cleanup_free_ char *src_cfg = NULL;
 	  _cleanup_free_ char *mod_img_name = NULL;
 
-	  r = replace_suffix(loader_img, ".efi", ".rdii-config", &mod_img_name);
+	  r = replace_suffix(efi->image, ".efi", ".rdii-config", &mod_img_name);
 	  if (r < 0)
 	    {
 	      fprintf(stderr, "Error in string manipulation: %s\n",
@@ -284,6 +282,11 @@ main(int argc, char **argv)
 		  return -r;
 		}
 	    }
+	}
+      else if (efi->is_pxe_boot)
+	{
+	  printf("PXE Boot (%s), fetching config not possible.\n",
+		 efi->entry);
 	}
       else
 	{
