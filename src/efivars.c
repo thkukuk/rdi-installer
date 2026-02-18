@@ -428,7 +428,8 @@ parse_device_path(char *data, size_t limit, efivars_t **res)
       offset += head->length;
     }
 
-  if (isempty(loader_url) && isempty(loader_dev) && isempty(loader_img))
+  if (isempty(loader_url) && isempty(loader_dev) && isempty(loader_img) &&
+      !pxe_boot)
     return -ENOENT;
 
   (*res)->url = TAKE_PTR(loader_url);
@@ -513,10 +514,7 @@ efi_boot_current(efivars_t **res)
     }
 
   if (offset < size)
-    {
-      parse_device_path(data + offset, size - offset, res);
-      return 0;
-    }
+    return parse_device_path(data + offset, size - offset, res);
 
   return -ENOENT;
 }
