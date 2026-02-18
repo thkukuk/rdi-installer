@@ -3,7 +3,7 @@ Description=Fetch rdi-installer config (early, local disk only)
 After=local-fs.target
 Wants=network-pre.target
 Before=network-pre.target
-Before=ifcfg-networkd.service rdii-ssh-setup.service
+Before=rdii-networkd.service rdii-ssh-setup.service
 Before=sshd.service getty.target
 
 [Service]
