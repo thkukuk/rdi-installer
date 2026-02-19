@@ -59,6 +59,7 @@ rdiidir = join_paths(prefixdir, get_option('libexecdir'), 'rdi-installer')
 systemunitdir = join_paths(prefixdir, 'lib/systemd/system')
 
 libcurl = dependency('libcurl', required: true)
+libudev = dependency('libudev', required: true)
 
 executable('rdii-networkd', 'src/rdii-networkd.c', 'lib/mkdir_p.c',
            'lib/string-util-fundamental.c', 'src/ip.c', 'src/ifcfg.c',
@@ -77,10 +78,12 @@ executable('rdii-fetch-config',
            dependencies : [libcurl],
            install : true)
 
-rdii_helper_c = ['src/rdii-helper.c', 'src/efivars.c']
+rdii_helper_c = ['src/rdii-helper.c', 'src/efivars.c',
+           'lib/string-util-fundamental.c']
 executable('rdii-helper',
            rdii_helper_c,
            include_directories : inc,
+           dependencies: [libudev],
            install : true)
 
 rdi_installer = configure_file(

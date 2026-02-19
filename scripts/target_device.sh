@@ -4,46 +4,15 @@
 
 select_target_device()
 {
-    local MIN_SIZE_BYTES
-    local SCRIPT_DIR
-
-    # Minimale größe einer Festplatte
-    MIN_SIZE_BYTES=10000000000 # 10GB
-
-    # Identify current device, it cannot be used as target device
-    # XXX Must be better doable...
-    SCRIPT_DIR=$(dirname "$(realpath "$0")")
-    CURRENT_PARTITION=$(df --output=source "$SCRIPT_DIR" | tail -n 1)
-    # Avoid that lsblk prints on error message about known rootfs
-    if [ "$CURRENT_PARTITION" != "rootfs" ]; then
-	CURRENT_DISK_NAME=$(lsblk -no pkname "$CURRENT_PARTITION")
-    fi
-    [ -z "$CURRENT_DISK_NAME" ] && CURRENT_DISK_NAME=$(basename "$CURRENT_PARTITION")
+    local DEVICE_LIST
 
     # Find all storage devices
-    local DEVICE_LIST=""
-
-    while read -r dev size_bytes type transport model; do
-	if [[ "$type" != "disk" ]]; then continue; fi
-	if [[ "$dev" == *"$CURRENT_DISK_NAME"* ]]; then continue; fi
-	if [ "$size_bytes" -lt "$MIN_SIZE_BYTES" ]; then continue; fi
-
-	human_size=$(numfmt --to=iec --suffix=B "$size_bytes")
-	[ -z "$model" ] && model="Unknown"
-
-	DEVICE_LIST+="$dev  - $model ($transport, $human_size)\n"
-    done < <(lsblk -dnp -b -o NAME,SIZE,TYPE,TRAN,MODEL)
+    DEVICE_LIST=$("$RDII_HELPER" disk)
 
     if [ -z "$DEVICE_LIST" ]; then
-	gum style --foreground="$COLOR_WARNING" "No suitable drives >10GB found."
+	gum style --foreground="$COLOR_WARNING" "No suitable drives found, collecting all available devices."
 	$KEYWAIT -s 0
-	if [ -z "$RDII_DEBUG" ]; then
-	    return
-	else
-	    DEVICE_LIST="/dev/dummy0 - DUMMY (none, 999TB)\n"
-	    DEVICE_LIST+="/dev/dummy1 - DUMMY (none, 20GB)\n"
-	    clear_and_print_title
-	fi
+	DEVICE_LIST=$("$RDII_HELPER" disk --all)
     fi
 
     SELECTION_STRING=$(echo -e "$DEVICE_LIST" | \

@@ -41,6 +41,7 @@ trap cleanup EXIT
 
 if [ -z "$RDII_DEBUG" ]; then
     KEYWAIT=keywait
+    RDII_HELPER=rdii-helper
 
     # shellcheck source=../scripts/keymap.sh
     source @RDIIDIR@/keymap.sh
@@ -52,6 +53,7 @@ if [ -z "$RDII_DEBUG" ]; then
     source @RDIIDIR@/system_info.sh
 else
     KEYWAIT=./keywait
+    RDII_HELPER=./rdii-helper
 
     source ../scripts/keymap.sh
     source ../scripts/target_device.sh
