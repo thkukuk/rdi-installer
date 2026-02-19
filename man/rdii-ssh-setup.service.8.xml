@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<refentry xmlns="http://docbook.org/ns/docbook" version="5.0" xml:id="rdii-ssh-setup.service" xml:lang="en">
+  <refmeta>
+    <refentrytitle>rdii-ssh-setup.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+    <refmiscinfo class="source">rdi-installer %version%</refmiscinfo>
+    <refmiscinfo class="manual">rdii-ssh-setup.service</refmiscinfo>
+  </refmeta>
+
+  <refnamediv>
+    <refname>rdii-ssh-setup.service</refname>
+    <refpurpose>Dynamically configure SSH access at boot via transient configs and kernel parameters</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      <command>rdii-ssh-setup.service</command> is a systemd service calling
+      a script to parse a transient configuration file
+      (<filename>/run/rdi-installer/rdii-config</filename>) and the Linux
+      kernel command line (<filename>/proc/cmdline</filename>) at boot time.
+    </para>
+    <para>
+      This service allows for the dynamic provisioning of SSH access by enabling the SSH daemon,
+      setting the root password, and injecting SSH public keys directly through boot parameters.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Security Warning</title>
+    <para>
+      <emphasis role="bold">Plaintext Passwords:</emphasis> Passing <literal>ssh.password</literal>
+      via the kernel command line is highly insecure. The password can be read by any local user
+      by inspecting <filename>/proc/cmdline</filename> and may also appear in system logs or boot
+      loaders. Always use <literal>ssh.key</literal> for public key authentication whenever possible.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Boot Parameters</title>
+    <para>The service looks for the following parameters to configure SSH behavior:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>ssh=1</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> 0/1
+          </para>
+          <para>
+            Enables and starts the <literal>sshd</literal> service immediately during the boot process.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>ssh.key</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> Base64 Encoded
+          </para>
+          <para>
+            Decodes the provided Base64 string and appends the resulting SSH public key to
+            <filename>/root/.ssh/authorized_keys</filename>. Recommended for secure access.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>ssh.password</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> Plaintext
+          </para>
+          <para>
+            <emphasis role="bold">(Insecure)</emphasis> Sets the system's root password to the provided
+            string and modifies the SSH daemon configuration to set <option>PermitRootLogin yes</option>.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Files</title>
+    <variablelist>
+      <varlistentry>
+        <term><filename>/run/rdi-installer/rdii-config</filename></term>
+        <listitem>
+          <para>The transient configuration file parsed by the script at boot.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>/proc/cmdline</filename></term>
+        <listitem>
+          <para>The Linux kernel command line parsed for the parameters described above.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+</refentry>
