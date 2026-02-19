@@ -24,6 +24,7 @@ bool debug = false;
 
 /* Configuration */
 #define CMDLINE_PATH "/proc/cmdline"
+#define RUN_RDII_CONFIG   "/run/rdi-installer/rdii-config"
 
 #define IP_PREFIX   "66-ip" // XXX replace with 66-rdii
 #define NETDEV_PREFIX "62-rdii"
@@ -546,6 +547,10 @@ main(int argc, char *argv[])
 	  return r;
 	}
     }
+
+  if (isempty(cfgfile) &&
+      access(RUN_RDII_CONFIG, F_OK) == 0)
+    cfgfile = RUN_RDII_CONFIG;
 
   if (!isempty(cfgfile))
     {

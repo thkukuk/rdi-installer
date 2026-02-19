@@ -38,12 +38,14 @@
       but also supports the openSUSE <literal>linuxrc</literal> style <option>ifcfg=</option> option.
     </para>
     <para>
-      The program processes input in the following order:
+      The program searches for input in the following order and stops at the first one found:
       <orderedlist>
-        <listitem><para>Configuration file (specified by <option>--config</option>)</para></listitem>
+	<listitem><para>Configuration file (specified by <option>--config</option>)</para></listitem>
+        <listitem><para>Transient configuration file <filename>/run/rdi-installer/rdii-config</filename> created by <citerefentry><refentrytitle>rdii-fetch-config</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem>
         <listitem><para>Command line arguments</para></listitem>
         <listitem><para><filename>/proc/cmdline</filename> (kernel boot parameters)</para></listitem>
       </orderedlist>
+      If the specified configuration file is missing, this will result in a fatal error.
     </para>
     <para>
       <emphasis role="bold">Note:</emphasis> The dracut-style options
@@ -276,6 +278,10 @@
     <title>Files</title>
     <variablelist>
       <varlistentry>
+        <term><filename>/run/rdi-installer/rdii-config</filename></term>
+        <listitem><para>Transient configuration file.</para></listitem>
+      </varlistentry>
+      <varlistentry>
         <term><filename>/proc/cmdline</filename></term>
         <listitem><para>Read to obtain kernel boot parameters (evaluated last).</para></listitem>
       </varlistentry>
@@ -301,6 +307,7 @@
   <refsect1>
     <title>See Also</title>
     <para>
+      <citerefentry><refentrytitle>rdii-fetch-config</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-network-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
