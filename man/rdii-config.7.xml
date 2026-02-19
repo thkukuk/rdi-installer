@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<refentry xmlns="http://docbook.org/ns/docbook" version="5.0" xml:id="rdii-config" xml:lang="en">
+  <refmeta>
+    <refentrytitle>rdii-config</refentrytitle>
+    <manvolnum>7</manvolnum>
+    <refmiscinfo class="source">rdi-installer</refmiscinfo>
+    <refmiscinfo class="manual">rdii-config</refmiscinfo>
+  </refmeta>
+
+  <refnamediv>
+    <refname>rdii-config</refname>
+    <refpurpose>Configuration file for rdi-installer, rdii-networkd, and rdii-ssh-setup.service</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <filename>rdii-config</filename> file is a centralized configuration file utilized by the <command>rdi-installer</command> suite.
+      It is used by <command>rdi-installer</command>, <command>rdii-networkd</command>, and <command>rdii-ssh-setup.service</command> to provision installation targets, network interfaces, and remote SSH access.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Syntax</title>
+    <para>
+      The configuration file follows a simple syntax:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>One <literal>key=value</literal> parameter is defined per line.</para>
+      </listitem>
+      <listitem>
+        <para>Empty lines are ignored.</para>
+      </listitem>
+      <listitem>
+        <para>Everything behind the comment character <literal>#</literal> is ignored.</para>
+      </listitem>
+    </itemizedlist>
+  </refsect1>
+
+  <refsect1>
+    <title>Installer Options</title>
+    <para>
+      The following options are used specifically by <command>rdi-installer</command>:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><literal>rdii.url</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> HTTP URL
+          </para>
+          <para>
+            Specifies the URL under which the to-be-installed image can be downloaded.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>rdii.device</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> /dev/...
+          </para>
+          <para>
+            Specifies the target device on which the image should be installed.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>rdii.keymap</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> String (Name)
+          </para>
+          <para>
+            Configures the key mapping table for the keyboard.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Network Configuration Options</title>
+    <para>
+      Network settings are processed by <command>rdii-networkd</command> to generate transient configuration files for <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>. 
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><literal>ip=</literal></term>
+        <listitem>
+          <para>Dracut-style network option to configure IP addresses and interfaces.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>nameserver=</literal></term>
+        <listitem>
+          <para>Dracut-style network option to specify DNS servers.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>rd.peerdns=</literal></term>
+        <listitem>
+          <para>Dracut-style network option to manage peer DNS settings.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>rd.route=</literal></term>
+        <listitem>
+          <para>Dracut-style network option to configure static routing.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>vlan=</literal></term>
+        <listitem>
+          <para>Dracut-style network option to configure VLANs.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>ifcfg=</literal></term>
+        <listitem>
+          <para>openSUSE <literal>linuxrc</literal> style option to configure DHCP and static network interfaces.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>SSH Configuration Options</title>
+    <para>
+      SSH settings are processed dynamically at boot by <command>rdii-ssh-setup.service</command>.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><literal>ssh=</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> 0/1
+          </para>
+          <para>
+            Enables and starts the <literal>sshd</literal> service immediately during the boot process.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>ssh.key</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> Base64 Encoded
+          </para>
+          <para>
+            Decodes the provided Base64 string and appends the resulting SSH public key to <filename>/root/.ssh/authorized_keys</filename>. This is recommended for secure access.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>ssh.password</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> Plaintext
+          </para>
+          <para>
+            Sets the system's root password to the provided string and modifies the SSH daemon configuration to set <option>PermitRootLogin yes</option>.
+            <emphasis role="bold">Warning:</emphasis> Passing plaintext passwords via the kernel command line or config file can be highly insecure, as it may be read by local users inspecting <filename>/proc/cmdline</filename> or system logs.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>rdii-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>rdii-ssh-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
