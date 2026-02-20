@@ -79,7 +79,7 @@ executable('rdii-fetch-config',
            install : true)
 
 rdii_helper_c = ['src/rdii-helper.c', 'src/efivars.c',
-           'lib/string-util-fundamental.c']
+           'src/rdii-helper-disk.c', 'lib/string-util-fundamental.c']
 executable('rdii-helper',
            rdii_helper_c,
            include_directories : inc,
