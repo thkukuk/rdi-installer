@@ -104,12 +104,12 @@ main_boot(int argc, char **argv)
       return -r;
     }
 
-  printf("Boot Entry:    %s\n", strna(efi->entry));
-  printf("PXE Boot:      %s\n", efi->is_pxe_boot?"yes":"no");
-  printf("Loader Device: %s\n", strna(efi->device));
-  printf("Loader URL:    %s\n", strna(efi->url));
-  printf("Loader Image:  %s\n", strna(efi->image));
-
+  printf("Boot Entry:            %s\n", strna(efi->entry));
+  printf("PXE Boot:              %s\n", efi->is_pxe_boot?"yes":"no");
+  printf("Loader Device:         %s\n", strna(efi->device));
+  printf("Loader URL:            %s\n", strna(efi->url));
+  printf("Loader Image:          %s\n", strna(efi->image));
+  printf("Default EFI Partition: %s\n", strna(efi->def_efi_partition));
   return 0;
 }
 

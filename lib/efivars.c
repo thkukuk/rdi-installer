@@ -519,6 +519,81 @@ efi_boot_current(efivars_t **res)
   return -ENOENT;
 }
 
+int
+efi_get_default_boot_partition(char **res_part)
+{
+  _cleanup_free_ char *data = NULL;
+  size_t size;
+  int r;
+
+  if (_efivars_debug)
+    printf("efi_get_default_boot_partition() called...\n");
+
+  r = read_efi_var("BootOrder", EFI_GLOBAL_VARIABLE_GUID, &data, &size);
+  if (r < 0)
+    return r;
+
+  if (!data || size < 2)
+    return -ENOENT;
+
+  // this can be more than one entry, but we only look at the first
+  uint16_t boot_index = data[0] | (data[1] << 8);
+  data = mfree(data);
+
+  char boot_var_name[9];
+  snprintf(boot_var_name, sizeof(boot_var_name), "Boot%04X", boot_index);
+
+  if (_efivars_debug)
+    printf("Reading %s\n", boot_var_name);
+
+  r = read_efi_var(boot_var_name, EFI_GLOBAL_VARIABLE_GUID, &data, &size);
+  if (r < 0)
+    return r;
+
+  if (!data)
+    return -ENOENT;
+
+  /*
+   * BootXXXX Format:
+   * - Attributes (4 bytes)
+   * - FilePathListLength (2 bytes)
+   * - Description (Null-terminated UTF-16 string)
+   * - FilePathList (Device Path)
+   */
+  if (size < 6)
+    return -EINVAL;
+
+  size_t offset = 6;
+  // Skip Description (find double null terminator for UTF-16)
+  while (offset + 1 < size)
+    {
+      offset+=2;
+      if (data[offset-2] == 0 && data[offset-1] == 0)
+	break;
+    }
+
+  if (offset >= size)
+    return -ENOENT;
+
+  _cleanup_efivars_ efivars_t *efi = calloc(1, sizeof (efivars_t));
+  if (!efi)
+    return -ENOMEM;
+
+  r = parse_device_path(data + offset, size - offset, &efi);
+  if (r < 0 && r != -ENODEV)
+    return r;
+
+  if (isempty(efi->device))
+    return -ENODEV;
+
+  if (_efivars_debug)
+    printf("EFI default boot device: %s\n", strna(efi->device));
+
+  (*res_part) = TAKE_PTR(efi->device);
+
+  return 0;
+}
+
 // Return source of booted binary
 int
 efi_get_boot_source(efivars_t **res)
@@ -546,11 +621,16 @@ efi_get_boot_source(efivars_t **res)
     fprintf(stderr, "efi_boot_systemd_stub: %s\n", strerror(-r));
   if (r == -ENOENT)
     r = efi_boot_current(&efi);
+  if (r < 0)
+    return r;
 
-  if (r == 0)
-    *res = TAKE_PTR(efi);
+  r = efi_get_default_boot_partition(&(efi->def_efi_partition));
+  if (r < 0)
+    return r;
 
-  return r;
+  *res = TAKE_PTR(efi);
+
+  return 0;
 }
 
 efivars_t *
@@ -563,6 +643,7 @@ efivars_free(efivars_t *var)
   var->url = mfree(var->url);
   var->image = mfree(var->image);
   var->entry = mfree(var->entry);
+  var->def_efi_partition = mfree(var->def_efi_partition);
 
   return NULL;
 }

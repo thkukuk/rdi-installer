@@ -187,6 +187,18 @@ main_disk(int argc, char **argv)
       return EINVAL;
     }
 
+  _cleanup_free_ char *def_efi_part = NULL;
+  _cleanup_free_ char *cp = NULL;
+  r = efi_get_default_boot_partition(&cp);
+  if (r < 0 && r != ENODEV && r != -ENOENT)
+    {
+      fprintf(stderr, "Getting default EFI boot partition failed: %s\n",
+	      strerror(-r));
+      return -r;
+    }
+  else if (r == 0)
+    def_efi_part = realpath(cp, NULL);
+
   _cleanup_(udev_unrefp) struct udev *udev = udev_new();
   if (!udev)
     {

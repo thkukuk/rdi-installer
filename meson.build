@@ -38,7 +38,6 @@ possible_cc_flags = [
 		  '-Wbad-function-cast',
 		  '-Wcast-align',
                   '-Wformat-security',
-		  '-Winline',
 		  '-Wmissing-declarations',
 		  '-Wmissing-prototypes',
 		  '-Wnested-externs',
