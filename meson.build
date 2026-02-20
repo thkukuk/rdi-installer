@@ -61,6 +61,16 @@ systemunitdir = join_paths(prefixdir, 'lib/systemd/system')
 libcurl = dependency('libcurl', required: true)
 libudev = dependency('libudev', required: true)
 
+
+libefivars_c = files('lib/efivars.c')
+
+libefivars = static_library(
+  'efivars',
+  libefivars_c,
+  include_directories : inc,
+  install : false
+)
+
 executable('rdii-networkd', 'src/rdii-networkd.c', 'lib/mkdir_p.c',
            'lib/string-util-fundamental.c', 'src/ip.c', 'src/ifcfg.c',
            include_directories : inc,
@@ -70,20 +80,22 @@ executable('keywait', 'src/keywait.c',
            include_directories : inc,
            install : true)
 
-rdii_fetch_config_c = ['src/rdii-fetch-config.c', 'src/efivars.c',
-           'lib/mkdir_p.c', 'src/download.c']
+rdii_fetch_config_c = ['src/rdii-fetch-config.c', 'src/download.c',
+		       'lib/mkdir_p.c']
 executable('rdii-fetch-config',
            rdii_fetch_config_c,
            include_directories : inc,
+	   link_with : [libefivars],
            dependencies : [libcurl],
            install : true)
 
-rdii_helper_c = ['src/rdii-helper.c', 'src/efivars.c',
-           'src/rdii-helper-disk.c', 'lib/string-util-fundamental.c']
+rdii_helper_c = ['src/rdii-helper.c', 'src/rdii-helper-disk.c',
+	         'lib/string-util-fundamental.c']
 executable('rdii-helper',
            rdii_helper_c,
            include_directories : inc,
-           dependencies: [libudev],
+	   link_with : [libefivars],
+           dependencies : [libudev],
            install : true)
 
 rdi_installer = configure_file(
