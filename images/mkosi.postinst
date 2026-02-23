@@ -1,5 +1,8 @@
 #! /bin/bash
 
+# Import gpg-pubkey from rpmdb
+rpm --root /buildroot -q --queryformat "%{DESCRIPTION}\n" gpg-pubkey | gpg --import --no-options --no-default-keyring --keyring /buildroot/etc/systemd/import-pubring.gpg
+
 # Create new os-release
 . /buildroot/usr/lib/os-release
 
