@@ -187,9 +187,10 @@ main_disk(int argc, char **argv)
       return EINVAL;
     }
 
+  _cleanup_efivars_ efivars_t *efi = NULL;
   _cleanup_free_ char *def_efi_part = NULL;
-  _cleanup_free_ char *cp = NULL;
-  r = efi_get_default_boot_partition(&cp);
+  _cleanup_free_ char *installer_part = NULL;
+  r = efi_get_boot_source(&efi);
   if (r < 0 && r != -ENODEV && r != -EOPNOTSUPP && r != -ENOENT)
     {
       fprintf(stderr, "Getting default EFI boot partition failed: %s\n",
@@ -197,7 +198,12 @@ main_disk(int argc, char **argv)
       return -r;
     }
   else if (r == 0)
-    def_efi_part = realpath(cp, NULL);
+    {
+      if (!isempty(efi->partition))
+	installer_part = realpath(efi->partition, NULL);
+      if (!isempty(efi->def_efi_partition))
+	def_efi_part = realpath(efi->def_efi_partition, NULL);
+    }
 
   _cleanup_(udev_unrefp) struct udev *udev = udev_new();
   if (!udev)
@@ -284,6 +290,8 @@ main_disk(int argc, char **argv)
       if (def_efi_part)
 	disk[count].is_default_device =
 	  (startswith(def_efi_part, device) != NULL);
+      if (installer_part)
+	disk[count].is_boot_device = startswith(installer_part, device);
 
       if (!isempty(bus))
 	{
@@ -311,16 +319,12 @@ main_disk(int argc, char **argv)
 	}
     }
 
-  // XXX set is_boot_device
-
   qsort(disk, count, sizeof(device_t), compare_devices);
 
   for (int i = 0; i < count; i++)
     {
       if (!all_devices)
 	{
-	  if (disk[i].is_boot_device)
-	    goto free_disk;
 	  if (!streq(disk[i].type, "disk"))
 	    goto free_disk;
 	  if (disk[i].size < minsize)
@@ -329,7 +333,9 @@ main_disk(int argc, char **argv)
       printf("%s - %s (%s, %.1f GB)", disk[i].device,
 	     strunknown(disk[i].model), disk[i].bus, disk[i].size_gb);
       if (disk[i].is_default_device)
-	fputs(" [EFI Boot]", stdout);
+	fputs(" [Default]", stdout);
+      if (disk[i].is_boot_device)
+	fputs(" [Booted]", stdout);
       fputs("\n", stdout);
 
     free_disk: // XXX create cleanup function

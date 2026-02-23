@@ -245,7 +245,7 @@ main(int argc, char **argv)
 	      return -r;
 	    }
 	}
-      else if (!isempty(efi->device) && !isempty(efi->image))
+      else if (!isempty(efi->partition) && !isempty(efi->image))
 	{
 	  _cleanup_free_ char *src_cfg = NULL;
 	  _cleanup_free_ char *mod_img_name = NULL;

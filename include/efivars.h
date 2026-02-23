@@ -13,7 +13,7 @@
 #include <stdint.h>
 
 typedef struct {
-  char *device;
+  char *partition;
   char *url;
   char *image;
   char *entry;

@@ -282,7 +282,7 @@ efi_boot_systemd_stub(efivars_t **res)
     return -ENOENT;
 
   (*res)->url = TAKE_PTR(loader_url);
-  (*res)->device = TAKE_PTR(loader_dev);
+  (*res)->partition = TAKE_PTR(loader_dev);
   (*res)->image = TAKE_PTR(loader_img);
   (*res)->entry = TAKE_PTR(loader_entry);
 
@@ -442,7 +442,7 @@ parse_device_path(char *data, size_t limit, efivars_t **res)
     return -ENOENT;
 
   (*res)->url = TAKE_PTR(loader_url);
-  (*res)->device = TAKE_PTR(loader_dev);
+  (*res)->partition = TAKE_PTR(loader_dev);
   (*res)->image = TAKE_PTR(loader_img);
   (*res)->is_pxe_boot = pxe_boot;
   (*res)->pci_device = pci_device;
@@ -679,20 +679,20 @@ efi_get_default_boot_partition(char **res_part)
   if (r < 0 && r != -ENODEV)
     return r;
 
-  if (isempty(efi->device) && efi->pci_device != 0 && efi->pci_function != 0)
+  if (isempty(efi->partition) && efi->pci_device != 0 && efi->pci_function != 0)
     {
-      r = find_device_by_pci(efi->pci_device, efi->pci_function, &(efi->device));
+      r = find_device_by_pci(efi->pci_device, efi->pci_function, &(efi->partition));
       if (r < 0)
 	return r;
     }
 
-  if (isempty(efi->device))
+  if (isempty(efi->partition))
     return -ENODEV;
 
   if (_efivars_debug)
-    printf("EFI default boot device: %s\n", strna(efi->device));
+    printf("EFI default boot partition: %s\n", strna(efi->partition));
 
-  (*res_part) = TAKE_PTR(efi->device);
+  (*res_part) = TAKE_PTR(efi->partition);
 
   return 0;
 }
@@ -742,7 +742,7 @@ efivars_free(efivars_t *var)
   if (!var)
     return NULL;
 
-  var->device = mfree(var->device);
+  var->partition = mfree(var->partition);
   var->url = mfree(var->url);
   var->image = mfree(var->image);
   var->entry = mfree(var->entry);
