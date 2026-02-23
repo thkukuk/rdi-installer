@@ -11,7 +11,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <fcntl.h>
+#include <dirent.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
 #include "basics.h"
 #include "efivars.h"
@@ -295,6 +297,8 @@ parse_device_path(char *data, size_t limit, efivars_t **res)
   _cleanup_free_ char *loader_dev = NULL;
   _cleanup_free_ char *loader_img = NULL;
   bool pxe_boot = false;
+  uint8_t pci_device;
+  uint8_t pci_function;
   size_t offset = 0;
   int r;
 
@@ -412,6 +416,11 @@ parse_device_path(char *data, size_t limit, efivars_t **res)
 	      pci_device_path_t *pci = (pci_device_path_t *)(data + offset + 4);
 	      if (_efivars_debug)
 		printf("Pci(Device=0x%x, Function=0x%x)\n", pci->device, pci->function);
+	      if (pci->device != 0 && pci->function != 0)
+		{
+		  pci_device = pci->device;
+		  pci_function = pci->function;
+		}
 	    }
 	  else if (_efivars_debug)
 	    printf("Unsupportd: DT_HARDWARE, subtype: %02X\n", head->sub_type);
@@ -429,13 +438,15 @@ parse_device_path(char *data, size_t limit, efivars_t **res)
     }
 
   if (isempty(loader_url) && isempty(loader_dev) && isempty(loader_img) &&
-      !pxe_boot)
+      !pxe_boot && (pci_device == 0 && pci_function == 0))
     return -ENOENT;
 
   (*res)->url = TAKE_PTR(loader_url);
   (*res)->device = TAKE_PTR(loader_dev);
   (*res)->image = TAKE_PTR(loader_img);
   (*res)->is_pxe_boot = pxe_boot;
+  (*res)->pci_device = pci_device;
+  (*res)->pci_function = pci_function;
 
   return 0;
 }
@@ -519,6 +530,78 @@ efi_boot_current(efivars_t **res)
   return -ENOENT;
 }
 
+static inline void
+closedirp(DIR **p)
+{
+  if (*p)
+    {
+      closedir(*p);
+      *p = NULL;
+    }
+}
+
+// Translates a PCI address to a /dev/ node by traversing sysfs
+static int
+find_device_by_pci(uint8_t pci_device, uint8_t pci_function, char **res_dev)
+{
+  _cleanup_free_ char *pci_addr = NULL;
+  _cleanup_(closedirp) DIR *dir = NULL;
+  int r;
+
+  if (_efivars_debug)
+    printf("find_device_by_pci(%02x.%d)\n", pci_device, pci_function);
+
+  if (asprintf(&pci_addr, "devices/pci0000:00/0000:00:%02x.%d",
+	       pci_device, pci_function) < 0)
+    return -ENOMEM;
+
+  dir = opendir("/sys/block");
+  if (!dir)
+    {
+      r = -errno;
+      fprintf(stderr, "Error: Failed to open /sys/block: %s\n", strerror(-r));
+      return r;
+    }
+
+  struct dirent *ent;
+  while ((ent = readdir(dir)))
+    {
+      _cleanup_free_ char *sys_path = NULL;
+      _cleanup_free_ char *real_path = NULL;
+
+      // Skip hidden files, current/parent directories, and loop devices
+      if (ent->d_name[0] == '.') continue;
+      if (strncmp(ent->d_name, "loop", 4) == 0)
+	continue;
+
+      if (asprintf(&sys_path, "/sys/block/%s", ent->d_name) < 0)
+	return -ENOMEM;
+
+      // Resolve the sysfs symlink to its physical device path
+      if ((real_path = realpath(sys_path, NULL)) != NULL)
+	{
+	  if (strstr(real_path, pci_addr) != NULL)
+	    {
+	      _cleanup_free_ char *device = NULL;
+
+	      if (asprintf(&device, "/dev/%s", ent->d_name) < 0)
+		return -ENOMEM;
+
+	      if (_efivars_debug)
+		printf("Found Match : %s (%s)\n", real_path, device);
+
+	      *res_dev = TAKE_PTR(device);
+	      return 0;
+	    }
+        }
+    }
+
+  if (_efivars_debug)
+    printf("No block devices found for PCI 0000:00:%02x.%d.\n",
+	   pci_device, pci_function);
+  return -ENODEV;
+}
+
 int
 efi_get_default_boot_partition(char **res_part)
 {
@@ -591,8 +674,17 @@ efi_get_default_boot_partition(char **res_part)
     return -ENOMEM;
 
   r = parse_device_path(data + offset, size - offset, &efi);
+  if (_efivars_debug)
+    printf("parse_device_path returned: %d\n", r);
   if (r < 0 && r != -ENODEV)
     return r;
+
+  if (isempty(efi->device) && efi->pci_device != 0 && efi->pci_function != 0)
+    {
+      r = find_device_by_pci(efi->pci_device, efi->pci_function, &(efi->device));
+      if (r < 0)
+	return r;
+    }
 
   if (isempty(efi->device))
     return -ENODEV;

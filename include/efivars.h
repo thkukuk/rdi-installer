@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 typedef struct {
   char *device;
   char *url;
@@ -17,6 +19,8 @@ typedef struct {
   char *entry;
   bool is_pxe_boot;
   char *def_efi_partition;
+  uint8_t pci_device;
+  uint8_t pci_function;
 } efivars_t;
 
 extern efivars_t *efivars_free(efivars_t *var);
