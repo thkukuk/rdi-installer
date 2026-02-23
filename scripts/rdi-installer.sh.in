@@ -145,7 +145,7 @@ case $TERM in
 	;;
 esac
 
-mkdir -p /run/rpi-installer
+mkdir -p /run/rdi-installer
 
 clear
 
@@ -289,7 +289,7 @@ if [[ "$SOURCE_IMAGE" =~ ^(https?|ftp):// ]]; then
             $KEYWAIT -t "" -s 2
 	    exit 1;
 	fi
-    elif ! gpgv --keyring /etc/systemd/import-pubring.gpg /run/rdi-installer/image.raw.sha256.asc /run/rdi-installer/image.raw.sha256; then
+    elif ! gpgv --keyring /etc/systemd/import-pubring.gpg /run/rdi-installer/image.sha256.asc /run/rdi-installer/image.sha256; then
 	gum style --foreground="$COLOR_WARNING" "ERROR: GPG signature verification failed! Aborting..."
 	$KEYWAIT -s 0
 	exit 1
