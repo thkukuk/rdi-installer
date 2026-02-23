@@ -145,6 +145,8 @@ case $TERM in
 	;;
 esac
 
+mkdir -p /run/rpi-installer
+
 clear
 
 # Splash screen at start
@@ -257,7 +259,42 @@ if gum confirm \
 # Check for URLs (http, https, ftp)
 if [[ "$SOURCE_IMAGE" =~ ^(https?|ftp):// ]]; then
     echo "URL Detected: $SOURCE_IMAGE" | gum style --foreground "$COLOR_TEXT"
-    curl -L -C - --fail --retry 5 --no-progress-meter "$SOURCE_IMAGE" | dd of="$TARGET_DEVICE" status=progress conv=fsync oflag=direct
+    if ! curl -L -C - --fail --retry 5 --no-progress-meter "${SOURCE_IMAGE}.sha256" --output /run/rdi-installer/image.sha256; then
+	if gum confirm \
+               --default \
+               --prompt.foreground "$COLOR_WARNING" \
+               --selected.background "$COLOR_WARNING" \
+               --selected.foreground "$COLOR_GRAY" \
+               --unselected.background "$COLOR_BACKGROUND" \
+               --unselected.foreground "$COLOR_GRAY" \
+               "No sha256 checksum found, really continue without image verification?"; then
+            gum style --foreground "$COLOR_TEXT" "Confirmed. Proceeding..."
+	else
+            gum style --foreground "$COLOR_TEXT" "Aborted."
+            $KEYWAIT -t "" -s 2
+	    exit 1;
+	fi
+    elif ! curl -L -C - --fail --retry 5 --no-progress-meter "${SOURCE_IMAGE}.sha256.asc" --output /run/rdi-installer/image.sha256.asc; then
+	if gum confirm \
+               --default \
+               --prompt.foreground "$COLOR_WARNING" \
+               --selected.background "$COLOR_WARNING" \
+               --selected.foreground "$COLOR_GRAY" \
+               --unselected.background "$COLOR_BACKGROUND" \
+               --unselected.foreground "$COLOR_GRAY" \
+               "No gpg signature found, really continue without verification?"; then
+            gum style --foreground "$COLOR_TEXT" "Confirmed. Proceeding..."
+	else
+            gum style --foreground "$COLOR_TEXT" "Aborted."
+            $KEYWAIT -t "" -s 2
+	    exit 1;
+	fi
+    elif ! gpgv --keyring /etc/systemd/import-pubring.gpg /run/rdi-installer/image.raw.sha256.asc /run/rdi-installer/image.raw.sha256; then
+	gum style --foreground="$COLOR_WARNING" "ERROR: GPG signature verification failed! Aborting..."
+	$KEYWAIT -s 0
+	exit 1
+    fi
+    curl -L -C - --fail --retry 5 --no-progress-meter "$SOURCE_IMAGE" | tee >(dd of="$TARGET_DEVICE" status=progress conv=fsync oflag=direct) | sha256sum > /run/rdi-installer/downloaded.sha256
     exit_codes=("${PIPESTATUS[@]}")
     curl_status=${exit_codes[0]}
     dd_status=${exit_codes[1]}
@@ -268,6 +305,7 @@ if [[ "$SOURCE_IMAGE" =~ ^(https?|ftp):// ]]; then
 	echo "Error: Write to device failed with exit code $dd_status"
 	$KEYWAIT -s 0
     fi
+    # XXX verify sha256sum!
 else
     if [[ "$SOURCE_IMAGE" == /* ]]; then
 	echo "Absolute Path Detected: $SOURCE_IMAGE"
@@ -297,6 +335,48 @@ else
 	# shellcheck disable=SC2086
 	gum spin $SPINNER --title.foreground="$COLOR_TITLE" --title="NOTHING WILL HAPPEN - Press any key to continue or wait 10s..." -- $KEYWAIT -t "" -s 10
     else
+	# Verify Image!
+	if [ ! -f "${IMAGE_TO_WRITE}.sha256" ]; then
+	    if gum confirm \
+		   --default \
+		   --prompt.foreground "$COLOR_WARNING" \
+		   --selected.background "$COLOR_WARNING" \
+		   --selected.foreground "$COLOR_GRAY" \
+		   --unselected.background "$COLOR_BACKGROUND" \
+		   --unselected.foreground "$COLOR_GRAY" \
+		   "No sha256 checksum found, really continue without image verification?"; then
+		gum style --foreground "$COLOR_TEXT" "Confirmed. Proceeding..."
+	    else
+		gum style --foreground "$COLOR_TEXT" "Aborted."
+		$KEYWAIT -t "" -s 2
+		exit 1;
+	    fi
+	elif [ ! -f "${IMAGE_TO_WRITE}.sha256.asc" ]; then
+	    if gum confirm \
+		   --default \
+		   --prompt.foreground "$COLOR_WARNING" \
+		   --selected.background "$COLOR_WARNING" \
+		   --selected.foreground "$COLOR_GRAY" \
+		   --unselected.background "$COLOR_BACKGROUND" \
+		   --unselected.foreground "$COLOR_GRAY" \
+		   "No gpg signature found, really continue without verification?"; then
+		gum style --foreground "$COLOR_TEXT" "Confirmed. Proceeding..."
+	    else
+		gum style --foreground "$COLOR_TEXT" "Aborted."
+		$KEYWAIT -t "" -s 2
+		exit 1;
+	    fi
+	elif ! gpgv --keyring /etc/systemd/import-pubring.gpg "${IMAGE_TO_WRITE}.sha256.asc" "${IMAGE_TO_WRITE}.sha256"; then
+	    gum style --foreground="$COLOR_WARNING" "ERROR: GPG signature verification failed! Aborting..."
+	    $KEYWAIT -s 0
+	    exit 1
+	fi
+
+	if [ -f "${IMAGE_TO_WRITE}.sha256" ]; then
+	    sha256sum -c "${IMAGE_TO_WRITE}.sha256"
+	    $KEYWAIT -s 0
+	fi
+
 	# Write the image
 	if ! pv "$IMAGE_TO_WRITE" | dd of="$TARGET_DEVICE" bs=4M conv=fsync oflag=direct ; then
 	    gum style --foreground="$COLOR_WARNING" "Failure writing the image"
