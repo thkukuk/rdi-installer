@@ -529,6 +529,17 @@ efi_get_default_boot_partition(char **res_part)
   if (_efivars_debug)
     printf("efi_get_default_boot_partition() called...\n");
 
+  if (access(EFIVARS_PATH, F_OK) != 0)
+    {
+      r = -errno;
+      if (_efivars_debug)
+	fprintf(stderr, "Error: %s is not accessible: %s\n",
+		EFIVARS_PATH, strerror(-r));
+      if (r == -ENOENT)
+	return -EOPNOTSUPP;
+      return r;
+    }
+
   r = read_efi_var("BootOrder", EFI_GLOBAL_VARIABLE_GUID, &data, &size);
   if (r < 0)
     return r;
@@ -625,7 +636,7 @@ efi_get_boot_source(efivars_t **res)
     return r;
 
   r = efi_get_default_boot_partition(&(efi->def_efi_partition));
-  if (r < 0)
+  if (r < 0 && r != -ENODEV && r != -ENOENT)
     return r;
 
   *res = TAKE_PTR(efi);

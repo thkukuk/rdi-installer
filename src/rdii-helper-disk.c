@@ -190,7 +190,7 @@ main_disk(int argc, char **argv)
   _cleanup_free_ char *def_efi_part = NULL;
   _cleanup_free_ char *cp = NULL;
   r = efi_get_default_boot_partition(&cp);
-  if (r < 0 && r != ENODEV && r != -ENOENT)
+  if (r < 0 && r != -ENODEV && r != -EOPNOTSUPP && r != -ENOENT)
     {
       fprintf(stderr, "Getting default EFI boot partition failed: %s\n",
 	      strerror(-r));
