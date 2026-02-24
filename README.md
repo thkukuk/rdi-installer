@@ -9,13 +9,10 @@ that hardware.
 
 This project will build the folowing images:
 
-* `rdi-installer-<version>.<arch>.efi` is an EFI binary file that can be stored on an ESP partition, on a tftpboot server or on a http server and booted directly from the UEFI firmware from disk, PXE or HTTP boot.
-* `rdi-installer-sdboot-<version>.<arch>.img` is a disk image which can be written to an USB stick and uses `systemd-boot` as bootloader with the classical linux kernel and initrd setup. This image allows to modify the kernel cmdline. There is a script [add_extra_partition.sh](images/scripts/add_extra_partition.sh) with extends the image with an additional partition. This can be used to create a parition `images`, on which raw disk images can be copied and the installer will automatically mount the partition and provides the images on it as installation source. Or a `combustion` partition with a combustion config to personalize the image later. The script can create as many partitions with a filesystem, label and size as needed.
+* `rdi-installer-<version>.<arch>.efi` is a UKI EFI binary file that can be stored on an ESP partition, on a tftpboot server or on a http server and booted directly from the UEFI firmware from disk, PXE or HTTP boot. The kernel commandline cannot be changed with UKI binaries. Since the image is *not* signed with an official Microsoft Key, Secure Boot will only work if the used key gets enrolled in the UEFI firmware.
+* `rdi-installer-sdboot-<version>.<arch>.img` is a disk image which can be written to an USB stick and uses `shim` and `systemd-boot` as bootloader with the classical linux kernel and initrd setup. This image allows to modify the kernel cmdline. There is a script [add_extra_partition.sh](images/scripts/add_extra_partition.sh) with extends the image with an additional partition. This can be used to create a parition `images`, on which raw disk images can be copied and the installer will automatically mount the partition and provides the images on it as installation source. Or a `combustion` partition with a combustion config to personalize the image later. The script can create as many partitions with a filesystem, label and size as needed.
 
 Images will be build in the [home:kukuk:mkosi-images](https://build.opensuse.org/project/monitor/home:kukuk:mkosi-images) OBS project.
-
-**Secure Boot:**
-The `rdi-installer-sdboot-<version>.<arch>.img` image uses `shim` and `systemd-boot` signed with official keys. The EFI binary is signed with the deel project key. To be able to boot it the key of the devel project needs to be enrolled in the UEFI firmware.
 
 ## Options
 
@@ -23,7 +20,7 @@ The options can be provided either via the kernel cmdline during boot or with a 
 
 | Parameter | Format | Description |
 | --------- | ------ | ----------- |
-| rdii.url  | http url | Specifies a the URL under which the to be installed image can be downloaded |
+| rdii.url  | http url/local file | Specifies a the URL or the filename under which the to be installed image can be downloaded |
 | rdii.device | /dev/... | Device on which the image should be installed |
 | rdii.keymap | name | Configures the key mapping table for the keyboard |
 
