@@ -1,8 +1,11 @@
 #! /bin/bash
 
+set -e
 
 # Import gpg-pubkey
-cat /buildroot/usr/lib/rpm/gnupg/keys/*.asc | gpg --import --no-options --no-default-keyring --keyring /buildroot/etc/systemd/import-pubring.gpg
+mkdir -m 700 gnupg
+cat /buildroot/usr/lib/rpm/gnupg/keys/*.asc | gpg --homedir gnupg --import --no-options --no-default-keyring --keyring /buildroot/etc/systemd/import-pubring.gpg
+rm -rfv gnupg
 
 # Create new os-release
 . /buildroot/usr/lib/os-release
