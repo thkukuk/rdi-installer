@@ -2,6 +2,8 @@
 
 # SPDX-License-Identifier: MIT
 
+set -e pipefail
+
 COLOR_GREEN=2
 COLOR_GRAY=250
 COLOR_RED=9
@@ -380,8 +382,13 @@ else
 	fi
 
 	if [ -f "${IMAGE_TO_WRITE}.sha256" ]; then
-	    sha256sum -c "${IMAGE_TO_WRITE}.sha256"
-	    $KEYWAIT -s 0
+	    gum style --foreground="$COLOR_TEXT" "Verifying image..."
+	    IMAGE_DIR=$(dirname "${IMAGE_TO_WRITE}.sha256")
+	    pushd "$IMAGE_DIR" > /dev/null || exit 1
+	    IMAGE_NAME=$(basename "${IMAGE_TO_WRITE}.sha256")
+	    sha256sum -c "$IMAGE_NAME"
+	    popd > /dev/null || exit 1
+	    $KEYWAIT -s 2
 	fi
 
 	# Write the image
