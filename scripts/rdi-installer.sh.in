@@ -305,7 +305,14 @@ if [[ "$SOURCE_IMAGE" =~ ^(https?|ftp):// ]]; then
 	echo "Error: Write to device failed with exit code $dd_status"
 	$KEYWAIT -s 0
     fi
-    # XXX verify sha256sum!
+    EXPECTED_HASH=$(awk '{print $1}'  /run/rdi-installer/image.sha256)
+    ACTUAL_HASH=$(awk '{print $1}'  /run/rdi-installer/downloaded.sha256)
+    if [ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]; then
+	gum style --foreground="$COLOR_WARNING" "ERROR: SHA256 verification failed! Wiping invalid data and aborting..."
+	sgdisk --zap-all "$TARGET_DEVICE"
+	$KEYWAIT -s 0
+	exit 1
+    fi
 else
     if [[ "$SOURCE_IMAGE" == /* ]]; then
 	echo "Absolute Path Detected: $SOURCE_IMAGE"
