@@ -259,9 +259,23 @@ if gum confirm \
 	exit 1
     fi
 
+if [[ "$SOURCE_IMAGE" == *.gz ]]; then
+    DECOMPRESSOR="pigz -dc"
+    command -v pigz >/dev/null 2>&1 || { echo "Error: pigz not installed, install with: zypper in pigz"; exit 1; }
+elif [[ "$SOURCE_IMAGE" == *.bz2 ]]; then
+    DECOMPRESSOR="pbzip2 -dc"
+    command -v pbzip2 >/dev/null 2>&1 || { echo "Error: pbzip2 not installed, install with: zypper in pbzip2"; exit 1; }
+elif [[ "$SOURCE_IMAGE" == *.xz ]]; then
+    DECOMPRESSOR="xz -dc -T0"
+    command -v xz >/dev/null 2>&1 || { echo "Error: xz not installed, install with: zypper in pbzip2"; exit 1; }
+else
+    DECOMPRESSOR="cat"
+fi
+
 # Check for URLs (http, https, ftp)
 if [[ "$SOURCE_IMAGE" =~ ^(https?|ftp):// ]]; then
     echo "URL Detected: $SOURCE_IMAGE" | gum style --foreground "$COLOR_TEXT"
+
     if ! curl -L -C - --fail --retry 5 --no-progress-meter "${SOURCE_IMAGE}.sha256" --output /run/rdi-installer/image.sha256; then
 	if gum confirm \
                --default \
@@ -297,7 +311,7 @@ if [[ "$SOURCE_IMAGE" =~ ^(https?|ftp):// ]]; then
 	$KEYWAIT -s 0
 	exit 1
     fi
-    curl -L -C - --fail --retry 5 --no-progress-meter "$SOURCE_IMAGE" | tee >(dd of="$TARGET_DEVICE" status=progress conv=fsync oflag=direct) | sha256sum > /run/rdi-installer/downloaded.sha256
+    curl -L -C - --fail --retry 5 --no-progress-meter "$SOURCE_IMAGE" | tee >($DECOMPRESSOR | dd of="$TARGET_DEVICE" status=progress conv=fsync oflag=direct) | sha256sum > /run/rdi-installer/downloaded.sha256
     exit_codes=("${PIPESTATUS[@]}")
     curl_status=${exit_codes[0]}
     dd_status=${exit_codes[1]}
@@ -393,7 +407,7 @@ else
 	fi
 
 	# Write the image
-	if ! pv "$IMAGE_TO_WRITE" | dd of="$TARGET_DEVICE" bs=4M conv=fsync oflag=direct ; then
+	if ! pv "$IMAGE_TO_WRITE" | $DECOMPRESSOR | dd of="$TARGET_DEVICE" bs=4M conv=fsync oflag=direct ; then
 	    gum style --foreground="$COLOR_WARNING" "Failure writing the image"
 	    $KEYWAIT -s 0
 	else
