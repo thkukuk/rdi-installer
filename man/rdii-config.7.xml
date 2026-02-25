@@ -15,8 +15,11 @@
   <refsect1>
     <title>Description</title>
     <para>
-      The <filename>rdii-config</filename> file is a centralized configuration file utilized by the <command>rdi-installer</command> suite.
-      It is used by <command>rdi-installer</command>, <command>rdii-networkd</command>, and <command>rdii-ssh-setup.service</command> to provision installation targets, network interfaces, and remote SSH access.
+      The <filename>rdii-config</filename> configuration file is used by
+      <command>rdi-installer</command>, <command>rdii-networkd</command>
+      and <command>rdii-ssh-setup.service</command> to provision
+      installation sources and targets, network interfaces and
+      remote SSH access.
     </para>
   </refsect1>
 
@@ -83,7 +86,7 @@
   <refsect1>
     <title>Network Configuration Options</title>
     <para>
-      Network settings are processed by <command>rdii-networkd</command> to generate transient configuration files for <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>. 
+      Network settings are processed by <command>rdii-networkd</command> to generate transient configuration files for <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     </para>
     <variablelist>
       <varlistentry>
