@@ -311,15 +311,8 @@ if [[ "$SOURCE_IMAGE" =~ ^(https?|ftp):// ]]; then
 	$KEYWAIT -s 0
 	exit 1
     fi
-    curl -L -C - --fail --retry 5 --no-progress-meter "$SOURCE_IMAGE" | tee >($DECOMPRESSOR | dd of="$TARGET_DEVICE" status=progress conv=fsync oflag=direct) | sha256sum > /run/rdi-installer/downloaded.sha256
-    exit_codes=("${PIPESTATUS[@]}")
-    curl_status=${exit_codes[0]}
-    dd_status=${exit_codes[1]}
-    if [ "$curl_status" -ne 0 ]; then
-	echo "Error: Download failed with exit code $curl_status"
-    	$KEYWAIT -s 0
-    elif [ "$dd_status" -ne 0 ]; then
-	echo "Error: Write to device failed with exit code $dd_status"
+    if ! curl -L -C - --fail --retry 5 --no-progress-meter "$SOURCE_IMAGE" | tee >($DECOMPRESSOR | dd of="$TARGET_DEVICE" status=progress conv=fsync oflag=direct) | sha256sum > /run/rdi-installer/downloaded.sha256; then
+	echo "Error: Downloading and write to device failed with exit code $?"
 	$KEYWAIT -s 0
     fi
     EXPECTED_HASH=$(awk '{print $1}'  /run/rdi-installer/image.sha256)
