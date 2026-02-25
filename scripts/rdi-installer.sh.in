@@ -2,7 +2,8 @@
 
 # SPDX-License-Identifier: MIT
 
-set -e pipefail
+set -e
+set -o pipefail
 
 COLOR_GREEN=2
 COLOR_GRAY=250
@@ -131,9 +132,9 @@ elif [ -n "$CONFIG_KEYMAP" ]; then
     DEFAULT_KEYMAP="$CONFIG_KEYMAP"
 fi
 
-# set keymap
-if [ -n "$DEFAULT_KEYMAP" ]; then
-    loadkeys "$DEFAULT_KEYMAP"
+# set keymap (not in debug mode)
+if [ -n "$DEFAULT_KEYMAP" ] && [ -z "$RDII_DEBUG" ]; then
+    loadkeys "$DEFAULT_KEYMAP" ||:
 fi
 
 case $TERM in
