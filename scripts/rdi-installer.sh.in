@@ -101,9 +101,9 @@ CONFIG_SOURCE_IMAGE=""
 
 # Parse rdii-config file
 if [ -f "$RDII_CONFIG_FILE" ]; then
-    CONFIG_TARGET_DEVICE=$(sed -n 's/.*rdii\.device=\([^ ]*\).*/\1/p' $RDII_CONFIG_FILE)
-    CONFIG_SOURCE_IMAGE=$(sed -n 's/.*rdii\.url=\([^ ]*\).*/\1/p' $RDII_CONFIG_FILE)
-    CONFIG_KEYMAP=$(sed -n 's/.*rdii\.keymap=\([^ ]*\).*/\1/p' $RDII_CONFIG_FILE)
+    CONFIG_TARGET_DEVICE=$(sed -n 's/^rdii\.device=\([^ ]*\).*/\1/p' $RDII_CONFIG_FILE)
+    CONFIG_SOURCE_IMAGE=$(sed -n 's/^rdii\.url=\([^ ]*\).*/\1/p' $RDII_CONFIG_FILE)
+    CONFIG_KEYMAP=$(sed -n 's/^rdii\.keymap=\([^ ]*\).*/\1/p' $RDII_CONFIG_FILE)
 fi
 CMDLINE_TARGET_DEVICE=$(sed -n 's/.*rdii\.device=\([^ ]*\).*/\1/p' /proc/cmdline)
 CMDLINE_SOURCE_IMAGE=$(sed -n 's/.*rdii\.url=\([^ ]*\).*/\1/p' /proc/cmdline)
@@ -314,15 +314,20 @@ if [[ "$SOURCE_IMAGE" =~ ^(https?|ftp):// ]]; then
     if ! curl -L -C - --fail --retry 5 --no-progress-meter "$SOURCE_IMAGE" | tee >($DECOMPRESSOR | dd of="$TARGET_DEVICE" status=progress conv=fsync oflag=direct) | sha256sum > /run/rdi-installer/downloaded.sha256; then
 	echo "Error: Downloading and write to device failed with exit code $?"
 	$KEYWAIT -s 0
-    fi
-    EXPECTED_HASH=$(awk '{print $1}'  /run/rdi-installer/image.sha256)
-    ACTUAL_HASH=$(awk '{print $1}'  /run/rdi-installer/downloaded.sha256)
-    if [ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]; then
-	gum style --foreground="$COLOR_WARNING" "ERROR: SHA256 verification failed! Wiping invalid data and aborting..."
-	sgdisk --zap-all "$TARGET_DEVICE"
-	$KEYWAIT -s 0
 	exit 1
     fi
+    if [ -f /run/rdi-installer/image.sha256 ]; then
+	EXPECTED_HASH=$(awk '{print $1}'  /run/rdi-installer/image.sha256)
+	ACTUAL_HASH=$(awk '{print $1}'  /run/rdi-installer/downloaded.sha256)
+	if [ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]; then
+	    gum style --foreground="$COLOR_WARNING" "ERROR: SHA256 verification failed! Wiping invalid data and aborting..."
+	    sgdisk --zap-all "$TARGET_DEVICE"
+	    $KEYWAIT -s 0
+	    exit 1
+	fi
+    fi
+    gum style --foreground="$COLOR_TEXT" "Image successfully downloaded and written"
+    $KEYWAIT
 else
     if [[ "$SOURCE_IMAGE" == /* ]]; then
 	echo "Absolute Path Detected: $SOURCE_IMAGE"
