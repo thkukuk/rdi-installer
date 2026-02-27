@@ -9,10 +9,38 @@ that hardware.
 
 This project will build the folowing images:
 
-* `rdi-installer-<version>.<arch>.efi` is a UKI EFI binary file that can be stored on an ESP partition (e.g. <ESP>/EFI/Linux/ will automatically be sourced by `systemd-boot`), on a tftpboot server or on a http server and booted directly from the UEFI firmware from disk, PXE or HTTP boot. The kernel commandline cannot be changed with UKI binaries. Since the image is *not* signed with an official Microsoft Key, Secure Boot will only work if the used key gets enrolled in the UEFI firmware.
-* `rdi-installer-sdboot-<version>.<arch>.img` is a disk image which can be written to an USB stick and uses `shim` and `systemd-boot` as bootloader with the classical linux kernel and initrd setup. This image allows to modify the kernel cmdline. There is a script [add_extra_partition.sh](images/scripts/add_extra_partition.sh) with extends the image with an additional partition. This can be used to create a parition `images`, on which raw disk images can be copied and the installer will automatically mount the partition and provides the images on it as installation source. Or a `combustion` partition with a combustion config to personalize the image later. The script can create as many partitions with a filesystem, label and size as needed.
+* `rdi-installer-<version>.<arch>.efi` (UKI EFI binary)
+* `rdi-installer-sdboot-<version>.<arch>.img` (USB stick)
 
 Images will be build in the [home:kukuk:mkosi-images](https://build.opensuse.org/project/monitor/home:kukuk:mkosi-images) OBS project.
+
+### rdi-installer-<version>.<arch>.efi
+
+This is a UKI EFI binary file that can be stored on an ESP partition (e.g. <ESP>/EFI/Linux/ will automatically be sourced by `systemd-boot`), on a tftpboot server or on a http server.
+It can be booted directly from the UEFI firmware from the hard disk, via PXE, or HTTP. The kernel command line cannot be modified with UKI binary files. Since the image is *not* signed with an official Microsoft key, Secure Boot will only work if the key used is registered in the UEFI firmware.
+
+This binary runs completley from a RAM disk in memory. The data can be modified, but a reboot will reset it.
+
+
+###  rdi-installer-sdboot-<version>.<arch>.img
+
+This is a disk image which can be written to an USB stick and uses
+`shim` and `systemd-boot` as bootloader with the classical linux kernel
+and initrd setup. This image allows to modify the kernel cmdline during boot.
+
+This system also runs completley from a RAM disk in memory. The data can be modified, but a reboot will reset it.
+
+There is a script [add_extra_partition.sh](images/scripts/add_extra_partition.sh) with extends the image with an additional partition. This can be used to create a parition `images`, on which raw disk images can be copied and the installer will automatically mount the partition and provides the images on it as installation source. Or a `combustion` partition with a combustion config to personalize the image later. The script can create as many partitions with a filesystem, label and size as needed.
+
+Usage:
+```
+add_extra_partition.sh <image name> <part size> <label> <fs type>
+```
+
+## Hardware Requirements
+
+Currently only x86-64 systems with UEFI firmware and at minimum 2GB of
+memory are supported.
 
 ## Options
 
