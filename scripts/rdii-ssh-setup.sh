@@ -16,9 +16,9 @@ ROOT_PASS=""
 SSH_PUB_KEY_B64=""
 
 if [ -f "${RDII_CONFIG_FILE}" ]; then
-    ENABLE_SSH=$(sed -n 's/.*ssh=\([^ ]*\).*/\1/p' $RDII_CONFIG_FILE)
-    ROOT_PASS=$(sed -n 's/.*ssh\.password=\([^ ]*\).*/\1/p' $RDII_CONFIG_FILE)
-    SSH_PUB_KEY_B64=$(sed -n 's/.*ssh\.key=\([^ ]*\).*/\1/p' $RDII_CONFIG_FILE)
+    ENABLE_SSH=$(sed -n 's/^ssh=\([^ ]*\).*/\1/p' $RDII_CONFIG_FILE)
+    ROOT_PASS=$(sed -n 's/^ssh\.password=\([^ ]*\).*/\1/p' $RDII_CONFIG_FILE)
+    SSH_PUB_KEY_B64=$(sed -n 's/^ssh\.key=\([^ ]*\).*/\1/p' $RDII_CONFIG_FILE)
 
     if [ -z "$ENABLE_SSH" ]; then
 	ENABLE_SSH=0
