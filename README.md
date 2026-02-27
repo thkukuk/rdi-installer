@@ -14,7 +14,7 @@ This project will build the folowing images:
 
 Images will be build in the [home:kukuk:mkosi-images](https://build.opensuse.org/project/monitor/home:kukuk:mkosi-images) OBS project.
 
-### rdi-installer-<version>.<arch>.efi
+### rdi-installer-&lt;version&gt;.&lt;arch&gt;.efi
 
 This is a UKI EFI binary file that can be stored on an ESP partition (e.g. <ESP>/EFI/Linux/ will automatically be sourced by `systemd-boot`), on a tftpboot server or on a http server.
 It can be booted directly from the UEFI firmware from the hard disk, via PXE, or HTTP. The kernel command line cannot be modified with UKI binary files. Since the image is *not* signed with an official Microsoft key, Secure Boot will only work if the key used is registered in the UEFI firmware.
@@ -22,7 +22,7 @@ It can be booted directly from the UEFI firmware from the hard disk, via PXE, or
 This binary runs completley from a RAM disk in memory. The data can be modified, but a reboot will reset it.
 
 
-###  rdi-installer-sdboot-<version>.<arch>.img
+###  rdi-installer-sdboot-&lt;version&gt;.&lt;arch&gt;.img
 
 This is a disk image which can be written to an USB stick and uses
 `shim` and `systemd-boot` as bootloader with the classical linux kernel
@@ -34,7 +34,7 @@ There is a script [add_extra_partition.sh](images/scripts/add_extra_partition.sh
 
 Usage:
 ```
-add_extra_partition.sh <image name> <part size> <label> <fs type>
+add_extra_partition.sh <image name> [<part size> [<label> [<fs type>]]]
 ```
 
 ## Hardware Requirements
