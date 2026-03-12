@@ -6,8 +6,6 @@ local_fs()
     clear_and_print_title
     SOURCE_IMAGE=$(gum file /mnt \
 		       --file \
-                       --header="Select Image" \
-                       --header.foreground="$COLOR_TITLE" \
                        --cursor "${CURSOR}" \
                        --cursor.foreground="$COLOR_FOREGROUND" \
 		       --selected.foreground="$COLOR_FOREGROUND")
@@ -18,23 +16,28 @@ query_url()
     local TIMEOUT=5
 
     URL=$SOURCE_IMAGE
+    REGEX='^(https?|ftp)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]$'
+    if [[ ! $URL =~ $REGEX ]]; then
+	URL=""
+    fi
 
     while true; do
 
 	clear_and_print_title
-	URL=$(echo "$URL" | gum input \
-			      --header="Please enter the image URL:" \
-			      --header.foreground="$COLOR_TITLE" \
-			      --cursor.foreground="$COLOR_FOREGROUND" \
-			      --placeholder="https://")
+
+	URL=$(gum input \
+	      --header="Please enter the image URL:" \
+	      --header.foreground="$COLOR_TITLE" \
+	      --cursor.foreground="$COLOR_FOREGROUND" \
+	      --value="$URL" \
+	      --placeholder="https://" || true)
 
 	if [[ -z "$URL" ]]; then
 	    gum style --foreground="$COLOR_TEXT" "Cancelled."
 	    $KEYWAIT -t "" -s 1
-	    return
+	    break
 	fi
 
-	REGEX='^(https?|ftp)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]$'
 	if [[ ! $URL =~ $REGEX ]]; then
             gum style \
 		--foreground=$COLOR_WARNING \
@@ -73,7 +76,7 @@ select_image()
     local SELECTED_IMG
     local PROCESSED_DEVICES
     local OLD_PATH
-    local IMAGE_LIST="Provide URL\nUse file selection\n"
+    local IMAGE_LIST="Provide URL\nUse file selection in /mnt\n"
 
     mkdir -p "${TEMP_DIR}/mount"
 
@@ -133,6 +136,7 @@ select_image()
     PATH=$OLD_PATH
 
     clear_and_print_title
+    IMAGE_LIST+="back"
     SELECTED_IMG=$(echo -e "$IMAGE_LIST" | \
                        gum choose \
                            --header="Select Source Image" \
@@ -149,11 +153,10 @@ select_image()
 	"Provide URL")
 	    query_url
 	    ;;
-	"Use file selection")
+	"Use file selection in /mnt")
 	    local_fs
 	    ;;
 	*)
-	    SOURCE_IMAGE=$SELECTED_IMG
 	    ;;
     esac
 }

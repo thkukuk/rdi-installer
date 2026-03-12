@@ -14,7 +14,7 @@ select_target_device()
 	$KEYWAIT -s 0
 	DEVICE_LIST=$("$RDII_HELPER" disk --all)
     fi
-
+    DEVICE_LIST+="\nback"
     SELECTION_STRING=$(echo -e "$DEVICE_LIST" | \
 			   gum choose \
 			       --header="Select Target Device" \
@@ -22,18 +22,17 @@ select_target_device()
 			       --cursor="${CURSOR} " \
 			       --cursor.foreground="$COLOR_FOREGROUND")
 
-    if [ -z "$SELECTION_STRING" ]; then
+    if [[ "$SELECTION_STRING" == "back" ]]; then
 	gum style --foreground="$COLOR_TEXT" "Cancelled."
+	$KEYWAIT -t "" -s 1
 	return
     fi
 
     SELECTED_DEV=$(echo "$SELECTION_STRING" | awk '{print $1}')
 
-    # Check if any mountpoints exist for this device or its children
-    IS_MOUNTED=$(lsblk -n -o MOUNTPOINT "$SELECTED_DEV" | grep -v "^$")
-
     clear_and_print_title
-    if [ -n "$IS_MOUNTED" ]; then
+    # Check if any mountpoints exist for this device or its children
+    if IS_MOUNTED=$(lsblk -n -o MOUNTPOINT "$SELECTED_DEV" | grep -v "^$"); then
 	gum style \
 	    --width 78 \
 	    --align="center" \
