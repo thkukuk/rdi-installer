@@ -5,6 +5,7 @@
 set -e
 set -o pipefail
 
+TERM=xterm-256color
 COLOR_GREEN=2
 COLOR_GRAY=250
 COLOR_RED=9
