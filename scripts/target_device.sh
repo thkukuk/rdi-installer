@@ -14,7 +14,7 @@ select_target_device()
 	$KEYWAIT -s 0
 	DEVICE_LIST=$("$RDII_HELPER" disk --all)
     fi
-    DEVICE_LIST+="\nback"
+
     SELECTION_STRING=$(echo -e "$DEVICE_LIST" | \
 			   gum choose \
 			       --header="Select Target Device" \
@@ -22,7 +22,7 @@ select_target_device()
 			       --cursor="${CURSOR} " \
 			       --cursor.foreground="$COLOR_FOREGROUND")
 
-    if [[ "$SELECTION_STRING" == "back" ]]; then
+    if [ -z "$SELECTION_STRING" ]; then
 	gum style --foreground="$COLOR_TEXT" "Cancelled."
 	$KEYWAIT -t "" -s 1
 	return
