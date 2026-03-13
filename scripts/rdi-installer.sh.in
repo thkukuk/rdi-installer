@@ -262,13 +262,16 @@ if gum confirm \
 
 if [[ "$SOURCE_IMAGE" == *.gz ]]; then
     DECOMPRESSOR="pigz -dc"
-    command -v pigz >/dev/null 2>&1 || { echo "Error: pigz not installed, install with: zypper in pigz"; exit 1; }
+    command -v pigz >/dev/null 2>&1 || { gum style --foreground="$COLOR_WARNING" "Error: pigz not installed, install with: zypper in pigz"; \
+					 $KEYWAIT -s 0; exit 1; }
 elif [[ "$SOURCE_IMAGE" == *.bz2 ]]; then
     DECOMPRESSOR="pbzip2 -dc"
-    command -v pbzip2 >/dev/null 2>&1 || { echo "Error: pbzip2 not installed, install with: zypper in pbzip2"; exit 1; }
+    command -v pbzip2 >/dev/null 2>&1 || { gum style --foreground="$COLOR_WARNING" "Error: pbzip2 not installed, install with: zypper in pbzip2"; \
+					   $KEYWAIT -s 0; exit 1; }
 elif [[ "$SOURCE_IMAGE" == *.xz ]]; then
     DECOMPRESSOR="xz -dc -T0"
-    command -v xz >/dev/null 2>&1 || { echo "Error: xz not installed, install with: zypper in pbzip2"; exit 1; }
+    command -v xz >/dev/null 2>&1 || { gum style --foreground="$COLOR_WARNING" "Error: xz not installed, install with: zypper in xz"; \
+				       $KEYWAIT -s 0; exit 1; }
 else
     DECOMPRESSOR="cat"
 fi
@@ -313,7 +316,7 @@ if [[ "$SOURCE_IMAGE" =~ ^(https?|ftp):// ]]; then
 	exit 1
     fi
     if ! curl -L -C - --fail --retry 5 --no-progress-meter "$SOURCE_IMAGE" | tee >($DECOMPRESSOR | dd of="$TARGET_DEVICE" status=progress conv=fsync oflag=direct) | sha256sum > /run/rdi-installer/downloaded.sha256; then
-	echo "Error: Downloading and write to device failed with exit code $?"
+	gum style --foreground="$COLOR_WARNING" "Error: Downloading and write to device failed with exit code $?"
 	$KEYWAIT -s 0
 	exit 1
     fi
