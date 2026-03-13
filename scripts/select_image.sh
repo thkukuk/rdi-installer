@@ -7,6 +7,7 @@ local_fs()
     SOURCE_IMAGE=$(gum file /mnt \
 		       --file \
                        --cursor "${CURSOR}" \
+		       --height=15 \
                        --cursor.foreground="$COLOR_FOREGROUND" \
 		       --selected.foreground="$COLOR_FOREGROUND")
 }
@@ -76,7 +77,7 @@ select_image()
     local SELECTED_IMG
     local PROCESSED_DEVICES
     local OLD_PATH
-    local IMAGE_LIST="Provide URL\nUse file selection in /mnt\n"
+    local IMAGE_LIST="Provide URL\nUse file selection in /mnt"
 
     mkdir -p "${TEMP_DIR}/mount"
 
