@@ -35,7 +35,7 @@ query_url()
 	if [[ -z "$URL" ]]; then
 	    gum style --foreground="$COLOR_TEXT" "Cancelled."
 	    $KEYWAIT -t "" -s 1
-	    break
+	    return
 	fi
 
 	if [[ ! $URL =~ $REGEX ]]; then
@@ -136,7 +136,6 @@ select_image()
     PATH=$OLD_PATH
 
     clear_and_print_title
-    IMAGE_LIST+="back"
     SELECTED_IMG=$(echo -e "$IMAGE_LIST" | \
                        gum choose \
                            --header="Select Source Image" \
