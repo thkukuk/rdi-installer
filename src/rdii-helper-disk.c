@@ -325,7 +325,7 @@ main_disk(int argc, char **argv)
     {
       if (!all_devices)
 	{
-	  if (!streq(disk[i].type, "disk"))
+	  if (!isempty(disk[i].type) && !streq(disk[i].type, "disk"))
 	    goto free_disk;
 	  if (disk[i].size < minsize)
 	    goto free_disk;
