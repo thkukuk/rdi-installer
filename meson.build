@@ -59,7 +59,8 @@ systemunitdir = join_paths(prefixdir, 'lib/systemd/system')
 
 libcurl = dependency('libcurl', required: true)
 libudev = dependency('libudev', required: true)
-
+libncurses = dependency('ncursesw', required: true)
+libeconf = dependency('libeconf', required: true)
 
 libefivars_c = files('lib/efivars.c')
 
@@ -70,7 +71,7 @@ libefivars = static_library(
   install : false
 )
 
-libdevices_c = files('lib/devices.c')
+libdevices_c = files('lib/devices.c', 'lib/string-util-fundamental.c')
 
 libdevices = static_library(
   'devices',
@@ -97,13 +98,21 @@ executable('rdii-fetch-config',
            dependencies : [libcurl],
            install : true)
 
-rdii_helper_c = ['src/rdii-helper.c', 'src/rdii-helper-disk.c',
-	         'lib/string-util-fundamental.c']
+rdii_helper_c = ['src/rdii-helper.c', 'src/rdii-helper-disk.c' ]
 executable('rdii-helper',
            rdii_helper_c,
            include_directories : inc,
 	   link_with : [libefivars, libdevices],
            dependencies : [libudev],
+           install : true)
+
+rdii_menu_c = ['src/rdii-menu.c', 'src/rdii-menu-keymap.c',
+               'src/rdii-menu-disk.c']
+executable('rdii-menu',
+           rdii_menu_c,
+           include_directories : inc,
+           link_with : [libefivars, libdevices],
+           dependencies : [libncurses, libeconf, libudev],
            install : true)
 
 rdi_installer = configure_file(
