@@ -70,6 +70,15 @@ libefivars = static_library(
   install : false
 )
 
+libdevices_c = files('lib/devices.c')
+
+libdevices = static_library(
+  'devices',
+  libdevices_c,
+  include_directories : inc,
+  install : false
+)
+
 executable('rdii-networkd', 'src/rdii-networkd.c', 'lib/mkdir_p.c',
            'lib/string-util-fundamental.c', 'src/ip.c', 'src/ifcfg.c',
            include_directories : inc,
@@ -93,7 +102,7 @@ rdii_helper_c = ['src/rdii-helper.c', 'src/rdii-helper-disk.c',
 executable('rdii-helper',
            rdii_helper_c,
            include_directories : inc,
-	   link_with : [libefivars],
+	   link_with : [libefivars, libdevices],
            dependencies : [libudev],
            install : true)
 
