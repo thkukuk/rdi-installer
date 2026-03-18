@@ -147,10 +147,24 @@ print_title(const char *title)
 
 // Returns 1 if YES, 0 if NO
 int
-show_warning_popup(const char *msg)
+show_warning_popup(const char *msg1, const char *msg2, const char *msg3)
 {
-  int height = 7;
-  int width = 50;
+  unsigned int height = 7;
+  unsigned int width;
+
+  if (msg2)
+    height++;
+  if (msg3)
+    height++;
+
+  width = strlen(msg1) + 6;
+  if (msg2)
+    if (strlen(msg2) + 6 > width)
+      width = strlen(msg2) + 6;
+  if (msg3)
+    if (strlen(msg3) + 6 > width)
+      width = strlen(msg3) + 6;
+
   int start_y = (LINES - height) / 2 - 2;
   int start_x = (COLS - width) / 2;
 
@@ -164,25 +178,29 @@ show_warning_popup(const char *msg)
   while (1)
     {
       box(win, 0, 0);
-      mvwprintw(win, 2, (width - strlen(msg)) / 2, "%s", msg);
+      mvwprintw(win, 2, (width - strlen(msg1)) / 2, "%s", msg1);
+      if (msg2)
+	mvwprintw(win, 3, (width - strlen(msg2)) / 2, "%s", msg2);
+      if (msg3)
+	mvwprintw(win, 4, (width - strlen(msg3)) / 2, "%s", msg3);
 
       if (btn_selected == 0)
 	{
 	  wattron(win, A_REVERSE);
-	  mvwprintw(win, 4, width / 2 - 10, "[ YES ]");
+	  mvwprintw(win, height - 3, width / 2 - 10, "[ YES ]");
 	  wattroff(win, A_REVERSE);
         }
       else
-	mvwprintw(win, 4, width / 2 - 10, "[ YES ]");
+	mvwprintw(win, height - 3, width / 2 - 10, "[ YES ]");
 
       if (btn_selected == 1)
 	{
 	  wattron(win, A_REVERSE);
-	  mvwprintw(win, 4, width / 2 + 3, "[ NO ]");
+	  mvwprintw(win, height - 3, width / 2 + 3, "[ NO ]");
 	  wattroff(win, A_REVERSE);
         }
       else
-	mvwprintw(win, 4, width / 2 + 3, "[ NO ]");
+	mvwprintw(win, height - 3, width / 2 + 3, "[ NO ]");
 
       wrefresh(win);
 
@@ -295,11 +313,14 @@ show_main_menu()
 	      {
 		_cleanup_free_ char *device = NULL;
 		select_target_device(minsize, &device);
-		target_entry = mfree(target_entry);
-		if (asprintf(&target_entry, "Select Target (%s)",
-			     strna(device)) < 0)
-		  return -ENOMEM;
-		options[1] = target_entry;
+		if (device)
+		  {
+		    target_entry = mfree(target_entry);
+		    if (asprintf(&target_entry, "Select Target (%s)",
+				 strna(device)) < 0)
+		      return -ENOMEM;
+		    options[1] = target_entry;
+		  }
 	      }
 	      break;
 	    case 2: // Select Keymap
@@ -325,7 +346,7 @@ show_main_menu()
 	      return 0;
 	      break;
 	    case 6: // Start Installation
-	      if (show_warning_popup("This will destroy all data, are you sure?"))
+	      if (show_warning_popup("This will destroy all data, are you sure?", NULL, NULL))
 		{
 		  print_global_header_footer(NULL);
 		  mvprintw(LINES / 2, (COLS - 22) / 2, "Starting installation...");
