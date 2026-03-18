@@ -15,7 +15,8 @@
 
 extern void print_global_header_footer(const char *addkeys);
 extern void print_title(const char *title);
-extern int show_warning_popup(const char *msg);
+extern int show_warning_popup(const char *msg1, const char *msg2,
+			      const char *msg3);
 extern void show_error_popup(const char *errmsg);
 
 extern void keywait(int y, int x, const char *text, int sec);
