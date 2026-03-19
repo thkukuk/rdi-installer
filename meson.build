@@ -107,7 +107,7 @@ executable('rdii-helper',
            install : true)
 
 rdii_menu_c = ['src/rdii-menu.c', 'src/rdii-menu-keymap.c',
-               'src/rdii-menu-disk.c']
+               'src/rdii-menu-disk.c', 'src/rdii-menu-image.c']
 executable('rdii-menu',
            rdii_menu_c,
            include_directories : inc,

@@ -228,7 +228,7 @@ void
 show_error_popup(const char *errmsg)
 {
   int height = 7;
-  int width = 50;
+  int width = strlen(errmsg) + 6;
   int start_y = (LINES - height) / 2 - 2;
   int start_x = (COLS - width) / 2;
 
@@ -254,6 +254,7 @@ static int
 show_main_menu()
 {
   uint64_t minsize = 10 * 1000ULL * 1000 * 1000; // 10G min disk size
+  _cleanup_free_ char *image_entry = NULL;
   _cleanup_free_ char *target_entry = NULL;
   _cleanup_free_ char *keymap_entry = NULL;
   const char *options[] = {
@@ -267,6 +268,8 @@ show_main_menu()
   };
   int num_options = sizeof(options) / sizeof(options[0]);
   int selected = 0;
+  _cleanup_free_ char *image = NULL;
+  _cleanup_free_ char *target = NULL;
 
   while (1)
     {
@@ -307,7 +310,20 @@ show_main_menu()
 	  switch(selected)
 	    {
 	    case 0: // Select Image
-	      show_error_popup("Not implemented");
+	      {
+		_cleanup_free_ char *img = NULL;
+		select_installation_source(image?image:"https://", &img);
+		if (img)
+		  {
+		    image_entry = mfree(image_entry);
+		    if (asprintf(&image_entry, "Select Image (%s)",
+				 strna(img)) < 0)
+		      return -ENOMEM;
+		    options[0] = image_entry;
+		    image = mfree(image);
+		    image = TAKE_PTR(img);
+		  }
+	      }
 	      break;
 	    case 1: // Select Target
 	      {
@@ -346,10 +362,14 @@ show_main_menu()
 	      return 0;
 	      break;
 	    case 6: // Start Installation
-	      if (show_warning_popup("This will destroy all data, are you sure?", NULL, NULL))
+	      if (isempty(image) || isempty(target))
+		show_error_popup("Installation image and target device are required!");
+	      else if (show_warning_popup(image, target,
+		       "This will destroy all data, are you sure?"))
 		{
 		  print_global_header_footer(NULL);
-		  mvprintw(LINES / 2, (COLS - 22) / 2, "Starting installation...");
+		  mvprintw(LINES / 2, (COLS - 22) / 2,
+			   "Starting installation...");
 		  refresh();
 		  sleep(2); // Mock delay
 		  return 0;
