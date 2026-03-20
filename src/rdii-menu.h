@@ -24,3 +24,4 @@ extern void keywait(int y, int x, const char *text, int sec);
 extern int select_keymap(char **device);
 extern int select_target_device(uint64_t minsize, char **device);
 extern int select_installation_source(const char *prefill, char **ret);
+extern int show_sysinfo(void);

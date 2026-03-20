@@ -347,7 +347,7 @@ show_main_menu()
 	      }
 	      break;
 	    case 3: // System Information
-	      show_error_popup("Not implemented");
+	      show_sysinfo();
 	      break;
 	    case 4: // Refresh
 	      // loop will redraw screen
