@@ -663,10 +663,9 @@ main(int argc, char *argv[])
 	  fprintf(stderr, "Failed to read %s: %s",
 		  CMDLINE_PATH, strerror(r));
 	  return errno;
-
-	  if (nread > 0 && line[nread-1] == '\n')
-	    line[nread-1] = '\0';
 	}
+      if (nread > 0 && line[nread-1] == '\n')
+	line[nread-1] = '\0';
     }
 
   if (debug)
