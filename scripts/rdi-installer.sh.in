@@ -279,7 +279,7 @@ fi
 if [[ "$SOURCE_IMAGE" =~ ^(https?|ftp):// ]]; then
     echo "URL Detected: $SOURCE_IMAGE" | gum style --foreground "$COLOR_TEXT"
 
-    if ! curl -L -C - --fail --retry 5 --no-progress-meter "${SOURCE_IMAGE}.sha256" --output /run/rdi-installer/image.sha256; then
+    if ! wget --tries=5 -nv "${SOURCE_IMAGE}.sha256" -O /run/rdi-installer/image.sha256; then
 	if gum confirm \
                --default \
                --prompt.foreground "$COLOR_WARNING" \
@@ -294,7 +294,7 @@ if [[ "$SOURCE_IMAGE" =~ ^(https?|ftp):// ]]; then
             $KEYWAIT -t "" -s 2
 	    exit 1;
 	fi
-    elif ! curl -L -C - --fail --retry 5 --no-progress-meter "${SOURCE_IMAGE}.sha256.asc" --output /run/rdi-installer/image.sha256.asc; then
+    elif ! wget --tries=5 -nv "${SOURCE_IMAGE}.sha256.asc" -O /run/rdi-installer/image.sha256.asc; then
 	if gum confirm \
                --default \
                --prompt.foreground "$COLOR_WARNING" \
@@ -314,7 +314,7 @@ if [[ "$SOURCE_IMAGE" =~ ^(https?|ftp):// ]]; then
 	$KEYWAIT -s 0
 	exit 1
     fi
-    if ! curl -L -C - --fail --retry 5 --no-progress-meter "$SOURCE_IMAGE" | tee >($DECOMPRESSOR | dd of="$TARGET_DEVICE" status=progress conv=fsync oflag=direct) | sha256sum > /run/rdi-installer/downloaded.sha256; then
+    if ! wget --tries=5 -nv -O - "$SOURCE_IMAGE" | tee >($DECOMPRESSOR | dd of="$TARGET_DEVICE" status=progress conv=fsync oflag=direct) | sha256sum > /run/rdi-installer/downloaded.sha256; then
 	gum style --foreground="$COLOR_WARNING" "Error: Downloading and write to device failed with exit code $?"
 	$KEYWAIT -s 0
 	exit 1
