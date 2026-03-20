@@ -269,7 +269,7 @@ show_main_menu()
   int num_options = sizeof(options) / sizeof(options[0]);
   int selected = 0;
   _cleanup_free_ char *image = NULL;
-  _cleanup_free_ char *target = NULL;
+  _cleanup_free_ char *device = NULL;
 
   while (1)
     {
@@ -311,29 +311,23 @@ show_main_menu()
 	    {
 	    case 0: // Select Image
 	      {
-		_cleanup_free_ char *img = NULL;
-		select_installation_source(image?image:"https://", &img);
-		if (img)
+		select_installation_source(image?image:"https://", &image);
+		if (!isempty(image))
 		  {
 		    image_entry = mfree(image_entry);
-		    if (asprintf(&image_entry, "Select Image (%s)",
-				 strna(img)) < 0)
+		    if (asprintf(&image_entry, "Select Image (%s)", image) < 0)
 		      return -ENOMEM;
 		    options[0] = image_entry;
-		    image = mfree(image);
-		    image = TAKE_PTR(img);
 		  }
 	      }
 	      break;
 	    case 1: // Select Target
 	      {
-		_cleanup_free_ char *device = NULL;
 		select_target_device(minsize, &device);
-		if (device)
+		if (!isempty(device))
 		  {
 		    target_entry = mfree(target_entry);
-		    if (asprintf(&target_entry, "Select Target (%s)",
-				 strna(device)) < 0)
+		    if (asprintf(&target_entry, "Select Target (%s)", device) < 0)
 		      return -ENOMEM;
 		    options[1] = target_entry;
 		  }
@@ -362,10 +356,10 @@ show_main_menu()
 	      return 0;
 	      break;
 	    case 6: // Start Installation
-	      if (isempty(image) || isempty(target))
+	      if (isempty(image) || isempty(device))
 		show_error_popup("Installation image and target device are required!");
-	      else if (show_warning_popup(image, target,
-		       "This will destroy all data, are you sure?"))
+	      else if (show_warning_popup("This will destroy all data, are you sure?",
+					  image, device))
 		{
 		  print_global_header_footer(NULL);
 		  mvprintw(LINES / 2, (COLS - 22) / 2,
