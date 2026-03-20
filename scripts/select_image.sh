@@ -6,6 +6,8 @@ local_fs()
     clear_and_print_title
     SOURCE_IMAGE=$(gum file /mnt \
 		       --file \
+		       --header="Select Image" \
+		       --header.foreground="$COLOR_TITLE" \
                        --cursor "${CURSOR}" \
 		       --height=15 \
                        --cursor.foreground="$COLOR_FOREGROUND" \
