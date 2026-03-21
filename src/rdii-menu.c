@@ -208,7 +208,7 @@ show_warning_popup(const char *msg1, const char *msg2, const char *msg3)
       int key = wgetch(win);
       if (key == KEY_LEFT || key == KEY_RIGHT || key == '\t')
 	  btn_selected = 1 - btn_selected; // Toogle
-      else if (key == '\n')
+      else if (key == '\n' || key == KEY_ENTER)
 	{
 	  choice = btn_selected;
 	  break;
@@ -221,6 +221,8 @@ show_warning_popup(const char *msg1, const char *msg2, const char *msg3)
     }
 
     delwin(win);
+    refresh();
+
     return (choice == 0); // Return 1 if YES was chosen, otherwise 0
 }
 
