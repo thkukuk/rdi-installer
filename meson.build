@@ -113,7 +113,7 @@ executable('rdii-menu',
            rdii_menu_c,
            include_directories : inc,
            link_with : [libefivars, libdevices],
-           dependencies : [libncurses, libeconf, libudev],
+           dependencies : [libncurses, libeconf, libudev, libcurl],
            install : true)
 
 rdi_installer = configure_file(
