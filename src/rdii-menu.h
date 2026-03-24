@@ -18,6 +18,8 @@ extern void print_title(const char *title);
 extern int show_warning_popup(const char *msg1, const char *msg2,
 			      const char *msg3);
 extern void show_error_popup(const char *errmsg);
+extern int choose_entry(int row, const char *options[], int num_options,
+		 	int start);
 
 extern void keywait(int y, int x, const char *text, int sec);
 
