@@ -252,6 +252,48 @@ show_error_popup(const char *errmsg)
   delwin(win);
 }
 
+int
+choose_entry(int row, const char *options[], int num_options, int start)
+{
+  int selected = start;
+
+  while (1)
+    {
+      for (int i = 0; i < num_options; i++)
+	{
+	  int y = row + i;
+
+	  if (i == selected)
+	    {
+	      attron(COLOR_PAIR(CP_SELECTED) | A_BOLD);
+	      mvprintw(y, 2, "-> %s", options[i]);
+	      attroff(COLOR_PAIR(CP_SELECTED) | A_BOLD);
+	    }
+	  else
+	    {
+	      attron(COLOR_PAIR(CP_UNSELECTED));
+	      mvprintw(y, 2, "   %s", options[i]);
+	      attroff(COLOR_PAIR(CP_UNSELECTED));
+	    }
+	}
+
+      refresh();
+
+      int ch = getch();
+      if (ch == 27) // 27 is the ASCII code for ESC
+	return -ECANCELED;
+      else if (ch == KEY_UP)
+	selected = (selected - 1 + num_options) % num_options;
+      else if (ch == KEY_DOWN)
+	selected = (selected + 1) % num_options;
+      else if (ch == '\n' || ch == KEY_ENTER)
+	return selected;
+    }
+
+  // we should never reach this
+  return -2;
+}
+
 static int
 show_main_menu()
 {
@@ -278,107 +320,81 @@ show_main_menu()
       print_global_header_footer(NULL);
       print_title("Configuration Settings");
 
-      // Draw Options
-      for (int i = 0; i < num_options; i++)
+      int old_selected = selected >= 0?selected:0;
+      selected = choose_entry(4, options, num_options, old_selected);
+      fprintf(stderr, "selected=%i\n", selected);
+      switch(selected)
 	{
-	  int y = 4 + i;
-
-	  if (i == selected)
+	case 0: // Select Image
+	  {
+	    select_installation_source(image?image:"https://", &image);
+	    if (!isempty(image))
+	      {
+		image_entry = mfree(image_entry);
+		if (asprintf(&image_entry, "Select Image (%s)", image) < 0)
+		  return -ENOMEM;
+		options[0] = image_entry;
+	      }
+	  }
+	  break;
+	case 1: // Select Target
+	  {
+	    select_target_device(minsize, &device);
+	    if (!isempty(device))
+	      {
+		target_entry = mfree(target_entry);
+		if (asprintf(&target_entry, "Select Target (%s)", device) < 0)
+		  return -ENOMEM;
+		options[1] = target_entry;
+	      }
+	  }
+	  break;
+	case 2: // Select Keymap
+	  {
+	    _cleanup_free_ char *keymap = NULL;
+	    if (select_keymap(&keymap) == 0)
+	      {
+		keymap_entry = mfree(keymap_entry);
+		if (asprintf(&keymap_entry, "Select Keymap (%s)",
+			     strna(keymap)) < 0)
+		  return -ENOMEM;
+		options[2] = keymap_entry;
+	      }
+	  }
+	  break;
+	case 3: // System Information
+	  show_sysinfo();
+	  break;
+	case 4: // Refresh
+	  // loop will redraw screen
+	  break;
+	case 5: // Abort
+	  return 0;
+	  break;
+	case 6: // Start Installation
+	  if (isempty(image) || isempty(device))
+	    show_error_popup("Installation image and target device are required!");
+	  else if (show_warning_popup("This will destroy all data, are you sure?",
+				      image, device))
 	    {
-	      attron(COLOR_PAIR(CP_SELECTED) | A_BOLD);
-	      mvprintw(y, 2, "-> %s", options[i]);
-	      attroff(COLOR_PAIR(CP_SELECTED) | A_BOLD);
+	      print_global_header_footer(NULL);
+	      mvprintw(LINES / 2, (COLS - 22) / 2,
+		       "Starting installation...");
+	      refresh();
+	      sleep(2); // Mock delay
+	      return 0;
 	    }
 	  else
-	    {
-	      attron(COLOR_PAIR(CP_UNSELECTED));
-	      mvprintw(y, 2, "   %s", options[i]);
-	      attroff(COLOR_PAIR(CP_UNSELECTED));
-            }
-        }
-
-      refresh();
-
-      // Handle Input
-      int ch = getch();
-      if (ch == 27) // 27 is the ASCII code for ESC
-	break;
-      else if (ch == KEY_UP)
-	selected = (selected - 1 + num_options) % num_options;
-      else if (ch == KEY_DOWN)
-	selected = (selected + 1) % num_options;
-      else if (ch == '\n') // Enter key
-	{
-	  switch(selected)
-	    {
-	    case 0: // Select Image
-	      {
-		select_installation_source(image?image:"https://", &image);
-		if (!isempty(image))
-		  {
-		    image_entry = mfree(image_entry);
-		    if (asprintf(&image_entry, "Select Image (%s)", image) < 0)
-		      return -ENOMEM;
-		    options[0] = image_entry;
-		  }
-	      }
-	      break;
-	    case 1: // Select Target
-	      {
-		select_target_device(minsize, &device);
-		if (!isempty(device))
-		  {
-		    target_entry = mfree(target_entry);
-		    if (asprintf(&target_entry, "Select Target (%s)", device) < 0)
-		      return -ENOMEM;
-		    options[1] = target_entry;
-		  }
-	      }
-	      break;
-	    case 2: // Select Keymap
-	      {
-		_cleanup_free_ char *keymap = NULL;
-		if (select_keymap(&keymap) == 0)
-		  {
-		    keymap_entry = mfree(keymap_entry);
-		    if (asprintf(&keymap_entry, "Select Keymap (%s)",
-				 strna(keymap)) < 0)
-		      return -ENOMEM;
-		    options[2] = keymap_entry;
-		  }
-	      }
-	      break;
-	    case 3: // System Information
-	      show_sysinfo();
-	      break;
-	    case 4: // Refresh
-	      // loop will redraw screen
-	      break;
-	    case 5: // Abort
-	      return 0;
-	      break;
-	    case 6: // Start Installation
-	      if (isempty(image) || isempty(device))
-		show_error_popup("Installation image and target device are required!");
-	      else if (show_warning_popup("This will destroy all data, are you sure?",
-					  image, device))
-		{
-		  print_global_header_footer(NULL);
-		  mvprintw(LINES / 2, (COLS - 22) / 2,
-			   "Starting installation...");
-		  refresh();
-		  sleep(2); // Mock delay
-		  return 0;
-                }
-	      else
-		clear();
-	      break;
-	    default:
-	      show_error_popup("Internal Error");
-	      abort();
-	      break;
-            }
-        }
+	    clear();
+	  break;
+	case -ECANCELED:
+	  return 0;
+	  break;
+	default:
+	  show_error_popup("Internal Error");
+	  abort();
+	  break;
+	}
     }
 
   return 0;
