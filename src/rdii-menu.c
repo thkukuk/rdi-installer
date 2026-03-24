@@ -322,7 +322,6 @@ show_main_menu()
 
       int old_selected = selected >= 0?selected:0;
       selected = choose_entry(4, options, num_options, old_selected);
-      fprintf(stderr, "selected=%i\n", selected);
       switch(selected)
 	{
 	case 0: // Select Image

@@ -70,6 +70,8 @@ static inline const char *strunknown(const char *s) {
 int
 select_target_device(uint64_t minsize, char **device)
 {
+  _cleanup_free_ char **options = NULL;
+  _cleanup_free_ int *mapping = NULL;
   _cleanup_(devices_freep) device_t *disk = NULL;
   int selected = 0;
   int count;
@@ -79,58 +81,42 @@ select_target_device(uint64_t minsize, char **device)
   if (r < 0)
     return r;
 
-  while (1)
+  options = calloc(count, sizeof(char *));
+  if (!options)
+    return -ENOMEM;
+
+  mapping = calloc(count, sizeof(int));
+  if (!mapping)
+    return -ENOMEM;
+
+  int n = 0;
+  for (int i = 0; i < count; i++)
     {
-      int entries_shown = 0;
-      print_global_header_footer(NULL);
-      print_title("Select Target Device");
-
-      for (int i = 0; i < count; i++)
-	{
-	  int y = 4 + i;
-
-	  if (!isempty(disk[i].type) && !streq(disk[i].type, "disk"))
-            continue;
-	  if (disk[i].size < minsize)
-            continue;
-
-	  if (i == selected)
-            {
-              attron(COLOR_PAIR(CP_SELECTED) | A_BOLD);
-              mvprintw(y, 2, "-> %s - %s (%s, %.1f GB)",
-		       disk[i].device, strunknown(disk[i].model),
-		       disk[i].bus, disk[i].size_gb);
-              attroff(COLOR_PAIR(CP_SELECTED) | A_BOLD);
-            }
-          else
-            {
-              attron(COLOR_PAIR(CP_UNSELECTED));
-              mvprintw(y, 2, "   %s - %s (%s, %.1f GB)",
-		       disk[i].device, strunknown(disk[i].model),
-		       disk[i].bus, disk[i].size_gb);
-              attroff(COLOR_PAIR(CP_UNSELECTED));
-            }
-	  entries_shown++;
-	}
-      refresh();
-
-      // Handle Input
-      int ch = getch();
-      if (ch == 27) // 27 is the ASCII code for ESC
-        return -ECANCELED;
-      else if (ch == KEY_UP)
-        selected = (selected - 1 + entries_shown) % entries_shown;
-      else if (ch == KEY_DOWN)
-        selected = (selected + 1) % entries_shown;
-      else if (ch == '\n') // Enter key
-	break;
+      if (!isempty(disk[i].type) && !streq(disk[i].type, "disk"))
+	continue;
+      if (disk[i].size < minsize)
+	continue;
+      // XXX we need to free this later
+      if (asprintf(&options[n], "%s - %s (%s, %.1f GB)",
+		   disk[i].device, strunknown(disk[i].model),
+		   disk[i].bus, disk[i].size_gb) < 0)
+	return -ENOMEM;
+      mapping[n] = i;
+      n++;
     }
 
-  if (is_device_mounted(disk[selected].device))
+  print_global_header_footer(NULL);
+  print_title("Select Target Device");
+
+  selected = choose_entry(4, (const char **)options, n, 0);
+  if (selected < 0)
+    return selected;
+
+  if (is_device_mounted(disk[mapping[selected]].device))
     {
       _cleanup_free_ char *msg = NULL;
       if (asprintf(&msg, "The device %s contains mounted partitions.",
-		   disk[selected].device) < 0)
+		   disk[mapping[selected]].device) < 0)
 	return -ENOMEM;
 
       r = show_warning_popup("!!! CRITICAL WARNING: DRIVE IS CURRENTLY MOUNTED !!!",
@@ -140,7 +126,7 @@ select_target_device(uint64_t minsize, char **device)
 	return 0;
     }
 
-  *device = strdup(disk[selected].device);
+  *device = strdup(disk[mapping[selected]].device);
   if (!*device)
     return -ENOMEM;
 
