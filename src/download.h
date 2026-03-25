@@ -2,4 +2,4 @@
 
 #pragma once
 
-extern int curl_download_config(const char *url, const char *cfg);
+extern int curl_download_file(const char *url, const char *output);
