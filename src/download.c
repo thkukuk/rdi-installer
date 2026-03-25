@@ -11,73 +11,56 @@
 #include "basics.h"
 #include "download.h"
 
-// Struct to handle the file writing
-struct FileStruct {
-    const char *filename;
-    FILE *stream;
-};
-
-// Callback function for libcurl to write data to the file
-static size_t
-write_data(void *buffer, size_t size, size_t nmemb, void *stream)
-{
-  struct FileStruct *out = (struct FileStruct *)stream;
-
-  if (!out->stream)
-    {
-      out->stream = fopen(out->filename, "wb");
-      if (!out->stream)
-	{
-	  fprintf(stderr, "Cannot open '%s': %s\n",
-		  out->filename, strerror(errno));
-	  return -1; /* failure, can't open file to write */
-	}
-    }
-  return fwrite(buffer, size, nmemb, out->stream);
-}
-
+/* Return value are:
+   < 0: negative errno codes
+   > 0: CURLcode values
+   0: success
+*/
 int
-curl_download_config(const char *url, const char *cfg)
+curl_download_file(const char *url, const char *output)
 {
-  struct FileStruct file_info = {cfg, NULL};
+  _cleanup_fclose_ FILE *fp = NULL;
   CURL *curl;
-  CURLcode res;
+  int r;
+
+  if (isempty(url) || isempty(output))
+    return CURLE_URL_MALFORMAT;
 
   curl_global_init(CURL_GLOBAL_DEFAULT);
   curl = curl_easy_init();
-
   if (curl == NULL)
     {
-      fprintf(stderr, "curl_easy_init() failed\n");
-      return -CURLE_FAILED_INIT;
+      curl_global_cleanup();
+      return CURLE_FAILED_INIT;
     }
 
-  if (isempty(url) || isempty(cfg))
-    return -CURLE_URL_MALFORMAT;
+  fp = fopen(output, "wb");
+  if (!fp)
+    {
+      r = -errno;
+      curl_easy_cleanup(curl);
+      curl_global_cleanup();
+      return r;
+    }
 
   // set URL and write callback function
   curl_easy_setopt(curl, CURLOPT_URL, url);
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &file_info);
-  // Fail on HTTP errors (like 404) so we don't save an error page
-  curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L); // -L
+  curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L); // --fail
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
 
-  res = curl_easy_perform(curl);
+  CURLcode res = curl_easy_perform(curl);
   if (res != CURLE_OK)
     {
-      if (file_info.stream)
-	fclose(file_info.stream);
-      remove(file_info.filename);
-    }
-  else
-    {
-      printf("Download successful! Saved to '%s'\n", file_info.filename);
-      if (file_info.stream) fclose(file_info.stream);
+      //cleanup
+      fclose(fp);
+      fp = NULL;
+      remove(output);
     }
 
   // Cleanup
   curl_easy_cleanup(curl);
   curl_global_cleanup();
 
-  return -res;
+  return res;
 }

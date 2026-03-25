@@ -200,13 +200,14 @@ main(int argc, char **argv)
   if (!isempty(arg_url) && !no_network)
     {
       printf("Attempting download (%s)...\n", arg_url);
-      r = curl_download_config(arg_url, cfgfile);
-      if (r < 0)
+      r = curl_download_file(arg_url, cfgfile);
+      if (r != 0)
 	{
 	  fprintf(stderr, "Error downloading '%s' and storing to '%s': %s\n",
-		  arg_url, cfgfile, curl_easy_strerror(-r));
+		  arg_url, cfgfile, r < 0?strerror(-r):curl_easy_strerror(r));
 	  return -r;
 	}
+      printf("Download successful! Saved to '%s'\n", cfgfile);
       return 0;
     }
   else
@@ -237,13 +238,14 @@ main(int argc, char **argv)
 	    }
 
 	  printf("Attempting download (%s)...\n", config_url);
-	  r = curl_download_config(config_url, cfgfile);
-	  if (r < 0 && r != -CURLE_HTTP_RETURNED_ERROR)
+	  r = curl_download_file(config_url, cfgfile);
+	  if (r != 0 && r != CURLE_HTTP_RETURNED_ERROR)
 	    {
 	      fprintf(stderr, "Error downloading '%s' and storing to '%s': %s\n",
-		      config_url, cfgfile, curl_easy_strerror(-r));
+		      config_url, cfgfile, r < 0?strerror(-r):curl_easy_strerror(r));
 	      return -r;
 	    }
+	  printf("Download successful! Saved to '%s'\n", cfgfile);
 	}
       else if (!isempty(efi->partition) && !isempty(efi->image))
 	{
