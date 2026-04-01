@@ -552,7 +552,36 @@ main(int argc, char *argv[])
       access(RUN_RDII_CONFIG, F_OK) == 0)
     cfgfile = RUN_RDII_CONFIG;
 
-  if (!isempty(cfgfile))
+  if (argc > 0)
+    {
+      // Allow overriding input for testing: rdii-networkd "ifcfg=..."
+      size_t total_length = 0;
+
+      for (int i = 0; i < argc; i++)
+	{
+	  total_length += strlen(argv[i]);
+	  total_length++; // for ' ' or '\0'
+	}
+
+      line = malloc(total_length);
+      if (line == NULL)
+	{
+	  fprintf(stderr, "Out of memory!\n");
+	  return ENOMEM;
+	}
+
+      char *cp = line;
+
+      for (int i = 0; i < argc; i++)
+	{
+	  cp = stpcpy(cp, argv[i]);
+	  if (i < argc - 1) // not last argument
+	    cp = stpcpy(cp, " ");
+	}
+
+      parse_all = true;
+    }
+  else if (!isempty(cfgfile))
     {
       _cleanup_close_ int fd = -EBADF;
       size_t file_size = 0;
@@ -613,35 +642,6 @@ main(int argc, char *argv[])
 	  if (*ptr == '\n')
             *ptr = ' ';
 	  ptr++;
-	}
-
-      parse_all = true;
-    }
-  else if (argc > 0)
-    {
-      // Allow overriding input for testing: rdii-networkd "ifcfg=..."
-      size_t total_length = 0;
-
-      for (int i = 0; i < argc; i++)
-	{
-	  total_length += strlen(argv[i]);
-	  total_length++; // for ' ' or '\0'
-	}
-
-      line = malloc(total_length);
-      if (line == NULL)
-	{
-	  fprintf(stderr, "Out of memory!\n");
-	  return ENOMEM;
-	}
-
-      char *cp = line;
-
-      for (int i = 0; i < argc; i++)
-	{
-	  cp = stpcpy(cp, argv[i]);
-	  if (i < argc - 1) // not last argument
-	    cp = stpcpy(cp, " ");
 	}
 
       parse_all = true;

@@ -108,7 +108,9 @@ executable('rdii-helper',
 
 rdii_menu_c = ['src/rdii-menu.c', 'src/rdii-menu-keymap.c',
                'src/rdii-menu-disk.c', 'src/rdii-menu-image.c',
-               'src/rdii-menu-sysinfo.c']
+               'src/rdii-menu-sysinfo.c', 'src/rdii-menu-installation.c',
+               'src/download.c', 'lib/mkdir_p.c', 'lib/tmpfile-util.c',
+               'lib/logger.c']
 executable('rdii-menu',
            rdii_menu_c,
            include_directories : inc,
