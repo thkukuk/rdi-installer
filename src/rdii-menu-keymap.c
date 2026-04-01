@@ -25,8 +25,8 @@ get_vconsole_keymap(char **ret)
   error = econf_readFile(&key_file, "/etc/vconsole.conf", "=", "#");
   if (error != ECONF_SUCCESS)
     {
-      // XXX use show_error_popup()
-      fprintf(stderr, "Failed to read /etc/vconsole.conf: %s\n", econf_errString(error));
+      show_error_popup("Failed to read /etc/vconsole.conf:",
+		       econf_errString(error));
       return -error;
     }
 
@@ -159,7 +159,7 @@ load_system_keymaps()
   r = nftw("/usr/share/kbd/keymaps", process_file, 20, FTW_PHYS);
   if (r < 0)
     {
-      show_error_popup("nftw('/usr/share/kbd/keymaps') failed");
+      show_error_popup("nftw('/usr/share/kbd/keymaps') failed", NULL);
       return -1;
     }
 

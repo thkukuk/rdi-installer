@@ -8,11 +8,19 @@
 #include <stdlib.h>
 #include <locale.h>
 #include <wchar.h>
+#include <libeconf.h>
 
 #include "basics.h"
+#include "mkdir_p.h"
+#include "tmpfile-util.h"
 #include "rdii-menu.h"
+#include "logger.h"
 
 #define TITLE "Raw Disk Installer Version " VERSION
+
+const char *rdii_run_dir = "/run/rdi-installer";
+const char *rdii_config = "/run/rdi-installer/rdii-config";
+const char *rdii_tmp_dir = NULL;
 
 static void
 init_colors()
@@ -145,6 +153,41 @@ print_title(const char *title)
   attroff(COLOR_PAIR(CP_TITLE));
 }
 
+
+static char*
+truncate_middle(const char *str, size_t max_len)
+{
+  size_t len = strlen(str);
+
+  if (len <= max_len)
+    return strdup(str); // Yes, we ignore OOM...
+
+  char *result = malloc(max_len + 1);
+  if (result == NULL)
+    return NULL;
+
+  // If max_len is too small to even fit the "...", fallback to a hard truncation at the end
+  if (max_len < 3)
+    {
+      strncpy(result, str, max_len);
+      result[max_len] = '\0';
+      return result;
+    }
+
+  // Calculate how many characters from the original string we can keep
+  size_t keep_len = max_len - 3;
+  size_t prefix_len = keep_len / 2;
+  size_t suffix_len = keep_len - prefix_len;
+
+  // Construct the new string: [prefix] + "..." + [suffix]
+  strncpy(result, str, prefix_len);
+  char *cp = stpcpy(result + prefix_len, "...");
+  stpcpy(cp, str + (len - suffix_len));
+
+  return result;
+}
+
+
 // Returns 1 if YES, 0 if NO
 int
 show_warning_popup(const char *msg1, const char *msg2, const char *msg3)
@@ -159,12 +202,19 @@ show_warning_popup(const char *msg1, const char *msg2, const char *msg3)
 
   width = strlen(msg1) + 6;
   if (msg2)
-    if (strlen(msg2) + 6 > width)
-      width = strlen(msg2) + 6;
+    {
+      if (strlen(msg2) > (size_t)(COLS - 8))
+	msg2 = truncate_middle(msg2, COLS-8);
+      if (strlen(msg2) + 6 > width)
+	width = strlen(msg2) + 6;
+    }
   if (msg3)
-    if (strlen(msg3) + 6 > width)
-      width = strlen(msg3) + 6;
-
+    {
+      if (strlen(msg3) > (size_t)(COLS - 8))
+	msg3 = truncate_middle(msg3, COLS-8);
+      if (strlen(msg3) + 6 > width)
+	width = strlen(msg3) + 6;
+    }
   int start_y = (LINES - height) / 2 - 2;
   int start_x = (COLS - width) / 2;
 
@@ -227,18 +277,24 @@ show_warning_popup(const char *msg1, const char *msg2, const char *msg3)
 }
 
 void
-show_error_popup(const char *errmsg)
+show_error_popup(const char *msg1, const char *msg2)
 {
-  int height = 7;
-  int width = strlen(errmsg) + 6;
+  int height = 7 + (msg2?1:0);
+  int width = strlen(msg1) + 6;
+  if (msg2)
+    if ((int)(strlen(msg2) + 6) > width)
+      width = strlen(msg2) + 6;
+
   int start_y = (LINES - height) / 2 - 2;
   int start_x = (COLS - width) / 2;
 
   WINDOW *win = newwin(height, width, start_y, start_x);
   wbkgd(win, COLOR_PAIR(CP_WARNING));
   box(win, 0, 0);
-  mvwprintw(win, 2, (width - strlen(errmsg)) / 2, "%s", errmsg);
-  mvwprintw(win, 4, width / 2 - 3, "[ OK ]");
+  mvwprintw(win, 2, (width - strlen(msg1)) / 2, "%s", msg1);
+  if (msg2)
+    mvwprintw(win, 3, (width - strlen(msg2)) / 2, "%s", msg2);
+  mvwprintw(win, height - 3, width / 2 - 3, "[ OK ]");
   wrefresh(win);
 
   while (1)
@@ -295,6 +351,47 @@ choose_entry(int row, const char *options[], int num_options, int start)
 }
 
 static int
+read_config(const char *config, char **ret_device,
+	    char **ret_url, char **ret_keymap)
+{
+  _cleanup_(econf_freeFilep) econf_file *key_file = NULL;
+  _cleanup_free_ char *device = NULL;
+  _cleanup_free_ char *url = NULL;
+  _cleanup_free_ char *keymap = NULL;
+  econf_err error;
+
+  error = econf_readFile(&key_file, config,
+			 "=", "#");
+  if (error != ECONF_SUCCESS && error != ECONF_NOFILE)
+    {
+      show_error_popup("Failed to read config file:",
+                       econf_errString(error));
+      return -error;
+    }
+
+  error = econf_getStringValue(key_file, NULL, "rdii.device", &device);
+  if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
+    return -error;
+
+  error = econf_getStringValue(key_file, NULL, "rdii.url", &url);
+  if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
+    return -error;
+
+  error = econf_getStringValue(key_file, NULL, "rdii.keymap", &keymap);
+  if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
+    return -error;
+
+  if (ret_device)
+    *ret_device = TAKE_PTR(device);
+  if (ret_url)
+    *ret_url = TAKE_PTR(url);
+  if (ret_keymap)
+    *ret_keymap = TAKE_PTR(keymap);
+
+  return 0;
+}
+
+static int
 show_main_menu()
 {
   uint64_t minsize = 10 * 1000ULL * 1000 * 1000; // 10G min disk size
@@ -315,6 +412,11 @@ show_main_menu()
   _cleanup_free_ char *image = NULL;
   _cleanup_free_ char *device = NULL;
 
+  // XXX error check missing
+  // XXX keymap ignored
+  read_config(rdii_config, &device, &image, NULL);
+  // XXX adjust menu entries
+
   while (1)
     {
       print_global_header_footer(NULL);
@@ -329,8 +431,10 @@ show_main_menu()
 	    select_installation_source(image?image:"https://", &image);
 	    if (!isempty(image))
 	      {
+		_cleanup_free_ char *cp = truncate_middle(image, COLS-22);
+
 		image_entry = mfree(image_entry);
-		if (asprintf(&image_entry, "Select Image (%s)", image) < 0)
+		if (asprintf(&image_entry, "Select Image (%s)", cp) < 0)
 		  return -ENOMEM;
 		options[0] = image_entry;
 	      }
@@ -372,7 +476,12 @@ show_main_menu()
 	  break;
 	case 6: // Start Installation
 	  if (isempty(image) || isempty(device))
-	    show_error_popup("Installation image and target device are required!");
+	    show_error_popup("Installation image and target device are required!", NULL);
+
+	  int r = run_installation(image, device);
+	  if (r == 0)
+	    return 0; // Quit, we are done
+#if 0
 	  else if (show_warning_popup("This will destroy all data, are you sure?",
 				      image, device))
 	    {
@@ -385,12 +494,13 @@ show_main_menu()
 	    }
 	  else
 	    clear();
+#endif
 	  break;
 	case -ECANCELED:
 	  return 0;
 	  break;
 	default:
-	  show_error_popup("Internal Error");
+	  show_error_popup("Internal Error", NULL);
 	  abort();
 	  break;
 	}
@@ -399,10 +509,48 @@ show_main_menu()
   return 0;
 }
 
+static char*
+rm_rf_and_free(char *p)
+{
+  // XXX rm -rf ...
+
+  return mfree(p);
+}
+
+static inline void
+rm_rf_and_freep(char **p)
+{
+  if (*p)
+    *p = rm_rf_and_free(*p);
+}
+
 int
 main()
 {
+  _cleanup_(rm_rf_and_freep) char *rdii_tmp_dir_cleanup = NULL;
   int r;
+
+  r = log_init("rdi-installer.log");
+  if (r < 0)
+    {
+      fprintf(stderr, "Error initializing log file: %s\n", strerror(-r));
+      return -r;
+    }
+
+  LOG_INFO("rdi-installer started");
+
+  const char *tmpdir_template = "/tmp/rdi-installer-XXXXXX";
+  r = mkdtemp_malloc(tmpdir_template, &rdii_tmp_dir_cleanup);
+  if (r < 0)
+    {
+      LOG_ERROR("Failed to create temporary directory (%s): %s",
+		tmpdir_template, strerror(-r));
+      show_error_popup("Failed to create temporary directory:",
+		       strerror(-r));
+      return -r;
+    }
+  // we cannot make rdii_tmp_dir_cleanup global because of _cleanup_
+  rdii_tmp_dir = rdii_tmp_dir_cleanup;
 
   // For correctly rendering the double borders
   setlocale(LC_ALL, "");
@@ -422,5 +570,10 @@ main()
   r = show_main_menu();
 
   endwin();
+
+  LOG_INFO("rdi-installer stopped (retval=%i)", r);
+
+  log_close();
+
   return r;
 }
