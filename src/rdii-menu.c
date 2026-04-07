@@ -11,6 +11,7 @@
 #include <libeconf.h>
 
 #include "basics.h"
+#include "rm_rf.h"
 #include "mkdir_p.h"
 #include "tmpfile-util.h"
 #include "rdii-menu.h"
@@ -21,6 +22,7 @@
 const char *rdii_run_dir = "/run/rdi-installer";
 const char *rdii_config = "/run/rdi-installer/rdii-config";
 const char *rdii_tmp_dir = NULL;
+const char *rdii_log = "/var/log/rdi-installer.log";
 
 static void
 init_colors()
@@ -512,7 +514,12 @@ show_main_menu()
 static char*
 rm_rf_and_free(char *p)
 {
-  // XXX rm -rf ...
+  int r;
+
+  r = rm_rf(p);
+
+  if (r < 0)
+    fprintf(stderr, "Removal of '%s' failed: %s\n", p, strerror(-r));
 
   return mfree(p);
 }
@@ -530,10 +537,13 @@ main()
   _cleanup_(rm_rf_and_freep) char *rdii_tmp_dir_cleanup = NULL;
   int r;
 
-  r = log_init("rdi-installer.log");
+  if (getuid())
+    rdii_log = "rdii.log";
+  r = log_init(rdii_log);
   if (r < 0)
     {
-      fprintf(stderr, "Error initializing log file: %s\n", strerror(-r));
+      fprintf(stderr, "Error initializing log file (%s): %s\n",
+	      rdii_log, strerror(-r));
       return -r;
     }
 
