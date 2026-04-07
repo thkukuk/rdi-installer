@@ -96,6 +96,8 @@ select_target_device(uint64_t minsize, char **device)
 	continue;
       if (disk[i].size < minsize)
 	continue;
+      if (streq(disk[i].device, *device))
+	selected = n;
       // XXX we need to free this later
       if (asprintf(&options[n], "%s - %s (%s, %.1f GB)",
 		   disk[i].device, strunknown(disk[i].model),
@@ -108,7 +110,7 @@ select_target_device(uint64_t minsize, char **device)
   print_global_header_footer(NULL);
   print_title("Select Target Device");
 
-  selected = choose_entry(4, (const char **)options, n, 0);
+  selected = choose_entry(4, (const char **)options, n, selected);
   if (selected < 0)
     return selected;
 
