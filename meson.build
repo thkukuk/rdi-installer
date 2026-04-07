@@ -63,7 +63,6 @@ libncurses = dependency('ncursesw', required: true)
 libeconf = dependency('libeconf', required: true)
 
 libefivars_c = files('lib/efivars.c')
-
 libefivars = static_library(
   'efivars',
   libefivars_c,
@@ -72,10 +71,18 @@ libefivars = static_library(
 )
 
 libdevices_c = files('lib/devices.c', 'lib/string-util-fundamental.c')
-
 libdevices = static_library(
   'devices',
   libdevices_c,
+  include_directories : inc,
+  install : false
+)
+
+librdii_c = files('lib/mkdir_p.c', 'lib/tmpfile-util.c', 'lib/logger.c',
+                  'lib/zap_partition_table.c', 'lib/rm_rf.c', 'lib/download.c')
+librdii = static_library(
+  'rdii',
+  librdii_c,
   include_directories : inc,
   install : false
 )
@@ -89,12 +96,11 @@ executable('keywait', 'src/keywait.c',
            include_directories : inc,
            install : true)
 
-rdii_fetch_config_c = ['src/rdii-fetch-config.c', 'src/download.c',
-		       'lib/mkdir_p.c']
+rdii_fetch_config_c = ['src/rdii-fetch-config.c']
 executable('rdii-fetch-config',
            rdii_fetch_config_c,
            include_directories : inc,
-	   link_with : [libefivars],
+	   link_with : [libefivars, librdii],
            dependencies : [libcurl],
            install : true)
 
@@ -108,13 +114,11 @@ executable('rdii-helper',
 
 rdii_menu_c = ['src/rdii-menu.c', 'src/rdii-menu-keymap.c',
                'src/rdii-menu-disk.c', 'src/rdii-menu-image.c',
-               'src/rdii-menu-sysinfo.c', 'src/rdii-menu-installation.c',
-               'src/download.c', 'lib/mkdir_p.c', 'lib/tmpfile-util.c',
-               'lib/logger.c', 'lib/zap_partition_table.c', 'lib/rm_rf.c']
+               'src/rdii-menu-sysinfo.c', 'src/rdii-menu-installation.c']
 executable('rdii-menu',
            rdii_menu_c,
            include_directories : inc,
-           link_with : [libefivars, libdevices],
+           link_with : [libefivars, libdevices, librdii],
            dependencies : [libncurses, libeconf, libudev, libcurl],
            install : true)
 
