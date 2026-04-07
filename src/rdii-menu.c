@@ -25,7 +25,7 @@ const char *rdii_tmp_dir = NULL;
 const char *rdii_log = "/var/log/rdi-installer.log";
 
 static void
-init_colors()
+init_colors(void)
 {
   start_color();
   use_default_colors();
@@ -87,7 +87,7 @@ keywait(int y, int x, const char *text, int sec)
 }
 
 static void
-show_splash_screen()
+show_splash_screen(void)
 {
   int width = strlen(TITLE) + 12;
   int height = 7;
@@ -394,7 +394,7 @@ read_config(const char *config, char **ret_device,
 }
 
 static int
-show_main_menu()
+show_main_menu(void)
 {
   uint64_t minsize = 10 * 1000ULL * 1000 * 1000; // 10G min disk size
   _cleanup_free_ char *image_entry = NULL;
@@ -511,6 +511,33 @@ show_main_menu()
   return 0;
 }
 
+static int
+rdii_menu(void)
+{
+  int r;
+
+  // For correctly rendering the double borders
+  setlocale(LC_ALL, "");
+
+  // Initialize ncurses
+  initscr();
+  cbreak();
+  noecho();
+  keypad(stdscr, TRUE); // Enable arrow keys
+  curs_set(0);          // Hide cursor
+  set_escdelay(25);     // Set escape delay to 25 milliseconds
+
+  if (has_colors())
+    init_colors();
+
+  show_splash_screen();
+  r = show_main_menu();
+
+  endwin();
+
+  return r;
+}
+
 static char*
 rm_rf_and_free(char *p)
 {
@@ -532,7 +559,7 @@ rm_rf_and_freep(char **p)
 }
 
 int
-main()
+main(void)
 {
   _cleanup_(rm_rf_and_freep) char *rdii_tmp_dir_cleanup = NULL;
   int r;
@@ -562,24 +589,7 @@ main()
   // we cannot make rdii_tmp_dir_cleanup global because of _cleanup_
   rdii_tmp_dir = rdii_tmp_dir_cleanup;
 
-  // For correctly rendering the double borders
-  setlocale(LC_ALL, "");
-
-  // Initialize ncurses
-  initscr();
-  cbreak();
-  noecho();
-  keypad(stdscr, TRUE); // Enable arrow keys
-  curs_set(0);          // Hide cursor
-  set_escdelay(25);     // Set escape delay to 25 milliseconds
-
-  if (has_colors())
-    init_colors();
-
-  show_splash_screen();
-  r = show_main_menu();
-
-  endwin();
+  r = rdii_menu();
 
   LOG_INFO("rdi-installer stopped (retval=%i)", r);
 
