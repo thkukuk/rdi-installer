@@ -16,6 +16,7 @@
 #include "mkdir_p.h"
 #include "rdii-menu.h"
 #include "logger.h"
+#include "zap_partition_table.h"
 
 extern char **environ;
 
@@ -374,11 +375,18 @@ run_installation(const char *url, const char *device)
 
       if (!sha256_eq(written_sha256_fn, d_sha256_fn))
 	{
+	  _cleanup_free_ char *errmsg = NULL;
 	  show_error_popup("ERROR: SHA256 verification failed!",
 			   "Wiping invalid data and aborting...");
+	  if (zap_partition_tables(device, &errmsg) < 0)
+	    show_error_popup("ERROR: wiping invalid data failed!",
+			     errmsg);
+
+
 	  return -EIO;
 	}
-
+      else
+	keywait(LINES-3, 0, NULL, 60);
     }
 
   return r;
