@@ -62,6 +62,8 @@ verify_signature(const char *file, const char *key)
     }
 }
 
+
+// XXX Add cleanup functions for close all_pipes and destroy actions
 static int
 write_net_image(const char *url, const char *device)
 {
@@ -117,7 +119,12 @@ write_net_image(const char *url, const char *device)
   if (posix_spawnp(&pids[0], "wget", &fa[0], NULL, wget_args, environ) != 0)
     {
       fprintf(stderr, "Starting 'wget' failed: %s", strerror(errno));
-      goto err;
+      keywait(LINES-3, 0, NULL, 0);
+      for (int i = 0; i < 8; i++)
+	close(all_pipes[i]);
+      for (int i = 0; i < 5; i++)
+	posix_spawn_file_actions_destroy(&fa[i]);
+      return -1;
     }
 
   // Process 2: tee
@@ -137,7 +144,12 @@ write_net_image(const char *url, const char *device)
   if (posix_spawnp(&pids[1], "tee", &fa[1], NULL, tee_args, environ) != 0)
     {
       fprintf(stderr, "Starting 'tee' failed: %s", strerror(errno));
-      goto err;
+      keywait(LINES-3, 0, NULL, 0);
+      for (int i = 0; i < 8; i++)
+	close(all_pipes[i]);
+      for (int i = 0; i < 5; i++)
+	posix_spawn_file_actions_destroy(&fa[i]);
+      return -1;
     }
 
   // Process 3: decompressor
@@ -148,7 +160,12 @@ write_net_image(const char *url, const char *device)
   if (posix_spawnp(&pids[2], decomp_args[0], &fa[2], NULL, decomp_args, environ) != 0)
     {
       fprintf(stderr, "Starting '%s' failed: %s", decomp_args[0], strerror(errno));
-      goto err;
+      keywait(LINES-3, 0, NULL, 0);
+      for (int i = 0; i < 8; i++)
+	close(all_pipes[i]);
+      for (int i = 0; i < 5; i++)
+	posix_spawn_file_actions_destroy(&fa[i]);
+      return -1;
     }
 
   // Process 4: dd
@@ -162,7 +179,12 @@ write_net_image(const char *url, const char *device)
   if (posix_spawnp(&pids[3], "dd", &fa[3], NULL, dd_args, environ) != 0)
     {
       fprintf(stderr, "Starting 'dd' failed: %s", strerror(errno));
-      goto err;
+      keywait(LINES-3, 0, NULL, 0);
+      for (int i = 0; i < 8; i++)
+	close(all_pipes[i]);
+      for (int i = 0; i < 5; i++)
+	posix_spawn_file_actions_destroy(&fa[i]);
+      return -1;
     }
 
   // Process 5: sha256sum
@@ -178,7 +200,12 @@ write_net_image(const char *url, const char *device)
   if (posix_spawnp(&pids[4], "sha256sum", &fa[4], NULL, sha_args, environ) != 0)
     {
       fprintf(stderr, "Starting 'sha256sum' failed: %s", strerror(errno));
-      goto err;
+      keywait(LINES-3, 0, NULL, 0);
+      for (int i = 0; i < 8; i++)
+	close(all_pipes[i]);
+      for (int i = 0; i < 5; i++)
+	posix_spawn_file_actions_destroy(&fa[i]);
+      return -1;
     }
 
   // Close its copies of the pipes so the childs don't hang waiting for EOF
@@ -225,15 +252,6 @@ write_net_image(const char *url, const char *device)
     keywait(LINES-3, 0, NULL, 0);
 
   return -first_error;
-
-  // XXX use _cleanup_ for this
- err:
-  keywait(LINES-3, 0, NULL, 0);
-  for (int i = 0; i < 8; i++)
-    close(all_pipes[i]);
-  for (int i = 0; i < 5; i++)
-    posix_spawn_file_actions_destroy(&fa[i]);
-  return -1;
 }
 
 static bool
