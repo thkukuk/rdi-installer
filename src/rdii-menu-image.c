@@ -15,10 +15,8 @@
 
 #define OFFSET 2
 
-/*
-  verify if an URL exists
-  (curl -o /dev/null --silent --show-error --head --fail --max-time $TIMEOUT "$URL")
-*/
+/* verify if an URL exists
+  (curl -o /dev/null --silent --show-error --head --fail --max-time $TIMEOUT "$URL") */
 static bool
 url_is_valid(const char *url, const char **error)
 {
@@ -58,8 +56,8 @@ url_is_valid(const char *url, const char **error)
   return is_valid;
 }
 
-int
-select_installation_source(const char *prefill, char **ret)
+static int
+get_url(const char *prefill, char **ret)
 {
   char url[1024];
 
@@ -164,5 +162,39 @@ select_installation_source(const char *prefill, char **ret)
 	return -ENOMEM;
     }
 
+  return 0;
+}
+
+int
+select_installation_source(const char *prefill, char **ret)
+{
+  const char *options[] = {
+    "Provide URL",
+    "Use file selection"
+  };
+  int num_options = sizeof(options) / sizeof(options[0]);
+  int selected = 0;
+  int r;
+
+  while (1)
+    {
+      print_global_header_footer(NULL);
+      print_title("Select Source Image");
+
+      selected = choose_entry(4, options, num_options, selected);
+      switch(selected)
+	{
+	case 0: // url
+	  r = get_url(prefill, ret);
+	  if (r == 0)
+	    return 0;
+	  break;
+	case 1: // local image
+	  break;
+	default:
+	  return 0;
+	  break;
+	}
+    }
   return 0;
 }

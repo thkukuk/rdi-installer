@@ -113,33 +113,17 @@ executable('rdii-helper',
            dependencies : [libudev],
            install : true)
 
-rdii_menu_c = ['src/rdii-menu.c', 'src/rdii-menu-keymap.c',
-               'src/rdii-menu-disk.c', 'src/rdii-menu-image.c',
-               'src/rdii-menu-sysinfo.c', 'src/rdii-menu-installation.c']
-executable('rdii-menu',
-           rdii_menu_c,
+rdi_installer_c = ['src/rdi-installer.c',
+                   'src/rdii-menu.c', 'src/rdii-menu-keymap.c',
+                   'src/rdii-menu-disk.c', 'src/rdii-menu-image.c',
+                   'src/rdii-menu-sysinfo.c', 'src/rdii-menu-installation.c']
+executable('rdi-installer',
+           rdi_installer_c,
            include_directories : inc,
            link_with : [libefivars, libdevices, librdii],
            dependencies : [libncurses, libeconf, libudev, libcurl],
            install : true)
 
-rdi_installer = configure_file(
-  input: 'scripts/rdi-installer.sh.in',
-  output: 'rdi-installer',
-  configuration: {
-    'PACKAGE': meson.project_name(),
-    'VERSION': meson.project_version(),
-    'RDIIDIR': rdiidir,
-  },
-  install: true,
-  install_dir: bindir
-)
-
-# rdi-installer
-install_data('scripts/keymap.sh', install_dir : rdiidir)
-install_data('scripts/select_image.sh', install_dir : rdiidir)
-install_data('scripts/system_info.sh', install_dir : rdiidir)
-install_data('scripts/target_device.sh', install_dir : rdiidir)
 # additional tools
 install_data('scripts/rdii-ssh-setup.sh', rename : 'rdii-ssh-setup', install_mode : 'rwxr-xr-x', install_dir : bindir)
 
