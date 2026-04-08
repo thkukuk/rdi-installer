@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include <spawn.h>
 #include <sys/wait.h>
+#include <sys/ioctl.h>
+#include <sys/mount.h>
 #include <curl/curl.h>
 
 #include "basics.h"
@@ -27,6 +29,8 @@ verify_signature(const char *file, const char *key)
   pid_t pid;
   int status;
   int r;
+
+  LOG_FUNC("file='%s', key='%s'", file, key);
 
   char *argv[] = {"gpgv", "--keyring", "/etc/systemd/import-pubring.gpg",
 		  (char *)key, (char *)file, NULL};
@@ -52,16 +56,68 @@ verify_signature(const char *file, const char *key)
   if (WIFEXITED(status))
     {
       if (WEXITSTATUS(status)) // Signature doesn't match
-        keywait(8, 0, NULL, 0);
+	{
+	  LOG_ERROR("Signature does not match (gpgv failed with %i)",
+		    WEXITSTATUS(status));
+	  keywait(8, 0, NULL, 0);
+	}
+      else
+	LOG_INFO("Signature matches");
       return WEXITSTATUS(status);
     }
   else
     {
+      LOG_ERROR("gpgv terminated abnormally");
       fprintf(stderr, "gpgv terminated abnormally\n"); // XXX
       return -1; // XXX
     }
 }
 
+// Call sgdisk -e to adjust partition table to real disk size
+static int
+fix_partition_table(const char *device)
+{
+  pid_t pid;
+  int status;
+  int r;
+
+  char *argv[] = {"sgdisk", "-e", (char *)device, NULL};
+
+  LOG_FUNC("device='%s'", device);
+
+  r = posix_spawnp(&pid, "/usr/sbin/sgdisk", NULL, NULL, argv, environ);
+  if (r != 0)
+    {
+      fprintf(stderr, "Failed to spawn sgdisk: %s\n", strerror(r)); // XXX
+      return -r;
+    }
+
+  if (waitpid(pid, &status, 0) == -1)
+    {
+      r = errno;
+      perror("waitpid failed"); // XXX
+      return -r;
+    }
+
+   if (WIFEXITED(status))
+    {
+      if (WEXITSTATUS(status)) // sgdisk quit with error
+	{
+	  LOG_ERROR("sgdisk failed with %i",
+		    WEXITSTATUS(status));
+	  keywait(8, 0, NULL, 0);
+	}
+      else
+	LOG_INFO("sgdisk succeeded");
+      return WEXITSTATUS(status);
+    }
+  else
+    {
+      LOG_ERROR("sgdisk terminated abnormally");
+      fprintf(stderr, "sgdisk terminated abnormally\n"); // XXX
+      return -1; // XXX
+    }
+}
 
 // XXX Add cleanup functions for close all_pipes and destroy actions
 static int
@@ -77,6 +133,8 @@ write_net_image(const char *url, const char *device)
   int p_wget_tee[2], p_tee_sha[2], p_tee_decomp[2], p_decomp_dd[2];
   int r;
 
+  LOG_FUNC("url='%s', device='%s'", url, device);
+
   if (endswith(url, ".xz"))
     decomp_args = decomp_xz_args;
   else if (endswith(url, ".zst"))
@@ -88,10 +146,13 @@ write_net_image(const char *url, const char *device)
   else
     decomp_args = decomp_cat_args;
 
+  LOG_INFO("decompressor=%s", decomp_args[0]);
+
   if (pipe(p_wget_tee) != 0 || pipe(p_tee_sha) != 0 ||
       pipe(p_tee_decomp) != 0 || pipe(p_decomp_dd) != 0)
     {
       r = errno;
+      LOG_ERROR("pipe allocation failed: %s", strerror(r));
       show_error_popup("pipe allocation failed", strerror(r));
       return -r;
     }
@@ -403,8 +464,15 @@ run_installation(const char *url, const char *device)
 
 	  return -EIO;
 	}
-      else
-	keywait(LINES-3, 0, NULL, 60);
+      fix_partition_table(device);
+      // Re-read partition table to update kernel view on disk
+      _cleanup_close_ int fd = -EBADF;
+      fd = open(device, O_RDWR | O_SYNC);
+      if (fd > 0) // ignore error if we cannot open device
+	ioctl(fd, BLKRRPART);
+
+      move(0,0);
+      keywait(LINES-3, 0, NULL, 60);
     }
 
   return r;
