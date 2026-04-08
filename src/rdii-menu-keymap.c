@@ -152,7 +152,7 @@ process_file(const char *fpath, const struct stat *sb _unused_,
 }
 
 static int
-load_system_keymaps()
+load_system_keymaps(void)
 {
   int r;
 
@@ -170,7 +170,7 @@ load_system_keymaps()
 }
 
 static void
-update_filter()
+update_filter(void)
 {
   filtered_count = 0;
   for (int i = 0; i < total_keymaps; i++)
@@ -186,7 +186,7 @@ update_filter()
 }
 
 static void
-draw_ui()
+draw_ui(void)
 {
   print_global_header_footer(NULL);
   print_title("Keyboard Settings");

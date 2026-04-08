@@ -523,7 +523,7 @@ main(int argc, char *argv[])
           return 0;
         default:
           print_error();
-          return 1;
+          return EINVAL;
         }
     }
 
@@ -534,7 +534,7 @@ main(int argc, char *argv[])
     {
       fputs("Using a configuration file with additional arguments is not possible\n", stderr);
       print_error();
-      return 1;
+      return EINVAL;
     }
 
   if (stat(output_dir, &st) == -1)
@@ -660,9 +660,10 @@ main(int argc, char *argv[])
       nread = getline(&line, &line_size, fp);
       if (nread == -1)
 	{
+	  r = errno;
 	  fprintf(stderr, "Failed to read %s: %s",
 		  CMDLINE_PATH, strerror(r));
-	  return errno;
+	  return r;
 	}
       if (nread > 0 && line[nread-1] == '\n')
 	line[nread-1] = '\0';

@@ -104,11 +104,11 @@ copy_file(const char *src, const char *dst)
 	{
 	  r = -errno;
 	  unlink(dst);
-	  break;
+	  return r;
         }
     }
 
-  return r;
+  return 0;
 }
 
 int
