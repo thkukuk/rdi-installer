@@ -417,15 +417,28 @@ show_main_menu(void)
   // XXX error check missing
   // XXX keymap ignored
   read_config(rdii_config, &device, &image, NULL);
-  // XXX adjust menu entries
+  // Adjust menu entries
+  if (!isempty(image))
+    {
+      _cleanup_free_ char *cp = truncate_middle(image, COLS-22);
+
+      if (asprintf(&image_entry, "%s (%s)", options[0], cp) < 0)
+	return -ENOMEM;
+      options[0] = image_entry;
+    }
+  if (!isempty(device))
+    {
+      if (asprintf(&target_entry, "%s (%s)", options[1], device) < 0)
+	return -ENOMEM;
+      options[1] = target_entry;
+    }
 
   while (1)
     {
       print_global_header_footer(NULL);
       print_title("Configuration Settings");
 
-      int old_selected = selected >= 0?selected:0;
-      selected = choose_entry(4, options, num_options, old_selected);
+      selected = choose_entry(4, options, num_options, selected);
       switch(selected)
 	{
 	case 0: // Select Image
