@@ -110,7 +110,7 @@ rdii_helper_c = ['src/rdii-helper.c', 'src/rdii-helper-disk.c' ]
 executable('rdii-helper',
            rdii_helper_c,
            include_directories : inc,
-	   link_with : [libefivars, libdevices],
+	   link_with : [libefivars, libdevices, librdii],
            dependencies : [libudev],
            install : true)
 
