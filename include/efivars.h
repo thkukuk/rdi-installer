@@ -44,4 +44,6 @@ extern int read_efi_var_string(const char *name, const char *guid,
 extern int efi_get_boot_source(efivars_t **var);
 // Returns device of default EFI boot device if it is a disk
 extern int efi_get_default_boot_partition(char **res_part);
+// Returns default sd-boot entry
+extern int efi_get_default_loader_entry(char **res_entry);
 

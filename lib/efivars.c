@@ -736,6 +736,23 @@ efi_get_boot_source(efivars_t **res)
   return 0;
 }
 
+int
+efi_get_default_loader_entry(char **res_entry)
+{
+  _cleanup_free_ char *loader_entry = NULL;
+  int r;
+
+  /* Check for default boot entry */
+  r = read_efi_var_string("LoaderEntryDefault", SYSTEMD_VENDOR_GUID,
+			  &loader_entry);
+  if (r < 0)
+    return r;
+
+  *res_entry = TAKE_PTR(loader_entry);
+
+  return 0;
+}
+
 efivars_t *
 efivars_free(efivars_t *var)
 {
