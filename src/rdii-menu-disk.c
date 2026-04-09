@@ -96,12 +96,14 @@ select_target_device(uint64_t minsize, char **device)
 	continue;
       if (disk[i].size < minsize)
 	continue;
-      if (streq(disk[i].device, *device))
+      if (device && streq(disk[i].device, strempty(*device)))
 	selected = n;
       // XXX we need to free this later
-      if (asprintf(&options[n], "%s - %s (%s, %.1f GB)",
+      if (asprintf(&options[n], "%s - %s (%s, %.1f GB)%s%s",
 		   disk[i].device, strunknown(disk[i].model),
-		   disk[i].bus, disk[i].size_gb) < 0)
+		   disk[i].bus, disk[i].size_gb,
+		   disk[i].is_default_device?" [Default]":"",
+		   disk[i].is_boot_device?" [Booted]":"") < 0)
 	return -ENOMEM;
       mapping[n] = i;
       n++;
