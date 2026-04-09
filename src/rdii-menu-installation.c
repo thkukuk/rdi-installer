@@ -460,10 +460,9 @@ run_installation(const char *url, const char *device)
       fd = open(device, O_RDWR | O_SYNC);
       if (fd > 0) // ignore error if we cannot open device
 	ioctl(fd, BLKRRPART);
-
-      move(0,0);
-      keywait(LINES-3, 0, NULL, 60);
     }
+
+  keywait(LINES-3, 0, NULL, 60);
 
   return r;
 }
