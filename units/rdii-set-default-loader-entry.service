@@ -1,0 +1,14 @@
+[Unit]
+Description=Set LoaderEntryDefault to booted entry
+Documentation=man:rdii-helper(8)
+
+ConditionFirstBoot=yes
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=rdii-helper set-default-loader-entry
+
+[Install]
+WantedBy=multi-user.target
