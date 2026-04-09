@@ -19,10 +19,11 @@
 #include "rdii-menu.h"
 #include "logger.h"
 #include "zap_partition_table.h"
+#include "exec_cmd.h"
 
 extern char **environ;
 
-// XXX add char **error parameter and change to bool return value
+// XXX Use exec_cmd, add char **error parameter and change to bool return value
 static int
 verify_signature(const char *file, const char *key)
 {
@@ -77,46 +78,35 @@ verify_signature(const char *file, const char *key)
 static int
 fix_partition_table(const char *device)
 {
-  pid_t pid;
-  int status;
   int r;
-
-  char *argv[] = {"sgdisk", "-e", (char *)device, NULL};
 
   LOG_FUNC("device='%s'", device);
 
-  r = posix_spawnp(&pid, "/usr/sbin/sgdisk", NULL, NULL, argv, environ);
-  if (r != 0)
-    {
-      fprintf(stderr, "Failed to spawn sgdisk: %s\n", strerror(r)); // XXX
-      return -r;
-    }
+  r = exec_cmd("/usr/sbin/sgdisk", "sgdisk", "-e", (char *)device, NULL);
 
-  if (waitpid(pid, &status, 0) == -1)
+  if (r < 0)
     {
-      r = errno;
-      perror("waitpid failed"); // XXX
-      return -r;
+      LOG_ERROR("Failed to start sgdisk: %s", strerror(-r));
+      fprintf(stderr, "Failed to start sgdisk: %s\n", strerror(-r)); // XXX
+      return r;
     }
-
-   if (WIFEXITED(status))
+  if (r > 0)
     {
-      if (WEXITSTATUS(status)) // sgdisk quit with error
+      if (r > 128) // aborted by signal
 	{
-	  LOG_ERROR("sgdisk failed with %i",
-		    WEXITSTATUS(status));
-	  keywait(8, 0, NULL, 0);
+	  int sig = r - 128;
+	  LOG_ERROR("sgdisk was terminated by signal %d (%s)",
+		    sig, strsignal(sig));
+	  fprintf(stderr, "sgdisk was terminated by signal %d (%s)\n",
+		  sig, strsignal(sig)); // XXX
 	}
       else
-	LOG_INFO("sgdisk succeeded");
-      return WEXITSTATUS(status);
+	LOG_ERROR("sgdisk failed with %i", r);
+
+      keywait(8, 0, NULL, 0);
+      return -ECHILD;
     }
-  else
-    {
-      LOG_ERROR("sgdisk terminated abnormally");
-      fprintf(stderr, "sgdisk terminated abnormally\n"); // XXX
-      return -1; // XXX
-    }
+  return 0;
 }
 
 // XXX Add cleanup functions for close all_pipes and destroy actions
