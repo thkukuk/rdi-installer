@@ -80,7 +80,8 @@ libdevices = static_library(
 )
 
 librdii_c = files('lib/mkdir_p.c', 'lib/tmpfile-util.c', 'lib/logger.c',
-                  'lib/zap_partition_table.c', 'lib/rm_rf.c', 'lib/download.c')
+                  'lib/zap_partition_table.c', 'lib/rm_rf.c', 'lib/download.c',
+                  'lib/exec_cmd.c')
 librdii = static_library(
   'rdii',
   librdii_c,

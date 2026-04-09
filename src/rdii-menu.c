@@ -13,6 +13,7 @@
 #include "mkdir_p.h"
 #include "rdii-menu.h"
 #include "logger.h"
+#include "exec_cmd.h"
 
 #define TITLE "Raw Disk Installer Version " VERSION
 
@@ -345,6 +346,42 @@ choose_entry(int row, const char *options[], int num_options, int start)
 }
 
 static int
+show_post_menu(void)
+{
+  const char *options[] = {
+    "Reboot",
+    "Next Image",
+    "PowerOff",
+    "Exit"
+  };
+  int num_options = sizeof(options) / sizeof(options[0]);
+  int selected = 0;
+
+  while (1)
+    {
+      print_global_header_footer(NULL);
+      selected = choose_entry(4, options, num_options, selected);
+      switch(selected)
+	{
+	case 0: // Reboot
+	  return exec_cmd("reboot", "reboot");
+	  break;
+	case 1: // Next Image
+	  return 1;
+	  break;
+	case 2: // PowerOff
+	  return exec_cmd("poweroff", "poweroff");
+	  break;
+	case 3: // Exit
+	  return 0;
+	  break;
+	default:
+	  return -EIO;
+	}
+    }
+}
+
+static int
 show_main_menu(const char *def_image, const char *def_device)
 {
   uint64_t minsize = 10 * 1000ULL * 1000 * 1000; // 10G min disk size
@@ -456,21 +493,11 @@ show_main_menu(const char *def_image, const char *def_device)
 
 	  int r = run_installation(image, device);
 	  if (r == 0)
-	    return 0; // Quit, we are done
-#if 0
-	  else if (show_warning_popup("This will destroy all data, are you sure?",
-				      image, device))
 	    {
-	      print_global_header_footer(NULL);
-	      mvprintw(LINES / 2, (COLS - 22) / 2,
-		       "Starting installation...");
-	      refresh();
-	      sleep(2); // Mock delay
-	      return 0;
+	      r = show_post_menu();
+	      if (r == 0)
+		return 0;
 	    }
-	  else
-	    clear();
-#endif
 	  break;
 	case -ECANCELED:
 	  return 0;
@@ -506,7 +533,6 @@ rdii_menu(const char *image, const char *device)
 
   show_splash_screen();
   r = show_main_menu(image, device);
-
   endwin();
 
   return r;
