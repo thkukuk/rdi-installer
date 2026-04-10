@@ -191,13 +191,13 @@ main_set_default_loader_entry(int argc, char **argv)
       return -r;
     }
 
+  if (isempty(efi->entry))
+    return ENOENT;
+
   r = efi_get_default_loader_entry(&defloaderentry);
   if (r < 0)
     fprintf(stderr, "Couldn't get default loader entry: %s\n",
 	    strerror(-r));
-
-  if (isempty(efi->entry))
-    return ENOENT;
 
   // if booted and default entry are equal, all is fine
   if (streq(strempty(efi->entry), strempty(defloaderentry)))
