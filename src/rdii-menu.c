@@ -395,9 +395,11 @@ show_main_menu(const char *def_image, const char *def_device)
     "Select Target",
     "Select Keymap",
     "System Information",
-    "Refresh",
+    "Start Installation",
+    "Refresh Screen",
     "Abort",
-    "Start Installation"
+    "Reboot System",
+    "PowerOff"
   };
   int num_options = sizeof(options) / sizeof(options[0]);
   int selected = 0;
@@ -481,13 +483,7 @@ show_main_menu(const char *def_image, const char *def_device)
 	case 3: // System Information
 	  show_sysinfo();
 	  break;
-	case 4: // Refresh
-	  // loop will redraw screen
-	  break;
-	case 5: // Abort
-	  return 0;
-	  break;
-	case 6: // Start Installation
+	case 4: // Start Installation
 	  if (isempty(image) || isempty(device))
 	    show_error_popup("Installation image and target device are required!", NULL);
 
@@ -498,6 +494,18 @@ show_main_menu(const char *def_image, const char *def_device)
 	      if (r == 0)
 		return 0;
 	    }
+	  break;
+	case 5: // Refresh Screen
+	  // loop will redraw screen
+	  break;
+	case 6: // Abort
+	  return 0;
+	  break;
+	case 7: // Reboot
+	  return exec_cmd("reboot", "reboot");
+	  break;
+	case 8: // PowerOff
+	  return exec_cmd("poweroff", "poweroff");
 	  break;
 	case -ECANCELED:
 	  return 0;
