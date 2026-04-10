@@ -192,7 +192,10 @@ main_set_default_loader_entry(int argc, char **argv)
     }
 
   if (isempty(efi->entry))
-    return ENOENT;
+    {
+      fprintf(stderr, "LoaderEntrySelected not set");
+      return ENOENT;
+    }
 
   r = efi_get_default_loader_entry(&defloaderentry);
   if (r < 0)
