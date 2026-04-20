@@ -18,11 +18,14 @@ const char *rdii_log = "/var/log/rdi-installer.log";
 
 static int
 read_config(const char *config, char **ret_device,
-	    char **ret_url, char **ret_keymap)
+	    char **ret_url, char **ret_url1, char **ret_url2,
+	    char **ret_keymap)
 {
   _cleanup_(econf_freeFilep) econf_file *key_file = NULL;
   _cleanup_free_ char *device = NULL;
   _cleanup_free_ char *url = NULL;
+  _cleanup_free_ char *url1 = NULL;
+  _cleanup_free_ char *url2 = NULL;
   _cleanup_free_ char *keymap = NULL;
   econf_err error;
 
@@ -42,6 +45,12 @@ read_config(const char *config, char **ret_device,
   error = econf_getStringValue(key_file, NULL, "rdii.url", &url);
   if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
     return -error;
+  error = econf_getStringValue(key_file, NULL, "rdii.url1", &url1);
+  if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
+    return -error;
+  error = econf_getStringValue(key_file, NULL, "rdii.url2", &url2);
+  if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
+    return -error;
 
   error = econf_getStringValue(key_file, NULL, "rdii.keymap", &keymap);
   if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
@@ -51,6 +60,10 @@ read_config(const char *config, char **ret_device,
     *ret_device = TAKE_PTR(device);
   if (ret_url)
     *ret_url = TAKE_PTR(url);
+  if (ret_url1)
+    *ret_url1 = TAKE_PTR(url1);
+  if (ret_url2)
+    *ret_url2 = TAKE_PTR(url2);
   if (ret_keymap)
     *ret_keymap = TAKE_PTR(keymap);
 
@@ -82,6 +95,8 @@ main(void)
 {
   _cleanup_(rm_rf_and_freep) char *rdii_tmp_dir_cleanup = NULL;
   _cleanup_free_ char *image = NULL;
+  _cleanup_free_ char *image1 = NULL;
+  _cleanup_free_ char *image2 = NULL;
   _cleanup_free_ char *device = NULL;
   int r;
 
@@ -99,7 +114,7 @@ main(void)
 
   // XXX error check missing
   // XXX keymap ignored
-  read_config(rdii_config, &device, &image, NULL);
+  read_config(rdii_config, &device, &image, &image1, &image2, NULL);
 
   const char *tmpdir_template = "/tmp/rdi-installer-XXXXXX";
   r = mkdtemp_malloc(tmpdir_template, &rdii_tmp_dir_cleanup);
@@ -114,7 +129,7 @@ main(void)
   // we cannot make rdii_tmp_dir_cleanup global because of _cleanup_
   rdii_tmp_dir = rdii_tmp_dir_cleanup;
 
-  r = rdii_menu(image, device);
+  r = rdii_menu(image, image1, image2, device);
 
   LOG_INFO("rdi-installer stopped (retval=%i)", r);
 

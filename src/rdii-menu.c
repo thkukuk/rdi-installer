@@ -520,9 +520,31 @@ show_main_menu(const char *def_image, const char *def_device)
   return 0;
 }
 
-int
-rdii_menu(const char *image, const char *device)
+static int
+select_image(const char *image1, const char *image2,
+	     const char *image3)
 {
+  _cleanup_free_ char **options = NULL;
+
+  options = calloc(3, sizeof(char *));
+  if (!options)
+    return -ENOMEM;
+
+  options[0] = truncate_middle(strna(image1), COLS-8);
+  options[1] = truncate_middle(strna(image2), COLS-8);
+  options[2] = truncate_middle(strna(image3), COLS-8);
+
+  print_global_header_footer(NULL);
+  print_title("Select Installation Source");
+
+  return choose_entry(4, (const char **)options, 3, 0);
+}
+
+int
+rdii_menu(const char *image0, const char *image1,
+	  const char *image2, const char *device)
+{
+  const char *image = NULL;
   int r;
 
   // For correctly rendering the double borders
@@ -540,6 +562,28 @@ rdii_menu(const char *image, const char *device)
     init_colors();
 
   show_splash_screen();
+
+  if (!isempty(image0) && (!isempty(image1) || !isempty(image2)))
+    {
+      r = select_image(image0, image1, image2);
+      if (r < 0)
+	{
+	  endwin();
+	  return r;
+	}
+      else if (r == 0)
+	image = image0;
+      else if (r == 1)
+	image = image1;
+      else if (r == 2)
+	image = image2;
+      else
+	{
+	  endwin();
+	  return -EPROTO; /* XXX better error handling */
+	}
+    }
+
   r = show_main_menu(image, device);
   endwin();
 
