@@ -129,6 +129,10 @@ show_sysinfo(void)
   mvprintw(y++, 2, "  Available Memory: %.2f GB",
 	   (double)mem_available / (1024 * 1024));
 
+  mvprintw(y++, 2, "Terminal Information:");
+  mvprintw(y++, 2, "  TERM: %s", getenv("TERM"));
+  mvprintw(y++, 2, "  Colors: %i", COLORS);
+
   refresh();
   getchar();
 
