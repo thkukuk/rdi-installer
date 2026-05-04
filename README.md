@@ -52,6 +52,8 @@ The options can be provided either via the kernel cmdline during boot or with a 
 | rdii.device | /dev/... | Device on which the image should be installed |
 | rdii.keymap | name | Configures the key mapping table for the keyboard |
 
+With `rdii.url1` and `rdii.url2` additional images can be specified. At the start of `rdi-installer`, the user has to selected the one he wants to install.
+
 ### Configuration file
 
 The rdii-config configuration file is used by rdi-installer,
@@ -77,6 +79,7 @@ An example configuration file may look like:
 ```
 rdii.device=/dev/vda
 rdii.url=https://download.opensuse.org/tumbleweed/appliances/Tumbleweed-OEM.x86_64-KDE.raw.xz
+rdii.url1=https://download.opensuse.org/tumbleweed/appliances/openSUSE-MicroOS.x86_64-SelfInstall.raw.xz
 rdii.keymap=de-nodeadkeys
 ssh=1
 ssh.key=ZXhhbXBsZSBzc2ggcHVibGljIGtleQo=
