@@ -74,6 +74,10 @@ static inline const char *stroom(const char *s) {
         return s ?: "Out of memory";
 }
 
+static inline const char *strbool(bool b) {
+	return b ? "true" : "false";
+}
+
 extern char *startswith(const char *s, const char *prefix) _pure_;
 extern char *endswith(const char *s, const char *suffix) _pure_;
 
