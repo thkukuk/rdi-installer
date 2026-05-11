@@ -11,5 +11,5 @@ rdi_installer = configure_file(
     'RDIIDIR': rdiidir,
   },
   install: true,
-  install_dir: rdiidir
+  install_dir: systemunitdir
 )
