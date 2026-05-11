@@ -14,7 +14,7 @@
 #include "rdii-menu.h"
 
 // Returns 1 if mounted, 0 if not mounted, -errno on error
-static int
+int
 is_device_mounted(const char *device)
 {
   FILE *fp = NULL;

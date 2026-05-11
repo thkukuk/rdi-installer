@@ -23,6 +23,8 @@ extern void show_error_popup(const char *msg1, const char *msg2);
 extern int choose_entry(int row, const char *options[], int num_options,
 		 	int start);
 
+extern int is_device_mounted(const char *device);
+
 extern void keywait(int y, int x, const char *text, int sec);
 
 extern int select_keymap(char **device);

@@ -305,6 +305,154 @@ write_net_image(const char *url, const char *device)
   return -first_error;
 }
 
+// XXX Add cleanup functions for close all_pipes and destroy actions
+static int
+write_local_image(const char *file, const char *device)
+{
+  // XXX share with write_net_image
+  char **decomp_args;
+  char *decomp_cat_args[] = { "cat", NULL };
+  char *decomp_bz2_args[] = {"pbzip2", "-dc", NULL};
+  char *decomp_gz_args[] = {"pigz", "-dc",  NULL};
+  char *decomp_xz_args[] = {"xz", "-dc",  "-T0", NULL};
+  char *decomp_zst_args[] = {"zstd", "-dc",  "-T0", NULL};
+
+  int p_pv_decomp[2], p_decomp_dd[2];
+  int r;
+
+  LOG_FUNC("file='%s', device='%s'", file, device);
+
+  if (endswith(file, ".xz"))
+    decomp_args = decomp_xz_args;
+  else if (endswith(file, ".zst"))
+    decomp_args = decomp_zst_args;
+  else if (endswith(file, ".gz"))
+    decomp_args = decomp_gz_args;
+  else if (endswith(file, ".bz2"))
+    decomp_args = decomp_bz2_args;
+  else
+    decomp_args = decomp_cat_args;
+
+  LOG_INFO("decompressor=%s", decomp_args[0]);
+
+  if (pipe(p_pv_decomp) != 0 || pipe(p_decomp_dd) != 0)
+    {
+      r = errno;
+      LOG_ERROR("pipe allocation failed: %s", strerror(r));
+      show_error_popup("pipe allocation failed", strerror(r));
+      return -r;
+    }
+
+  // Array of all pipe ends. We must close unused ends in the child
+  // processes so they receive EOF correctly when a process dies.
+  int all_pipes[] =
+    {
+      p_pv_decomp[0], p_pv_decomp[1],
+      p_decomp_dd[0], p_decomp_dd[1]
+    };
+
+  pid_t pids[3];
+  posix_spawn_file_actions_t fa[3];
+  for (int i = 0; i < 3; i++)
+    posix_spawn_file_actions_init(&fa[i]);
+
+  // Process 1: pv
+  char *pv_args[] = {"pv", (char *)file, NULL};
+  posix_spawn_file_actions_adddup2(&fa[0], p_pv_decomp[1], STDOUT_FILENO);
+  for (int i = 0; i < 4; i++) // XXX calculate 4
+    posix_spawn_file_actions_addclose(&fa[0], all_pipes[i]);
+  if (posix_spawnp(&pids[0], "pv", &fa[0], NULL, pv_args, environ) != 0)
+    {
+      fprintf(stderr, "Starting 'pv' failed: %s", strerror(errno));
+      keywait(LINES-3, 0, NULL, 0);
+      for (int i = 0; i < 4; i++)
+	close(all_pipes[i]);
+      for (int i = 0; i < 3; i++)
+	posix_spawn_file_actions_destroy(&fa[i]);
+      return -1;
+    }
+
+  // Process 2: decompressor
+  posix_spawn_file_actions_adddup2(&fa[1], p_pv_decomp[0], STDIN_FILENO);
+  posix_spawn_file_actions_adddup2(&fa[1], p_decomp_dd[1], STDOUT_FILENO);
+  for (int i = 0; i < 4; i++)
+    posix_spawn_file_actions_addclose(&fa[1], all_pipes[i]);
+  if (posix_spawnp(&pids[1], decomp_args[0], &fa[1], NULL, decomp_args, environ) != 0)
+    {
+      fprintf(stderr, "Starting '%s' failed: %s", decomp_args[0], strerror(errno));
+      keywait(LINES-3, 0, NULL, 0);
+      for (int i = 0; i < 4; i++)
+	close(all_pipes[i]);
+      for (int i = 0; i < 3; i++)
+	posix_spawn_file_actions_destroy(&fa[i]);
+      return -1;
+    }
+
+  // Process 3: dd
+  _cleanup_free_ char *dd_of_arg = NULL;
+  if (asprintf(&dd_of_arg, "of=%s", device) < 0)
+    return -ENOMEM;
+  char *dd_args[] = {"dd", dd_of_arg, "bs=4M", "conv=fsync", "oflag=direct", NULL};
+  posix_spawn_file_actions_adddup2(&fa[2], p_decomp_dd[0], STDIN_FILENO);
+  for (int i = 0; i < 4; i++)
+    posix_spawn_file_actions_addclose(&fa[2], all_pipes[i]);
+  if (posix_spawnp(&pids[2], "dd", &fa[2], NULL, dd_args, environ) != 0)
+    {
+      fprintf(stderr, "Starting 'dd' failed: %s", strerror(errno));
+      keywait(LINES-3, 0, NULL, 0);
+      for (int i = 0; i < 4; i++)
+	close(all_pipes[i]);
+      for (int i = 0; i < 3; i++)
+	posix_spawn_file_actions_destroy(&fa[i]);
+      return -1;
+    }
+
+  // Close its copies of the pipes so the childs don't hang waiting for EOF
+  for (int i = 0; i < 4; i++)
+    close(all_pipes[i]);
+  for (int i = 0; i < 3; i++)
+    posix_spawn_file_actions_destroy(&fa[i]);
+
+  int first_error = 0;
+  // Wait for all processes to finish
+  for (int i = 0; i < 3; i++)
+    {
+      int status;
+
+      if (waitpid(pids[i], &status, 0) == -1)
+	{
+	  r = errno;
+	  fprintf(stderr, "waitpid(%i) failed: %s\n", i, strerror(r)); // XXX show_error
+	  return -r;
+	}
+
+      if (WIFEXITED(status))
+	{
+	  if (WEXITSTATUS(status) && first_error == 0)
+	    first_error = WEXITSTATUS(status);
+	}
+      else if (WIFSIGNALED(status))
+	{
+	  // ignore SIGPIPE, follow up error
+	  if (WTERMSIG(status) != 13)
+	    {
+	      fprintf(stderr, "Process %i killed by signal %d\n", i, WTERMSIG(status));
+	      first_error = 1;
+	    }
+	}
+      else
+	{
+	  fprintf(stderr, "Process %i terminated abnormally\n", i); // XXX
+	  first_error = 1;
+	}
+    }
+
+  if (first_error)
+    keywait(LINES-3, 0, NULL, 0);
+
+  return -first_error;
+}
+
 static bool
 sha256_eq(const char *path1, const char *path2)
 {
@@ -363,6 +511,24 @@ run_installation(const char *url, const char *device)
   bool is_neturl = startswith(url, "https://") || startswith(url, "http://");
   int r;
 
+  LOG_FUNC("url='%s', device='%s'", strna(url), strna(device));
+
+  if (is_device_mounted(device))
+    {
+      _cleanup_free_ char *msg = NULL;
+      if (asprintf(&msg, "The device %s contains mounted partitions.",
+		   device) < 0)
+	return -ENOMEM;
+
+      LOG_ERROR(msg);
+
+      r = show_warning_popup("!!! CRITICAL WARNING: DRIVE IS CURRENTLY MOUNTED !!!",
+			     msg,
+			     "Proceeding may cause data loss or corruption.");
+      if (r == 0)
+	return -EINTR;
+    }
+
   print_global_header_footer(NULL);
   move(2,0);
 
@@ -370,6 +536,8 @@ run_installation(const char *url, const char *device)
   if (is_neturl)
     {
       _cleanup_free_ char *sha256_url = NULL;
+
+      LOG_INFO("Is network url");
 
       if (asprintf(&sha256_url, "%s.sha256", url) < 0)
 	return -ENOMEM;
@@ -399,19 +567,66 @@ run_installation(const char *url, const char *device)
 	  r = curl_download_file(gpgasc_url, d_gpgasc);
 	  if (r != 0)
 	    {
-	      show_error_popup("Error downloading sha256.asc file:",
-			       r < 0?strerror(-r):curl_easy_strerror(r));
-	      return r;
+	      if (!show_warning_popup("Error downloading sha256.asc file:",
+				      r < 0?strerror(-r):curl_easy_strerror(r),
+				      "Continue without signature verification?"))
+		return r;
 	    }
+	  else
+	    {
+	      r = verify_signature(d_sha256_fn, d_gpgasc);
+	      if (r < 0)
+		return r;
+	    }
+	}
+    }
+  // /path/to/file/*.raw.xz
+  else if (startswith(url, "/"))
+    {
+      _cleanup_free_ char *sha256_file = NULL;
 
-	  r = verify_signature(d_sha256_fn, d_gpgasc);
-	  if (r < 0)
+      LOG_INFO("Is a file url");
+
+      if (asprintf(&sha256_file, "%s.sha256", url) < 0)
+	return -ENOMEM;
+
+      r = access(sha256_file, F_OK);
+      if (r < 0)
+	{
+	  r = -errno;
+	  if (!show_warning_popup("Cannot find sha256 file:",
+				  strerror(-r),
+				  "Continue without image verification?"))
 	    return r;
+	}
+      else
+	{
+	  _cleanup_free_ char *gpgasc_file = NULL;
+
+	  if (asprintf(&gpgasc_file, "%s.sha256.asc", url) < 0)
+	    return -ENOMEM;
+
+	  r = access(gpgasc_file, F_OK);
+	  if (r != 0)
+	    {
+	      if (!show_warning_popup("Cannot find sha256.asc file:",
+				      r < 0?strerror(-r):curl_easy_strerror(r),
+				      "Continue without signature verification?"))
+		return r;
+	    }
+	  else
+	    {
+	      r = verify_signature(sha256_file, gpgasc_file);
+	      if (r < 0)
+		return r;
+	    }
 	}
     }
   else
     {
-      /* XXX implement reading local file */
+      LOG_ERROR("Unknown URL format: %s", url);
+      fprintf(stderr, "Unknown URL format: %s\n", url); // XXX
+      return -EINVAL;
     }
 
   _cleanup_free_ char *device_line = NULL;
@@ -432,13 +647,14 @@ run_installation(const char *url, const char *device)
   move(4,0);
   refresh();
 
-  r = write_net_image(url, device);
-  if (r != 0)
-    return r;
-
   if (is_neturl)
     {
       _cleanup_free_ char *written_sha256_fn = NULL;
+
+      r = write_net_image(url, device);
+      if (r != 0)
+	return r;
+
       if (asprintf(&written_sha256_fn, "%s/written.sha256", rdii_tmp_dir) < 0)
 	return -ENOMEM;
 
@@ -454,13 +670,20 @@ run_installation(const char *url, const char *device)
 
 	  return -EIO;
 	}
-      fix_partition_table(device);
-      // Re-read partition table to update kernel view on disk
-      _cleanup_close_ int fd = -EBADF;
-      fd = open(device, O_RDWR | O_SYNC);
-      if (fd > 0) // ignore error if we cannot open device
-	ioctl(fd, BLKRRPART);
     }
+  else
+    {
+      r = write_local_image(url, device);
+      if (r != 0)
+	return r;
+    }
+
+  fix_partition_table(device);
+  // Re-read partition table to update kernel view on disk
+  _cleanup_close_ int fd = -EBADF;
+  fd = open(device, O_RDWR | O_SYNC);
+  if (fd > 0) // ignore error if we cannot open device
+    ioctl(fd, BLKRRPART);
 
   keywait(LINES-3, 0, NULL, 60);
 
