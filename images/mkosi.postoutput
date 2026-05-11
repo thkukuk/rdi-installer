@@ -36,14 +36,14 @@ options quiet systemd.show_status=yes
 linux   /${KERNEL_VERSION}/linux
 initrd  /${KERNEL_VERSION}/initrd
 EOF
-	cat <<EOF > "${TEMPDIR}/memtest.conf"
+	cat <<EOF > "${TEMPDIR}/memtest86.conf"
 title Memtest86+
-efi   /memtest86+/memtest.efi
+efi   /memtest86/mt86plus.efi
 EOF
 	# create image
 	"${SCRIPTS_DIR}/create_uefi_usbstick.sh" "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"
 	# copy files to image
-	mmd -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 EFI EFI/BOOT loader loader/entries "$KERNEL_VERSION" memtest86+
+	mmd -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 EFI EFI/BOOT loader loader/entries "$KERNEL_VERSION" memtest86
 	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${BOOTLOADER_DIR}/usr/share/efi/x86_64/shim.efi" ::EFI/BOOT/BOOTX64.EFI
 	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${BOOTLOADER_DIR}/usr/share/efi/x86_64/MokManager.efi" ::EFI/BOOT/MokManager.efi
 	#mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${BOOTLOADER_DIR}/usr/share/efi/x86_64/fallback.efi" ::EFI/BOOT/fallback.efi
@@ -55,8 +55,8 @@ EOF
 	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${OUTPUTDIR}/${IMAGE}.vmlinuz" ::"${KERNEL_VERSION}/linux"
 	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${OUTPUTDIR}/${IMAGE}.initrd" ::"${KERNEL_VERSION}/initrd"
 	# memtest86+
-	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${BOOTLOADER_DIR}/usr/lib/memtest86/memtest.efi" ::memtest86+/memtest.efi
-	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${TEMPDIR}/memtest.conf" ::loader/entries/memtest.conf
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${BOOTLOADER_DIR}/usr/lib/memtest86/mt86plus.efi" ::memtest86/mt86plus.efi
+	mcopy -i "${OUTPUTDIR}/${IMAGE_SDBOOT}.img"@@1048576 "${TEMPDIR}/memtest86.conf" ::loader/entries/memtest86.conf
 	rm -rf "$TEMPDIR"
 	;;
     *)
