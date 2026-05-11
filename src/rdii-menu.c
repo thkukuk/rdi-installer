@@ -443,7 +443,7 @@ show_main_menu(const char *def_image, const char *def_device)
 	{
 	case 0: // Select Image
 	  {
-	    select_installation_source(image?image:"https://", &image);
+	    select_installation_source(image, &image);
 	    if (!isempty(image))
 	      {
 		_cleanup_free_ char *cp = truncate_middle(image, COLS-22);
@@ -486,13 +486,15 @@ show_main_menu(const char *def_image, const char *def_device)
 	case 4: // Start Installation
 	  if (isempty(image) || isempty(device))
 	    show_error_popup("Installation image and target device are required!", NULL);
-
-	  int r = run_installation(image, device);
-	  if (r == 0)
+	  else
 	    {
-	      r = show_post_menu();
+	      int r = run_installation(image, device);
 	      if (r == 0)
-		return 0;
+		{
+		  r = show_post_menu();
+		  if (r == 0)
+		    return 0;
+		}
 	    }
 	  break;
 	case 5: // Refresh Screen
