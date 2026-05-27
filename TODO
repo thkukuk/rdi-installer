@@ -58,10 +58,13 @@ For the first part we need something new, this raw-disk-image-installer:
 
 TODO:
 - Fix layout of external commands (seems a problem with \n and \r)
+- Make sure rdii-networkd understands all dracut-style options (**ip=**, etc.) 
 - Add systemd service, which setups proxy variables
   - Read at first rdii config for variables
   - Read /proc/cmdline for variables, overides config file settings
   - Update/Create /etc/sysconfig/proxy
-- Add fully automatic without user interaction and defined, configurable behavior in error cases
+- Add fully automatic without user interaction
+  - configurable behavior in error cases
+- Configurable automatic reboot after successful image deployment
 - Setup MD Raid to install image
 - Optional: try to find host ssh keys on old image and copy them to the new one, configurable
