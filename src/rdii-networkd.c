@@ -77,7 +77,7 @@ map_dracut_to_networkd(const char *input)
         return mappings[i].networkd;
     }
 
-  LOG_ER("Unknown autoconf option '%s', valid are {dhcp|on|any|dhcp6|auto6|either6|link6|single-dhcp}", input);
+  LOG_ERROR("Unknown autoconf option '%s', valid are {dhcp|on|any|dhcp6|auto6|either6|link6|single-dhcp}", input);
 
   return NULL;
 }
@@ -97,7 +97,7 @@ dup_config(ip_t *cfg, int slot)
 	{
 	  if (configs[slot].gateway1)
 	    {
-	      LOG_ER("Too many gateways specified!");
+	      LOG_ERROR("Too many gateways specified!");
 	      return -ENOMEM;
 	    }
 	  configs[slot].gateway1 = configs[slot].gateway;
@@ -138,7 +138,7 @@ dup_config(ip_t *cfg, int slot)
 	configs[slot].vlan3 = cfg->vlan1;
       else
 	{
-	  LOG_ER("More than 3 VLAN IDs!");
+	  LOG_ERROR("More than 3 VLAN IDs!");
 	  return -ENOMEM;
 	}
     }
@@ -152,11 +152,11 @@ merge_configs(ip_t *cfg)
   bool found = false;
   int r;
 
-  LOG_INF("merge_configs called");
+  LOG_INFO("merge_configs called");
 
   if (used_configs == MAX_INTERFACES)
     {
-      LOG_ER("Too many interfaces!");
+      LOG_ERROR("Too many interfaces!");
       return -ENOMEM;
     }
 
@@ -217,13 +217,13 @@ write_network_config(const char *output_dir, int line_num, ip_t *cfg)
                output_dir, IP_PREFIX, line_num) < 0)
     return -ENOMEM;
 
-  LOG_INF("Entry %2d: %s config", line_num, filepath);
+  LOG_INFO("Entry %2d: %s config", line_num, filepath);
 
   fp = fopen(filepath, "w");
   if (!fp)
     {
       int r = -errno;
-      LOG_ER("Failed to open network file '%s' for writing: %s",
+      LOG_ERROR("Failed to open network file '%s' for writing: %s",
              filepath, strerror(-r));
       return r;
     }
@@ -328,14 +328,14 @@ write_netdev_file(const char *output_dir, vlan_t *vlan)
                output_dir, NETDEV_PREFIX, vlan->name) < 0)
     return -ENOMEM;
 
-  LOG_INF("Creating vlan netdev: %s for vlan id '%d'", filepath,
+  LOG_INFO("Creating vlan netdev: %s for vlan id '%d'", filepath,
           vlan->id);
 
   fp = fopen(filepath, "w");
   if (!fp)
     {
       r = -errno;
-      LOG_ER("Failed to open network file '%s' for writing: %s",
+      LOG_ERROR("Failed to open network file '%s' for writing: %s",
              filepath, strerror(-r));
       return r;
     }
@@ -398,7 +398,7 @@ get_vlan_id(const char *vlan_name, int *ret)
 	if (errno == ERANGE || l < 1 || l > 4095 ||
 	    p == ep || *ep != '\0')
 	  {
-	    LOG_ER("Invalid VLAN interface: %s", vlan_name);
+	    LOG_ERROR("Invalid VLAN interface: %s", vlan_name);
 	    return -EINVAL;
 	  }
 	vlanid = l;
@@ -407,14 +407,14 @@ get_vlan_id(const char *vlan_name, int *ret)
 	  {
 	    if ((nr_vlanids+1) == vlan_capacity)
 	      {
-		LOG_ER( "Too many vlans!");
+		LOG_ERROR( "Too many vlans!");
 		return -ENOMEM;
 	      }
 
 	    vlans[nr_vlanids].id = vlanid;
 	    vlans[nr_vlanids].name = vlan_name;
 	    nr_vlanids++;
-            LOG_INF("Stored VLAN ID: %d (%s)", vlanid, vlan_name);
+            LOG_INFO("Stored VLAN ID: %d (%s)", vlanid, vlan_name);
 	  }
 	*ret = vlanid;
 	return 0;
@@ -426,7 +426,7 @@ get_vlan_id(const char *vlan_name, int *ret)
 int
 return_syntax_error(int nr, const char *value, const int ret)
 {
-  LOG_ER("Syntax error in entry %d: '%s'", nr, value);
+  LOG_ERROR("Syntax error in entry %d: '%s'", nr, value);
   return ret;
 }
 
@@ -454,7 +454,7 @@ print_help(void)
 static void
 print_error(void)
 {
-  LOG_ER("Try `rdii-networkd --help' for more information.");
+  LOG_ERROR("Try `rdii-networkd --help' for more information.");
 }
 
 /* Reads /proc/cmdline and parses quoted arguments */
@@ -472,7 +472,7 @@ main(int argc, char *argv[])
   bool verify_only = false;
   int r;
 
-  set_max_log_level(LOG_WARNING);
+  set_max_log_level(LOG_LEVEL_WARNING);
 
   while (1)
     {
@@ -504,7 +504,7 @@ main(int argc, char *argv[])
 	  cfgfile = optarg;
 	  break;
         case 'd':
-          set_max_log_level(LOG_INFO);
+          set_max_log_level(LOG_LEVEL_DEBUG);
           break;
 	case 'o':
 	  output_dir = optarg;
@@ -529,7 +529,7 @@ main(int argc, char *argv[])
 
   if (!isempty(cfgfile) && argc > 0)
     {
-      LOG_ER("Using a configuration file with additional arguments is not possible");
+      LOG_ERROR("Using a configuration file with additional arguments is not possible");
       print_error();
       return EINVAL;
     }
@@ -539,7 +539,7 @@ main(int argc, char *argv[])
       if (mkdir_p(output_dir, 0755) == -1 && errno != EEXIST)
 	{
 	  r = errno;
-	  LOG_ER("Could not create output directory: %s",
+	  LOG_ERROR("Could not create output directory: %s",
 	         strerror(r));
 	  return r;
 	}
@@ -563,7 +563,7 @@ main(int argc, char *argv[])
       line = malloc(total_length);
       if (line == NULL)
 	{
-	  LOG_ER("Out of memory!");
+	  LOG_ERROR("Out of memory!");
 	  return ENOMEM;
 	}
 
@@ -587,7 +587,7 @@ main(int argc, char *argv[])
       if (fd == -1)
 	{
 	  r = errno;
-	  LOG_ER("Error opening '%s': %s",
+	  LOG_ERROR("Error opening '%s': %s",
                  cfgfile, strerror(r));
 	  return r;
 	}
@@ -595,7 +595,7 @@ main(int argc, char *argv[])
       if (fstat(fd, &st) == -1)
 	{
 	  r = errno;
-	  LOG_ER("fstat(%s) failed: %s",
+	  LOG_ERROR("fstat(%s) failed: %s",
                  cfgfile, strerror(r));
 	  return r;
 	}
@@ -603,7 +603,7 @@ main(int argc, char *argv[])
       line = malloc(file_size);
       if (line == NULL)
 	{
-	  LOG_ER("Out of memory!");
+	  LOG_ERROR("Out of memory!");
 	  return ENOMEM;
 	}
 
@@ -620,7 +620,7 @@ main(int argc, char *argv[])
                 continue;
 	      else
 		{
-		  LOG_ER("Error reading config file: %s",
+		  LOG_ERROR("Error reading config file: %s",
 			 strerror(r));
 		  return r;
 		}
@@ -649,7 +649,7 @@ main(int argc, char *argv[])
       if (!fp)
 	{
 	  r = errno;
-	  LOG_ER("Failed to open %s: %s",
+	  LOG_ERROR("Failed to open %s: %s",
 		 CMDLINE_PATH, strerror(r));
 	  return r;
 	}
@@ -658,7 +658,7 @@ main(int argc, char *argv[])
       if (nread == -1)
 	{
 	  r = errno;
-	  LOG_ER("Failed to read %s: %s",
+	  LOG_ERROR("Failed to read %s: %s",
 		 CMDLINE_PATH, strerror(r));
 	  return r;
 	}
@@ -666,7 +666,7 @@ main(int argc, char *argv[])
 	line[nread-1] = '\0';
     }
 
-  LOG_INF("cmdline=%s", line);
+  LOG_INFO("cmdline=%s", line);
 
   // Parse loop handling quotes
   char *cp = line;
@@ -703,7 +703,7 @@ main(int argc, char *argv[])
 		  if (r == -ENOMEM)
 		    exit(ENOMEM);
 		  else
-		    LOG_ER("Skip '%s' due to errors", val);
+		    LOG_ERROR("Skip '%s' due to errors", val);
 		}
 	    }
 	  else if (parse_all)
@@ -723,7 +723,7 @@ main(int argc, char *argv[])
 		r = parse_vlan_arg(nr++, arg_start+5, &cfg);
 	      else
 		{
-		  LOG_INF("skip: '%s'\n", arg_start);
+		  LOG_INFO("skip: '%s'\n", arg_start);
 		  r = 255;
 		}
 
@@ -750,7 +750,7 @@ main(int argc, char *argv[])
       r = write_netdev_config(output_dir);
       if (r < 0)
 	{
-	  LOG_ER("Error writing .netdev files: %s",
+	  LOG_ERROR("Error writing .netdev files: %s",
 		  strerror(-r));
 	  return -r;
 	}

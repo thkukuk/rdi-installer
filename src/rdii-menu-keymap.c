@@ -62,7 +62,7 @@ set_keymap(const char *keymap)
   r = posix_spawnp(&pid, "loadkeys", NULL, NULL, argv, environ);
   if (r != 0)
     {
-      LOG_ER("Failed to spawn loadkeys: %s", strerror(r)); // XXX
+      LOG_ERROR("Failed to spawn loadkeys: %s", strerror(r)); // XXX
       return -r;
     }
 
@@ -81,7 +81,7 @@ set_keymap(const char *keymap)
     }
   else
     {
-      LOG_ER("loadkeys terminated abnormally"); // XXX
+      LOG_ERROR("loadkeys terminated abnormally"); // XXX
       return -1;
     }
 }

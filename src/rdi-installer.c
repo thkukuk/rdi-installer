@@ -78,7 +78,7 @@ rm_rf_and_free(char *p)
   r = rm_rf(p);
 
   if (r < 0)
-    LOG_ER("Removal of '%s' failed: %s", p, strerror(-r));
+    LOG_ERROR("Removal of '%s' failed: %s", p, strerror(-r));
 
   return mfree(p);
 }
@@ -105,12 +105,12 @@ main(void)
   r = log_init(rdii_log);
   if (r < 0)
     {
-      LOG_ER("Error initializing log file (%s): %s",
+      LOG_ERROR("Error initializing log file (%s): %s",
              rdii_log, strerror(-r));
       return -r;
     }
 
-  LOG_INF("rdi-installer started");
+  LOG_INFO("rdi-installer started");
 
   // XXX error check missing
   // XXX keymap ignored
@@ -120,7 +120,7 @@ main(void)
   r = mkdtemp_malloc(tmpdir_template, &rdii_tmp_dir_cleanup);
   if (r < 0)
     {
-      LOG_ER("Failed to create temporary directory (%s): %s",
+      LOG_ERROR("Failed to create temporary directory (%s): %s",
 	     tmpdir_template, strerror(-r));
       show_error_popup("Failed to create temporary directory:",
 		       strerror(-r));
@@ -131,7 +131,7 @@ main(void)
 
   r = rdii_menu(image, image1, image2, device);
 
-  LOG_INF("rdi-installer stopped (retval=%i)", r);
+  LOG_INFO("rdi-installer stopped (retval=%i)", r);
 
   log_close();
 

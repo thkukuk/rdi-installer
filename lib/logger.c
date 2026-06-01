@@ -11,28 +11,31 @@
 #include "logger.h"
 
 static FILE *log_file = NULL;
-static int current_log_level = LOG_TRACE;
 
-const char* log_level_to_str(int level) {
+static LogLevel current_log_level = LOG_WARNING;
+
+const char* log_level_to_str(LogLevel level) {
     switch (level) {
-        case LOG_EMERG:   return "EMERGENCY";
-        case LOG_ALERT:   return "ALERT";
-        case LOG_CRIT:    return "CRITICAL";
-        case LOG_ERR:     return "ERROR";
-        case LOG_WARNING: return "WARNING";
-        case LOG_NOTICE:  return "NOTICE";
-        case LOG_INFO:    return "INFO";
-        case LOG_DEBUG:   return "DEBUG";
-        case LOG_TRACE:   return "TRACE";
-        default:          return "UNKNOWN";
+        case LOG_LEVEL_ERROR:   return "ERROR";
+        case LOG_LEVEL_WARNING: return "WARNING";
+        case LOG_LEVEL_INFO:    return "INFO";
+        case LOG_LEVEL_DEBUG:   return "DEBUG";
+        case LOG_LEVEL_TRACE:   return "TRACE";
+        default:                return "UNKNOWN";
     }
 }
 
 int
 log_init(const char *filename)
 {
+  current_log_level = LOG_WARNING;
   if (log_file)
-    return 0;
+    {
+      set_max_log_level(LOG_LEVEL_WARNING);
+      return 0;
+    }
+  else
+    set_max_log_level(LOG_LEVEL_INFO);
 
   log_file = fopen(filename, "a");
   if (!log_file)
@@ -41,7 +44,7 @@ log_init(const char *filename)
 }
 
 void
-set_max_log_level(int level)
+set_max_log_level(LogLevel level)
 {
   current_log_level = level;
 }
@@ -57,7 +60,7 @@ log_close(void)
 }
 
 void
-log_write(int level, const char *file, int line, const char *func,
+log_write(LogLevel level, const char *file, int line, const char *func,
 	  const char *fmt, ...)
 {
   va_list args;
@@ -69,10 +72,10 @@ log_write(int level, const char *file, int line, const char *func,
 
   if (!log_file)
     {
+      // Writing only to TTY if availabel. Otherwise write to journald
       static int is_tty = -1;
 
-      if (level == LOG_TRACE || /* Do not log function parameters */
-          level > current_log_level)
+      if (level == LOG_LEVEL_TRACE) /* Do not log function parameters */
         return;
 
       if (is_tty == -1)
@@ -94,10 +97,12 @@ log_write(int level, const char *file, int line, const char *func,
       else
         sd_journal_printv(level, fmt, args);
     } else {
+      /* Writing to log file, TRACE included */
       time_t now;
       time(&now);
       struct tm *tm_info = localtime(&now);
       char time_buffer[26];
+
       strftime(time_buffer, sizeof(time_buffer), "%Y-%m-%d %H:%M:%S", tm_info);
 
       fprintf(log_file, "[%s] [%-5s] %s:%d %s() - ",

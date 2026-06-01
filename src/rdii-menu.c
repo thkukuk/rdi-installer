@@ -190,10 +190,17 @@ show_warning_popup(const char *msg1, const char *msg2, const char *msg3)
   unsigned int height = 7;
   unsigned int width;
 
+  LOG_WARNING(msg1);
   if (msg2)
-    height++;
+    {
+      LOG_WARNING(msg2);
+      height++;
+    }
   if (msg3)
-    height++;
+    {
+      LOG_WARNING(msg3);
+      height++;
+    }
 
   width = strlen(msg1) + 6;
   if (msg2)
@@ -276,9 +283,14 @@ show_error_popup(const char *msg1, const char *msg2)
 {
   int height = 7 + (msg2?1:0);
   int width = strlen(msg1) + 6;
+
+  LOG_ERROR(msg1);
   if (msg2)
-    if ((int)(strlen(msg2) + 6) > width)
-      width = strlen(msg2) + 6;
+    {
+      LOG_ERROR(msg2);
+      if ((int)(strlen(msg2) + 6) > width)
+	width = strlen(msg2) + 6;
+    }
 
   int start_y = (LINES - height) / 2 - 2;
   int start_x = (COLS - width) / 2;

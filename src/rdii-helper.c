@@ -51,7 +51,7 @@ print_help(void)
 void
 print_error(void)
 {
-  LOG_ER("Try `rdii-helper --help' for more information.");
+  LOG_ERROR("Try `rdii-helper --help' for more information.");
 }
 
 static int
@@ -61,7 +61,7 @@ main_boot(int argc, char **argv)
   _cleanup_free_ char *defloaderentry = NULL;
   int r;
 
-  set_max_log_level(LOG_WARNING);
+  set_max_log_level(LOG_LEVEL_WARNING);
 
   while (1)
     {
@@ -83,13 +83,13 @@ main_boot(int argc, char **argv)
       switch (c)
         {
 	case 'd':
-	  set_max_log_level(LOG_DEBUG);
+	  set_max_log_level(LOG_LEVEL_DEBUG);
           break;
 	case 'h':
           print_help();
           return 0;
         case 'v':
-          LOG_INF("rdii-helper (%s) %s\n", PACKAGE, VERSION);
+          LOG_INFO("rdii-helper (%s) %s\n", PACKAGE, VERSION);
           return 0;
         default:
           print_error();
@@ -102,7 +102,7 @@ main_boot(int argc, char **argv)
 
   if (argc > 0)
     {
-      LOG_ER("rdii-helper boot: Too many arguments.");
+      LOG_ERROR("rdii-helper boot: Too many arguments.");
       print_error();
       return EINVAL;
     }
@@ -110,24 +110,24 @@ main_boot(int argc, char **argv)
   r = efi_get_boot_source(&efi);
   if (r < 0)
     {
-      LOG_ER("Couldn't get boot source: %s", strerror(-r));
+      LOG_ERROR("Couldn't get boot source: %s", strerror(-r));
       return -r;
     }
 
   r = efi_get_default_loader_entry(&defloaderentry);
   if (r < 0)
     {
-      LOG_ER("Couldn't get default loader entry: %s",
+      LOG_ERROR("Couldn't get default loader entry: %s",
 	     strerror(-r));
     }
 
-  LOG_INF("Boot Entry:            %s", strna(efi->entry));
-  LOG_INF("Default Loader Entry:  %s", strna(defloaderentry));
-  LOG_INF("PXE Boot:              %s", efi->is_pxe_boot?"yes":"no");
-  LOG_INF("Loader Partition:      %s", strna(efi->partition));
-  LOG_INF("Loader URL:            %s", strna(efi->url));
-  LOG_INF("Loader Image:          %s", strna(efi->image));
-  LOG_INF("Default EFI Partition: %s", strna(efi->def_efi_partition));
+  LOG_INFO("Boot Entry:            %s", strna(efi->entry));
+  LOG_INFO("Default Loader Entry:  %s", strna(defloaderentry));
+  LOG_INFO("PXE Boot:              %s", efi->is_pxe_boot?"yes":"no");
+  LOG_INFO("Loader Partition:      %s", strna(efi->partition));
+  LOG_INFO("Loader URL:            %s", strna(efi->url));
+  LOG_INFO("Loader Image:          %s", strna(efi->image));
+  LOG_INFO("Default EFI Partition: %s", strna(efi->def_efi_partition));
   return 0;
 }
 
@@ -160,17 +160,17 @@ main_set_default_loader_entry(int argc, char **argv)
       switch (c)
         {
 	case 'd':
-          set_max_log_level(LOG_DEBUG);
+          set_max_log_level(LOG_LEVEL_DEBUG);
           break;
 	case 'V':
-          set_max_log_level(LOG_INFO);
+          set_max_log_level(LOG_LEVEL_INFO);
 	  verbose = true;
 	  break;
 	case 'h':
           print_help();
           return 0;
         case 'v':
-          LOG_INF("rdii-helper (%s) %s", PACKAGE, VERSION);
+          LOG_INFO("rdii-helper (%s) %s", PACKAGE, VERSION);
           return 0;
         default:
           print_error();
@@ -183,7 +183,7 @@ main_set_default_loader_entry(int argc, char **argv)
 
   if (argc > 0)
     {
-      LOG_ER("rdii-helper set-default-loader-entry: Too many arguments.");
+      LOG_ERROR("rdii-helper set-default-loader-entry: Too many arguments.");
       print_error();
       return EINVAL;
     }
@@ -191,36 +191,36 @@ main_set_default_loader_entry(int argc, char **argv)
   r = efi_get_boot_source(&efi);
   if (r < 0)
     {
-      LOG_ER("Couldn't get boot source: %s", strerror(-r));
+      LOG_ERROR("Couldn't get boot source: %s", strerror(-r));
       return -r;
     }
 
   if (isempty(efi->entry))
     {
-      LOG_ER("LoaderEntrySelected not set");
+      LOG_ERROR("LoaderEntrySelected not set");
       return ENOENT;
     }
 
   r = efi_get_default_loader_entry(&defloaderentry);
   if (r < 0)
-    LOG_ER("Couldn't get default loader entry: %s",
+    LOG_ERROR("Couldn't get default loader entry: %s",
 	   strerror(-r));
 
   // if booted and default entry are equal, all is fine
   if (streq(strempty(efi->entry), strempty(defloaderentry)))
     {
       if (verbose)
-	LOG_INF("Booted and default entry are equal, no changes done.");
+	LOG_INFO("Booted and default entry are equal, no changes done.");
       return 0;
     }
 
   if (verbose)
-    LOG_INF("Setting LoaderEntryDefault to '%s'", efi->entry);
+    LOG_INFO("Setting LoaderEntryDefault to '%s'", efi->entry);
 
   r = exec_cmd("sdbootutil", "sdbotutil", "set-default", efi->entry, NULL);
   if (r < 0)
     {
-      LOG_ER("Failed to run sdbootutil: %s", strerror(-r));
+      LOG_ERROR("Failed to run sdbootutil: %s", strerror(-r));
       return -r;
     }
   if (r > 0)
@@ -228,11 +228,11 @@ main_set_default_loader_entry(int argc, char **argv)
       if (r > 128) // aborted by signal
         {
           int sig = r - 128;
-          LOG_ER("sdbootutil got terminated by signal %d (%s)",
+          LOG_ERROR("sdbootutil got terminated by signal %d (%s)",
                  sig, strsignal(sig));
         }
       else
-        LOG_ER("sdbootutil failed with exit code %i", r);
+        LOG_ERROR("sdbootutil failed with exit code %i", r);
 
       return ECHILD;
     }
@@ -251,7 +251,7 @@ main(int argc, char **argv)
 
   if (argc == 1)
     {
-      LOG_ER("rdii-helper: no commands or options provided.");
+      LOG_ERROR("rdii-helper: no commands or options provided.");
       print_error();
       return EINVAL;
     }
@@ -284,7 +284,7 @@ main(int argc, char **argv)
 
   if (argc > 0)
     {
-      LOG_ER("rdii-helper: Too many arguments.");
+      LOG_ERROR("rdii-helper: Too many arguments.");
       print_error();
       return EINVAL;
     }
