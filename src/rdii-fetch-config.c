@@ -202,7 +202,7 @@ main(int argc, char **argv)
 
   if (!isempty(arg_url) && !no_network)
     {
-      LOG_INFO("Attempting download (%s)...", arg_url);
+      LOG_INF("Attempting download (%s)...", arg_url);
       r = curl_download_file(arg_url, cfgfile);
       if (r != 0)
 	{
@@ -210,7 +210,7 @@ main(int argc, char **argv)
 		 arg_url, cfgfile, r < 0?strerror(-r):curl_easy_strerror(r));
 	  return -r;
 	}
-      LOG_INFO("Download successful! Saved to '%s'", cfgfile);
+      LOG_INF("Download successful! Saved to '%s'", cfgfile);
       return 0;
     }
   else
@@ -228,7 +228,7 @@ main(int argc, char **argv)
 
 	  if (no_network)
 	    {
-	      LOG_INFO("Booted from network but run with \"--local-only\", skipping");
+	      LOG_INF("Booted from network but run with \"--local-only\", skipping");
 	      return 0;
 	    }
 
@@ -240,7 +240,7 @@ main(int argc, char **argv)
 	      return -r;
 	    }
 
-	  LOG_INFO("Attempting download (%s)...", config_url);
+	  LOG_INF("Attempting download (%s)...", config_url);
 	  r = curl_download_file(config_url, cfgfile);
 	  if (r != 0 && r != CURLE_HTTP_RETURNED_ERROR)
 	    {
@@ -248,7 +248,7 @@ main(int argc, char **argv)
 		     config_url, cfgfile, r < 0?strerror(-r):curl_easy_strerror(r));
 	      return -r;
 	    }
-	  LOG_INFO("Download successful! Saved to '%s'", cfgfile);
+	  LOG_INF("Download successful! Saved to '%s'", cfgfile);
 	}
       else if (!isempty(efi->partition) && !isempty(efi->image))
 	{
@@ -278,7 +278,7 @@ main(int argc, char **argv)
 	    }
 	  else
 	    {
-	      LOG_INFO("Attempting copying %s...", src_cfg);
+	      LOG_INF("Attempting copying %s...", src_cfg);
 	      r = copy_file(src_cfg, cfgfile);
 	      if (r < 0)
 		{
@@ -290,7 +290,7 @@ main(int argc, char **argv)
 	}
       else if (efi->is_pxe_boot)
 	{
-	  LOG_INFO("PXE Boot (%s), fetching config not possible.", efi->entry);
+	  LOG_INF("PXE Boot (%s), fetching config not possible.", efi->entry);
 	}
       else
 	{

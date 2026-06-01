@@ -131,7 +131,7 @@ parse_ip_arg(int nr, char *arg, ip_t *cfg)
   _cleanup_free_ char *orig = strdup(arg); // for syntax error msg
   int r;
 
-  LOG_INFO("parse_ip_arg(%s)", arg);
+  LOG_INF("parse_ip_arg(%s)", arg);
 
   if (orig == NULL)
     return -ENOMEM;
@@ -307,7 +307,7 @@ parse_nameserver_arg(int nr, char *arg, ip_t *cfg)
   _cleanup_free_ char *orig = strdup(arg); // for syntax error msg
   int r;
 
-  LOG_INFO("parse_nameserver_arg(%s)", arg);
+  LOG_INF("parse_nameserver_arg(%s)", arg);
 
   if (orig == NULL)
     return -ENOMEM;
@@ -330,7 +330,7 @@ parse_rd_peerdns_arg(int nr, char *arg, ip_t *cfg)
   _cleanup_free_ char *orig = strdup(arg); // for syntax error msg
   int r;
 
-  LOG_INFO("parse_rd_peerdns_arg(%s)", arg);
+  LOG_INF("parse_rd_peerdns_arg(%s)", arg);
 
   if (orig == NULL)
     return -ENOMEM;
@@ -358,7 +358,7 @@ parse_rd_route_arg(int nr, char *arg, ip_t *cfg)
   _cleanup_free_ char *orig = strdup(arg); // for syntax error msg
   int r;
 
-  LOG_INFO("parse_rd_route_arg(%s)", arg);
+  LOG_INF("parse_rd_route_arg(%s)", arg);
 
   if (orig == NULL)
     return -ENOMEM;
@@ -402,7 +402,7 @@ parse_vlan_arg(int nr, char *arg, ip_t *cfg)
   _cleanup_free_ char *orig = strdup(arg); // for syntax error msg
   int r;
 
-  LOG_INFO("parse_vlan_arg(%s)", arg);
+  LOG_INF("parse_vlan_arg(%s)", arg);
 
   if (orig == NULL)
     return -ENOMEM;

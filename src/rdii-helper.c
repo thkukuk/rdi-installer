@@ -89,7 +89,7 @@ main_boot(int argc, char **argv)
           print_help();
           return 0;
         case 'v':
-          LOG_INFO("rdii-helper (%s) %s\n", PACKAGE, VERSION);
+          LOG_INF("rdii-helper (%s) %s\n", PACKAGE, VERSION);
           return 0;
         default:
           print_error();
@@ -121,13 +121,13 @@ main_boot(int argc, char **argv)
 	     strerror(-r));
     }
 
-  LOG_INFO("Boot Entry:            %s", strna(efi->entry));
-  LOG_INFO("Default Loader Entry:  %s", strna(defloaderentry));
-  LOG_INFO("PXE Boot:              %s", efi->is_pxe_boot?"yes":"no");
-  LOG_INFO("Loader Partition:      %s", strna(efi->partition));
-  LOG_INFO("Loader URL:            %s", strna(efi->url));
-  LOG_INFO("Loader Image:          %s", strna(efi->image));
-  LOG_INFO("Default EFI Partition: %s", strna(efi->def_efi_partition));
+  LOG_INF("Boot Entry:            %s", strna(efi->entry));
+  LOG_INF("Default Loader Entry:  %s", strna(defloaderentry));
+  LOG_INF("PXE Boot:              %s", efi->is_pxe_boot?"yes":"no");
+  LOG_INF("Loader Partition:      %s", strna(efi->partition));
+  LOG_INF("Loader URL:            %s", strna(efi->url));
+  LOG_INF("Loader Image:          %s", strna(efi->image));
+  LOG_INF("Default EFI Partition: %s", strna(efi->def_efi_partition));
   return 0;
 }
 
@@ -170,7 +170,7 @@ main_set_default_loader_entry(int argc, char **argv)
           print_help();
           return 0;
         case 'v':
-          LOG_INFO("rdii-helper (%s) %s", PACKAGE, VERSION);
+          LOG_INF("rdii-helper (%s) %s", PACKAGE, VERSION);
           return 0;
         default:
           print_error();
@@ -210,12 +210,12 @@ main_set_default_loader_entry(int argc, char **argv)
   if (streq(strempty(efi->entry), strempty(defloaderentry)))
     {
       if (verbose)
-	LOG_INFO("Booted and default entry are equal, no changes done.");
+	LOG_INF("Booted and default entry are equal, no changes done.");
       return 0;
     }
 
   if (verbose)
-    LOG_INFO("Setting LoaderEntryDefault to '%s'", efi->entry);
+    LOG_INF("Setting LoaderEntryDefault to '%s'", efi->entry);
 
   r = exec_cmd("sdbootutil", "sdbotutil", "set-default", efi->entry, NULL);
   if (r < 0)

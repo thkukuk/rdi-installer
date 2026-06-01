@@ -61,7 +61,7 @@ main_disk(int argc, char **argv)
   bool all_devices = false;
   int r;
 
-  set_max_log_level(LOG_WARNING);
+  set_max_log_level(LOG_LEVEL_WARNING);
 
   while (1)
     {
@@ -88,7 +88,7 @@ main_disk(int argc, char **argv)
 	  all_devices = true;
 	  break;
 	case 'd':
-          set_max_log_level(LOG_DEBUG);
+          set_max_log_level(LOG_LEVEL_DEBUG);
           break;
 	case 's':
 	  r = parse_size(optarg, &minsize);
@@ -103,7 +103,7 @@ main_disk(int argc, char **argv)
           print_help();
           return 0;
         case 'v':
-          LOG_INFO("rdii-helper (%s) %s", PACKAGE, VERSION);
+          LOG_INF("rdii-helper (%s) %s", PACKAGE, VERSION);
           return 0;
         default:
           print_error();
@@ -134,7 +134,7 @@ main_disk(int argc, char **argv)
 	  if (disk[i].size < minsize)
 	    continue;
 	}
-      LOG_INFO("%s - %s (%s, %.1f GB)", disk[i].device,
+      LOG_INF("%s - %s (%s, %.1f GB)", disk[i].device,
 	      strunknown(disk[i].model), disk[i].bus, disk[i].size_gb);
       if (disk[i].is_default_device)
 	fputs(" [Default]", stdout);

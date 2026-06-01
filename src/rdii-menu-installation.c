@@ -63,7 +63,7 @@ verify_signature(const char *file, const char *key)
 	  keywait(8, 0, NULL, 0);
 	}
       else
-	LOG_INFO("Signature matches");
+	LOG_INF("Signature matches");
       return WEXITSTATUS(status);
     }
   else
@@ -132,7 +132,7 @@ write_net_image(const char *url, const char *device)
   else
     decomp_args = decomp_cat_args;
 
-  LOG_INFO("decompressor=%s", decomp_args[0]);
+  LOG_INF("decompressor=%s", decomp_args[0]);
 
   if (pipe(p_wget_tee) != 0 || pipe(p_tee_sha) != 0 ||
       pipe(p_tee_decomp) != 0 || pipe(p_decomp_dd) != 0)
@@ -329,7 +329,7 @@ write_local_image(const char *file, const char *device)
   else
     decomp_args = decomp_cat_args;
 
-  LOG_INFO("decompressor=%s", decomp_args[0]);
+  LOG_INF("decompressor=%s", decomp_args[0]);
 
   if (pipe(p_pv_decomp) != 0 || pipe(p_decomp_dd) != 0)
     {
@@ -493,7 +493,7 @@ sha256_eq(const char *path1, const char *path2)
       return false;
     }
 
-  LOG_INFO("'%s' - '%s' - %i\n", hash1, hash2, streq(hash1, hash2));
+  LOG_INF("'%s' - '%s' - %i\n", hash1, hash2, streq(hash1, hash2));
 
   return streq(hash1, hash2);
 }
@@ -531,7 +531,7 @@ run_installation(const char *url, const char *device)
     {
       _cleanup_free_ char *sha256_url = NULL;
 
-      LOG_INFO("Is network url");
+      LOG_INF("Is network url");
 
       if (asprintf(&sha256_url, "%s.sha256", url) < 0)
 	return -ENOMEM;
@@ -579,7 +579,7 @@ run_installation(const char *url, const char *device)
     {
       _cleanup_free_ char *sha256_file = NULL;
 
-      LOG_INFO("Is a file url");
+      LOG_INF("Is a file url");
 
       if (asprintf(&sha256_file, "%s.sha256", url) < 0)
 	return -ENOMEM;

@@ -80,7 +80,7 @@ write_vlan_file(const char *output_dir, const char *interface, int vlanid)
 	       output_dir, VLAN_PREFIX, interface) < 0)
     return -ENOMEM;
 
-  LOG_INFO("Creating vlan config: %s for interface '%s.%d'", filepath,
+  LOG_INF("Creating vlan config: %s for interface '%s.%d'", filepath,
           interface, vlanid);
 
   if (access(filepath, F_OK) != 0)
@@ -138,7 +138,7 @@ write_network_file(const char *output_dir, int nr, ip_t *cfg,
 	       output_dir, IFCFG_PREFIX, nr) < 0)
     return -ENOMEM;
 
-  LOG_INFO("Creating config: %s for interface '%s'", filepath,
+  LOG_INF("Creating config: %s for interface '%s'", filepath,
           cfg->interface);
 
   fp = fopen(filepath, "w");
@@ -251,7 +251,7 @@ write_netdev_file(const char *output_dir, int vlanid)
 	       output_dir, NETDEV_PREFIX, vlanid) < 0)
     return -ENOMEM;
 
-  LOG_INFO("Creating vlan netdev: %s for vlan id '%d'", filepath,
+  LOG_INF("Creating vlan netdev: %s for vlan id '%d'", filepath,
           vlanid);
 
   fp = fopen(filepath, "w");
@@ -316,7 +316,7 @@ parse_ifcfg_arg(const char *output_dir, int nr, const char *arg)
   int rfc2132 = 0;
   int r;
 
-  LOG_INFO("parse_ifcfg_arg=%d - '%s'", nr, arg);
+  LOG_INF("parse_ifcfg_arg=%d - '%s'", nr, arg);
 
   // Syntax: <interface>=<str>
 
@@ -327,7 +327,7 @@ parse_ifcfg_arg(const char *output_dir, int nr, const char *arg)
   if (isempty(token) || isempty(str))
     return return_syntax_error(nr, arg, -ENOENT);
 
-  LOG_INFO("Interface - Config: '%s' - '%s'",
+  LOG_INF("Interface - Config: '%s' - '%s'",
           token, str);
 
   if (!isempty(token))
@@ -360,7 +360,7 @@ parse_ifcfg_arg(const char *output_dir, int nr, const char *arg)
 
 	      vlans[nr_vlanids] = vlanid;
 	      nr_vlanids++;
-              LOG_INFO("Stored VLAN ID: %d", vlanid);
+              LOG_INF("Stored VLAN ID: %d", vlanid);
 	    }
 	}
     }

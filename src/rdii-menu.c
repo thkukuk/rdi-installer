@@ -190,15 +190,15 @@ show_warning_popup(const char *msg1, const char *msg2, const char *msg3)
   unsigned int height = 7;
   unsigned int width;
 
-  LOG_WARNING(msg1);
+  LOG_WARN(msg1);
   if (msg2)
     {
-      LOG_WARNING(msg2);
+      LOG_WARN(msg2);
       height++;
     }
   if (msg3)
     {
-      LOG_WARNING(msg3);
+      LOG_WARN(msg3);
       height++;
     }
 

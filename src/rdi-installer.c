@@ -110,7 +110,7 @@ main(void)
       return -r;
     }
 
-  LOG_INFO("rdi-installer started");
+  LOG_INF("rdi-installer started");
 
   // XXX error check missing
   // XXX keymap ignored
@@ -131,7 +131,7 @@ main(void)
 
   r = rdii_menu(image, image1, image2, device);
 
-  LOG_INFO("rdi-installer stopped (retval=%i)", r);
+  LOG_INF("rdi-installer stopped (retval=%i)", r);
 
   log_close();
 

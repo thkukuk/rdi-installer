@@ -36,9 +36,9 @@ const char* log_level_to_str(LogLevel level);
     log_write(LOG_LEVEL_TRACE, __FILE__, __LINE__, __func__, "CALLED with args: " __VA_ARGS__)
 
 // General purpose logging macros for use anywhere
-#define LOG_DEBUG(...)   log_write(LOG_LEVEL_DEBUG,    __FILE__, __LINE__, __func__, __VA_ARGS__)
-#define LOG_INFO(...)    log_write(LOG_LEVEL_INFO,     __FILE__, __LINE__, __func__, __VA_ARGS__)
-#define LOG_WARNING(...) log_write(LOG_LEVEL_WARNING,  __FILE__, __LINE__, __func__, __VA_ARGS__)
+#define LOG_DEB(...)   log_write(LOG_LEVEL_DEBUG,    __FILE__, __LINE__, __func__, __VA_ARGS__)
+#define LOG_INF(...)    log_write(LOG_LEVEL_INFO,     __FILE__, __LINE__, __func__, __VA_ARGS__)
+#define LOG_WARN(...) log_write(LOG_LEVEL_WARNING,  __FILE__, __LINE__, __func__, __VA_ARGS__)
 #define LOG_ERROR(...)   log_write(LOG_LEVEL_ERROR,      __FILE__, __LINE__, __func__, __VA_ARGS__)
 
 #endif // LOGGER_H

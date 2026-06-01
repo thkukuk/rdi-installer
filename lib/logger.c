@@ -12,7 +12,7 @@
 
 static FILE *log_file = NULL;
 
-static LogLevel current_log_level = LOG_WARNING;
+static LogLevel current_log_level = LOG_LEVEL_WARNING;
 
 const char* log_level_to_str(LogLevel level) {
     switch (level) {
@@ -28,7 +28,7 @@ const char* log_level_to_str(LogLevel level) {
 int
 log_init(const char *filename)
 {
-  current_log_level = LOG_WARNING;
+  current_log_level = LOG_LEVEL_WARNING;
   if (log_file)
     {
       set_max_log_level(LOG_LEVEL_WARNING);

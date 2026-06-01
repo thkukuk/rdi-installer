@@ -152,7 +152,7 @@ merge_configs(ip_t *cfg)
   bool found = false;
   int r;
 
-  LOG_INFO("merge_configs called");
+  LOG_INF("merge_configs called");
 
   if (used_configs == MAX_INTERFACES)
     {
@@ -217,7 +217,7 @@ write_network_config(const char *output_dir, int line_num, ip_t *cfg)
                output_dir, IP_PREFIX, line_num) < 0)
     return -ENOMEM;
 
-  LOG_INFO("Entry %2d: %s config", line_num, filepath);
+  LOG_INF("Entry %2d: %s config", line_num, filepath);
 
   fp = fopen(filepath, "w");
   if (!fp)
@@ -328,7 +328,7 @@ write_netdev_file(const char *output_dir, vlan_t *vlan)
                output_dir, NETDEV_PREFIX, vlan->name) < 0)
     return -ENOMEM;
 
-  LOG_INFO("Creating vlan netdev: %s for vlan id '%d'", filepath,
+  LOG_INF("Creating vlan netdev: %s for vlan id '%d'", filepath,
           vlan->id);
 
   fp = fopen(filepath, "w");
@@ -414,7 +414,7 @@ get_vlan_id(const char *vlan_name, int *ret)
 	    vlans[nr_vlanids].id = vlanid;
 	    vlans[nr_vlanids].name = vlan_name;
 	    nr_vlanids++;
-            LOG_INFO("Stored VLAN ID: %d (%s)", vlanid, vlan_name);
+            LOG_INF("Stored VLAN ID: %d (%s)", vlanid, vlan_name);
 	  }
 	*ret = vlanid;
 	return 0;
@@ -666,7 +666,7 @@ main(int argc, char *argv[])
 	line[nread-1] = '\0';
     }
 
-  LOG_INFO("cmdline=%s", line);
+  LOG_INF("cmdline=%s", line);
 
   // Parse loop handling quotes
   char *cp = line;
@@ -723,7 +723,7 @@ main(int argc, char *argv[])
 		r = parse_vlan_arg(nr++, arg_start+5, &cfg);
 	      else
 		{
-		  LOG_INFO("skip: '%s'\n", arg_start);
+		  LOG_INF("skip: '%s'\n", arg_start);
 		  r = 255;
 		}
 
