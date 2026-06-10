@@ -43,14 +43,14 @@ verify_signature(const char *file, const char *key)
   r = posix_spawnp(&pid, "gpgv", NULL, NULL, argv, environ);
   if (r != 0)
     {
-      MSG_ERROR( "Failed to spawn gpgv: %s", strerror(r)); // XXX
+      MSG_ERROR( "Failed to spawn gpgv: %s", strerror(r));
       return -r;
     }
 
   if (waitpid(pid, &status, 0) == -1)
     {
       r = errno;
-      perror("waitpid failed"); // XXX
+      MSG_ERROR( "waitpid failed: %s", strerror(r));
       return -r;
     }
 
@@ -68,8 +68,8 @@ verify_signature(const char *file, const char *key)
     }
   else
     {
-      MSG_ERROR("gpgv terminated abnormally"); // XXX
-      return -1; // XXX
+      MSG_ERROR("gpgv terminated abnormally");
+      return -1;
     }
 }
 
@@ -85,7 +85,9 @@ fix_partition_table(const char *device)
 
   if (r < 0)
     {
-      MSG_ERROR("Failed to start sgdisk: %s", strerror(-r)); // XXX
+      show_error_popup("Adjusting partition table to real disk size failed.",
+                       "Failed to start sgdisk:",
+		       strerror(-r));
       return r;
     }
   if (r > 0)
@@ -93,11 +95,13 @@ fix_partition_table(const char *device)
       if (r > 128) // aborted by signal
 	{
 	  int sig = r - 128;
-	  MSG_ERROR("sgdisk was terminated by signal %d (%s)",
-		 sig, strsignal(sig)); // XXX
+          show_error_popup("Adjusting partition table to real disk size failed.",
+			   "sgdisk was terminated by signal:",
+			   strsignal(sig));
 	}
       else
-	MSG_ERROR("sgdisk failed with %i", r);
+        show_error_popup("Adjusting partition table to real disk size failed.",
+			 "sgdisk failed with:", strerror(r));
 
       keywait(8, 0, NULL, 0);
       return -ECHILD;
@@ -573,7 +577,11 @@ run_installation(const char *url, const char *device)
 	    {
 	      r = verify_signature(d_sha256_fn, d_gpgasc);
 	      if (r < 0)
-		return r;
+		{
+                  if (!show_warning_popup ("Cannot verify signature.",
+					   "Continue without signature verification?", NULL))
+		    return r;
+		}
 	    }
 	}
     }
@@ -615,13 +623,17 @@ run_installation(const char *url, const char *device)
 	    {
 	      r = verify_signature(sha256_file, gpgasc_file);
 	      if (r < 0)
-		return r;
+		{
+                  if (!show_warning_popup ("Cannot verify signature.",
+					   "Continue without signature verification?", NULL))
+		    return r;
+		}
 	    }
 	}
     }
   else
     {
-      MSG_ERROR("Unknown URL format: %s", url); // XXX
+      show_error_popup("Unknown URL format:", url, NULL);
       return -EINVAL;
     }
 

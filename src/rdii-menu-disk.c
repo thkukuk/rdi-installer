@@ -31,7 +31,7 @@ is_device_mounted(const char *device)
   if (fp == NULL)
     {
       r = -errno;
-      perror("setmntent"); // XXX
+      MSG_ERROR("setmntent failed: %s", strerror(errno));
       return r;
     }
 

@@ -82,7 +82,7 @@ log_write(LogLevel level, const char *file, int line, const char *func,
 
       if (is_tty)
         {
-	  if (level <= LOG_ERR)
+	  if (level <= LOG_LEVEL_ERROR)
             {
               vfprintf(stderr, fmt, args);
 	      fputc('\n', stderr);
