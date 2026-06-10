@@ -31,7 +31,14 @@ read_config(const char *config, char **ret_device,
 
   error = econf_readFile(&key_file, config,
 			 "=", "#");
-  if (error != ECONF_SUCCESS && error != ECONF_NOFILE)
+
+  if (error == ECONF_NOFILE)
+    {
+      LOG_WARN("No rdi-installer configuration file found");
+      return ECONF_SUCCESS;
+    }
+
+  if (error != ECONF_SUCCESS)
     return error;
 
   error = econf_getStringValue(key_file, NULL, "rdii.device", &device);
@@ -96,6 +103,8 @@ main(void)
   _cleanup_free_ char *device = NULL;
   int r;
   econf_err conf_err;
+
+  init_ncurses();
 
   if (getuid())
     rdii_log = "rdii.log";

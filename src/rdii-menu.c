@@ -186,7 +186,7 @@ truncate_middle(const char *str, size_t max_len)
 // Returns 1 if YES, 0 if NO
 int
 show_warning_popup(const char *headline,
-		   const char *descr_line1, const char *desc_line2)
+		   const char *descr_line1, const char *descr_line2)
 {
   unsigned int height = 7;
   unsigned int width;
@@ -200,9 +200,9 @@ show_warning_popup(const char *headline,
       LOG_WARN(descr_line1);
       height++;
     }
-  if (desc_line2)
+  if (descr_line2)
     {
-      LOG_WARN(desc_line2);
+      LOG_WARN(descr_line2);
       height++;
     }
 
@@ -214,12 +214,12 @@ show_warning_popup(const char *headline,
       if (strlen(descr_line1) + 6 > width)
 	width = strlen(descr_line1) + 6;
     }
-  if (desc_line2)
+  if (descr_line2)
     {
-      if (strlen(desc_line2) > (size_t)(COLS - 8))
-	desc_line2 = truncate_middle(desc_line2, COLS-8);
-      if (strlen(desc_line2) + 6 > width)
-	width = strlen(desc_line2) + 6;
+      if (strlen(descr_line2) > (size_t)(COLS - 8))
+	descr_line2 = truncate_middle(descr_line2, COLS-8);
+      if (strlen(descr_line2) + 6 > width)
+	width = strlen(descr_line2) + 6;
     }
 
   int start_y = (LINES - height) / 2 - 2;
@@ -237,27 +237,27 @@ show_warning_popup(const char *headline,
       box(win, 0, 0);
       mvwprintw(win, 2, (width - strlen(headline)) / 2, "%s", headline);
       if (descr_line1)
-	mvwprintw(win, 3, (width - strlen(descr_line1)) / 2, "%s", descr_line1);
-      if (desc_line2)
-	mvwprintw(win, 4, (width - strlen(desc_line2)) / 2, "%s", desc_line2);
+	mvwprintw(win, 4, (width - strlen(descr_line1)) / 2, "%s", descr_line1);
+      if (descr_line2)
+	mvwprintw(win, 5, (width - strlen(descr_line2)) / 2, "%s", descr_line2);
 
       if (btn_selected == 0)
 	{
 	  wattron(win, A_REVERSE);
-	  mvwprintw(win, height - 3, width / 2 - 10, "[ YES ]");
+	  mvwprintw(win, height - 2, width / 2 - 10, "[ YES ]");
 	  wattroff(win, A_REVERSE);
         }
       else
-	mvwprintw(win, height - 3, width / 2 - 10, "[ YES ]");
+	mvwprintw(win, height - 2, width / 2 - 10, "[ YES ]");
 
       if (btn_selected == 1)
 	{
 	  wattron(win, A_REVERSE);
-	  mvwprintw(win, height - 3, width / 2 + 3, "[ NO ]");
+	  mvwprintw(win, height - 2, width / 2 + 3, "[ NO ]");
 	  wattroff(win, A_REVERSE);
         }
       else
-	mvwprintw(win, height - 3, width / 2 + 3, "[ NO ]");
+	mvwprintw(win, height - 2, width / 2 + 3, "[ NO ]");
 
       wrefresh(win);
 
@@ -287,22 +287,25 @@ void
 show_error_popup(const char *headline,
 		 const char *descr_line1, const char *descr_line2)
 {
-  int height = 7 + (descr_line1?1:0);
+  int height = 7;
   int width = strlen(headline) + 6;
 
   if (headline)
     {  
       LOG_ERROR(headline);
+      height++;
     }
   if (descr_line1)
     {
       LOG_ERROR(descr_line1);
+      height++;
       if ((int)(strlen(descr_line1) + 6) > width)
 	width = strlen(descr_line1) + 6;
     }
   if (descr_line2)
     {
       LOG_ERROR(descr_line2);
+      height++;      
       if ((int)(strlen(descr_line2) + 6) > width)
 	width = strlen(descr_line2) + 6;
     }  
@@ -315,9 +318,9 @@ show_error_popup(const char *headline,
   box(win, 0, 0);
   mvwprintw(win, 2, (width - strlen(headline)) / 2, "%s", headline);
   if (descr_line1)
-    mvwprintw(win, 3, (width - strlen(descr_line1)) / 2, "%s", descr_line1);
+    mvwprintw(win, 4, (width - strlen(descr_line1)) / 2, "%s", descr_line1);
   if (descr_line2)
-    mvwprintw(win, 3, (width - strlen(descr_line2)) / 2, "%s", descr_line2);
+    mvwprintw(win, 5, (width - strlen(descr_line2)) / 2, "%s", descr_line2);
 
   mvwprintw(win, height - 3, width / 2 - 3, "[ OK ]");
   wrefresh(win);
@@ -573,13 +576,9 @@ select_image(const char *image1, const char *image2,
   return choose_entry(4, (const char **)options, 3, 0);
 }
 
-int
-rdii_menu(const char *image0, const char *image1,
-	  const char *image2, const char *device)
+void
+init_ncurses(void)
 {
-  const char *image = NULL;
-  int r;
-
   // For correctly rendering the double borders
   setlocale(LC_ALL, "");
 
@@ -593,6 +592,15 @@ rdii_menu(const char *image0, const char *image1,
 
   if (has_colors())
     init_colors();
+	
+}
+
+int
+rdii_menu(const char *image0, const char *image1,
+	  const char *image2, const char *device)
+{
+  const char *image = NULL;
+  int r;
 
   show_splash_screen();
 
