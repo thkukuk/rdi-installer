@@ -61,8 +61,6 @@ main_boot(int argc, char **argv)
   _cleanup_free_ char *defloaderentry = NULL;
   int r;
 
-  set_max_log_level(LOG_LEVEL_WARNING);
-
   while (1)
     {
       int c;
@@ -83,12 +81,14 @@ main_boot(int argc, char **argv)
       switch (c)
         {
 	case 'd':
+	  _efivars_debug = true;
 	  set_max_log_level(LOG_LEVEL_DEBUG);
           break;
 	case 'h':
           print_help();
           return 0;
         case 'v':
+	  set_max_log_level(LOG_LEVEL_INFO);
           MSG_INFO("rdii-helper (%s) %s\n", PACKAGE, VERSION);
           return 0;
         default:
@@ -160,6 +160,7 @@ main_set_default_loader_entry(int argc, char **argv)
       switch (c)
         {
 	case 'd':
+          _efivars_debug = true;
           set_max_log_level(LOG_LEVEL_DEBUG);
           break;
 	case 'V':
@@ -170,6 +171,7 @@ main_set_default_loader_entry(int argc, char **argv)
           print_help();
           return 0;
         case 'v':
+          set_max_log_level(LOG_LEVEL_INFO);
           MSG_INFO("rdii-helper (%s) %s", PACKAGE, VERSION);
           return 0;
         default:
@@ -263,7 +265,7 @@ main(int argc, char **argv)
   else if (streq(argv[1], "set-default-loader-entry"))
     return main_set_default_loader_entry(--argc, ++argv);
 
-  while ((c = getopt_long (argc, argv, "hv", longopts, NULL)) != -1)
+  while ((c = getopt_long(argc, argv, "hv", longopts, NULL)) != -1)
     {
       switch (c)
         {
@@ -271,7 +273,8 @@ main(int argc, char **argv)
           print_help();
           return 0;
         case 'v':
-          fprintf(stdout, "rdii-helper (%s) %s", PACKAGE, VERSION);
+          set_max_log_level(LOG_LEVEL_INFO);
+          MSG_INFO("rdii-helper (%s) %s", PACKAGE, VERSION);
           return 0;
         default:
           print_error();

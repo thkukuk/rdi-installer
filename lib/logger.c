@@ -30,16 +30,17 @@ log_init(const char *filename)
 {
   current_log_level = LOG_LEVEL_WARNING;
   if (log_file)
-    {
-      set_max_log_level(LOG_LEVEL_WARNING);
-      return 0;
-    }
+    return 0;
   else
+    /* console and systemd standard log level */
     set_max_log_level(LOG_LEVEL_INFO);
 
-  log_file = fopen(filename, "a");
-  if (!log_file)
-    return -errno;
+  if (filename)
+    {
+      log_file = fopen(filename, "a");
+      if (!log_file)
+	return -errno;
+    }
 
   return 0;
 }
@@ -66,17 +67,14 @@ log_write(LogLevel level, const char *file, int line, const char *func,
 {
   va_list args;
 
-  if (level > current_log_level)
-    return;
-
   va_start(args, fmt);
 
   if (!log_file)
     {
-      // Writing only to TTY if availabel. Otherwise write to journald
+      /* Writing only to TTY if availabel. Otherwise write to journald */
       static int is_tty = -1;
 
-      if (level == LOG_LEVEL_TRACE) /* Do not log function parameters */
+      if (level > current_log_level) /* regarding log level */
         return;
 
       if (is_tty == -1)
@@ -98,7 +96,7 @@ log_write(LogLevel level, const char *file, int line, const char *func,
       else
         sd_journal_printv(level, fmt, args);
     } else {
-      /* Writing to log file, TRACE included */
+      /* Writing EVERYTHING to log file */
       time_t now;
       time(&now);
       struct tm *tm_info = localtime(&now);

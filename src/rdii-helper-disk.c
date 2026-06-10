@@ -61,8 +61,6 @@ main_disk(int argc, char **argv)
   bool all_devices = false;
   int r;
 
-  set_max_log_level(LOG_LEVEL_WARNING);
-
   while (1)
     {
       int c;
@@ -88,6 +86,7 @@ main_disk(int argc, char **argv)
 	  all_devices = true;
 	  break;
 	case 'd':
+	  _efivars_debug = true;
           set_max_log_level(LOG_LEVEL_DEBUG);
           break;
 	case 's':
@@ -103,6 +102,7 @@ main_disk(int argc, char **argv)
           print_help();
           return 0;
         case 'v':
+          set_max_log_level(LOG_LEVEL_INFO);
           MSG_INFO("rdii-helper (%s) %s", PACKAGE, VERSION);
           return 0;
         default:

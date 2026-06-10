@@ -121,9 +121,7 @@ main(int argc, char **argv)
   bool no_network = false;
   int r;
 
-  set_max_log_level(LOG_LEVEL_WARNING);
-
-    while (1)
+  while (1)
     {
       int c;
       int option_index = 0;
@@ -146,6 +144,7 @@ main(int argc, char **argv)
       switch (c)
         {
         case 'd':
+	  _efivars_debug = true;
           set_max_log_level(LOG_LEVEL_DEBUG);
           break;
 	case 'l':
@@ -161,7 +160,8 @@ main(int argc, char **argv)
           print_help();
           return 0;
         case 'v':
-	  fprintf(stdout, "rdii-fetch-config (%s) %s\n", PACKAGE, VERSION);
+          set_max_log_level(LOG_LEVEL_INFO);
+	  MSG_INFO("rdii-fetch-config (%s) %s\n", PACKAGE, VERSION);
           return 0;
         default:
           print_error();

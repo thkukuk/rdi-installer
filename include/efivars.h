@@ -31,6 +31,10 @@ static __inline__ void efivars_freep(efivars_t **var) {
 }
 #define _cleanup_efivars_ __attribute__((__cleanup__(efivars_freep)))
 
+/* enables output with more concret information */
+/* This will be mainly set by the -d option in the command line interfaces */
+extern bool _efivars_debug;
+
 // Reads an EFI variable and returns malloc'd buffer containing the data
 extern int read_efi_var(const char *name, const char *guid,
 		        char **ret_str, size_t *ret_size);
