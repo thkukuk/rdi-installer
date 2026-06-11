@@ -7,7 +7,6 @@
 #include <time.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <systemd/sd-journal.h>
 #include "logger.h"
 
 static FILE *log_file = NULL;
