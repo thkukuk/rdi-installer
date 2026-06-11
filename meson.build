@@ -63,7 +63,6 @@ libcurl = dependency('libcurl', required: true)
 libudev = dependency('libudev', required: true)
 libncurses = dependency('ncursesw', required: true)
 libeconf = dependency('libeconf', required: true)
-libsystemd = dependency('libsystemd', required : true)
 
 libefivars_c = files('lib/efivars.c')
 libefivars = static_library(
@@ -95,7 +94,6 @@ executable('rdii-networkd', 'src/rdii-networkd.c', 'lib/mkdir_p.c',
            'lib/string-util-fundamental.c', 'src/ip.c', 'src/ifcfg.c',
 	   'lib/logger.c',
            include_directories : inc,
-           dependencies : [libsystemd],
            install : true)
 
 executable('keywait', 'src/keywait.c',
@@ -107,7 +105,7 @@ executable('rdii-fetch-config',
            rdii_fetch_config_c,
            include_directories : inc,
 	   link_with : [libefivars, librdii],
-           dependencies : [libcurl, libsystemd],
+           dependencies : [libcurl],
            install : true)
 
 rdii_helper_c = ['src/rdii-helper.c', 'src/rdii-helper-disk.c' ]
@@ -115,7 +113,7 @@ executable('rdii-helper',
            rdii_helper_c,
            include_directories : inc,
 	   link_with : [libefivars, libdevices, librdii],
-           dependencies : [libudev, libsystemd],
+           dependencies : [libudev],
            install : true)
 
 rdi_installer_c = ['src/rdi-installer.c',
@@ -126,7 +124,7 @@ executable('rdi-installer',
            rdi_installer_c,
            include_directories : inc,
            link_with : [libefivars, libdevices, librdii],
-           dependencies : [libncurses, libeconf, libudev, libcurl, libsystemd],
+           dependencies : [libncurses, libeconf, libudev, libcurl],
            install : true)
 
 # additional tools

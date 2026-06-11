@@ -72,30 +72,21 @@ log_write(LogLevel level, const char *file, int line, const char *func,
 
   if (!log_file)
     {
-      /* Writing only to TTY if availabel. Otherwise write to journald */
-      static int is_tty = -1;
+      /* Writing to TTY if availabel. Otherwise redirect to journald automatically. */
 
       if (level > current_log_level) /* regarding log level */
         return;
 
-      if (is_tty == -1)
-        is_tty = isatty(STDOUT_FILENO);
-
-      if (is_tty)
+      if (level <= LOG_LEVEL_ERROR)
         {
-	  if (level <= LOG_LEVEL_ERROR)
-            {
-              vfprintf(stderr, fmt, args);
-	      fputc('\n', stderr);
-	    }
-	  else
-            {
-              vprintf(fmt, args);
-              putchar('\n');
-            }
+          vfprintf(stderr, fmt, args);
+	  fputc('\n', stderr);
 	}
       else
-        sd_journal_printv(level, fmt, args);
+	{
+          vprintf(fmt, args);
+          putchar('\n');
+	}
     } else {
       /* Writing EVERYTHING to log file; except EFI setting if it is not set explicit */
       if (level == LOG_LEVEL_EFIVARS &&  current_log_level != LOG_LEVEL_EFIVARS)
