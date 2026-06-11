@@ -21,6 +21,7 @@ const char* log_level_to_str(LogLevel level) {
         case LOG_LEVEL_INFO:    return "INFO";
         case LOG_LEVEL_DEBUG:   return "DEBUG";
         case LOG_LEVEL_TRACE:   return "TRACE";
+        case LOG_LEVEL_EFIVARS: return "EFIVARS";
         default:                return "UNKNOWN";
     }
 }

@@ -27,8 +27,6 @@
  * - Local Disk Boot (prints Partition UUID or Device Path)
  */
 
-bool _efivars_debug = false;
-
 /* GUIDs */
 #define EFI_GLOBAL_VARIABLE_GUID "8be4df61-93ca-11d2-aa0d-00e098032b8c"
 #define SYSTEMD_VENDOR_GUID      "4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
@@ -161,8 +159,8 @@ read_efi_var(const char *name, const char *guid, char **ret_str,
   if (fd < 0)
     {
       r = -errno;
-      if (_efivars_debug && r != -ENOENT)
-        MSG_ERROR("Couldn't open '%s': %s", path, strerror(-r));
+      if (r != -ENOENT)
+        MSG_EFIVARS("Couldn't open '%s': %s", path, strerror(-r));
       return r;
     }
 
@@ -172,16 +170,15 @@ read_efi_var(const char *name, const char *guid, char **ret_str,
   if (fstat(fd, &st) < 0)
     {
       r = -errno;
-      if (_efivars_debug)
-        MSG_ERROR("fstat(%s) failed: %s", path, strerror(-r));
+
+      MSG_EFIVARS("fstat(%s) failed: %s", path, strerror(-r));
       return -r;
     }
 
   r = stat_verify_regular(&st);
   if (r < 0)
     {
-      if (_efivars_debug)
-        MSG_ERROR("EFI variable '%s' is not a regular file: %s",
+      MSG_EFIVARS("EFI variable '%s' is not a regular file: %s",
 		  path, strerror(-r));
       return r;
     }
@@ -195,8 +192,8 @@ read_efi_var(const char *name, const char *guid, char **ret_str,
   if (bytes_read < 0)
     {
       r = -errno;
-      if (_efivars_debug)
-        MSG_ERROR("Error reading '%s': %s", path, strerror(-r));
+
+      MSG_EFIVARS("Error reading '%s': %s", path, strerror(-r));
       return r;
     }
 
@@ -311,22 +308,20 @@ parse_device_path(char *data, size_t limit, efivars_t **res)
 	{
 	  if (head->sub_type) // End of Device Path
 	    break;
-	  if (_efivars_debug)
-            MSG_DEBUG("Unexpected: type=0x7F, subtype=0x%02X", head->sub_type);
+
+	  MSG_EFIVARS("Unexpected: type=0x7F, subtype=0x%02X", head->sub_type);
 	}
 
       if (head->length < 4)
 	{
-          if (_efivars_debug)
-            MSG_DEBUG("length too short: type=%02X, subtype=%02X, length=%i",
+          MSG_EFIVARS("length too short: type=%02X, subtype=%02X, length=%i",
 		      head->type, head->sub_type, head->length);
 	  break;
 	}
 
       if (offset + head->length > limit)
 	{
-          if (_efivars_debug)
-            MSG_DEBUG("length bigger than limit: type=%02X, subtype=%02X, length=%i, limit=%lu",
+          MSG_EFIVARS("length bigger than limit: type=%02X, subtype=%02X, length=%i, limit=%lu",
 		      head->type, head->sub_type, head->length, limit);
 	  break;
 	}
@@ -352,12 +347,10 @@ parse_device_path(char *data, size_t limit, efivars_t **res)
 				 guid->data4[2], guid->data4[3], guid->data4[4],
 				 guid->data4[5], guid->data4[6], guid->data4[7]) < 0)
 		      return -ENOMEM;
-                   if (_efivars_debug)
-                     MSG_ERROR("Partition UUID: %s", loader_dev);
+                    MSG_EFIVARS("Partition UUID: %s", loader_dev);
 		  }
 		else
-                  if (_efivars_debug)
-                    MSG_DEBUG("DST_HARD_DRIVE: length (%d) too small (< 42)", head->length);
+                  MSG_EFIVARS("DST_HARD_DRIVE: length (%d) too small (< 42)", head->length);
 	      }
 	      break;
 	    case DST_MEDIA_FILE: // Disk Boot (File Path Node)
@@ -366,8 +359,7 @@ parse_device_path(char *data, size_t limit, efivars_t **res)
 		  return r;
 		break;
 	    default:
-              if (_efivars_debug)
-                MSG_DEBUG("Unknown sub-type of DT_MEDIA: %02X", head->sub_type);
+              MSG_EFIVARS("Unknown sub-type of DT_MEDIA: %02X", head->sub_type);
 	      break;
 	    }
 	}
@@ -381,21 +373,17 @@ parse_device_path(char *data, size_t limit, efivars_t **res)
 		return r;
 	      break;
 	    case DST_MSG_MAC_ADDR:
-              if (_efivars_debug)
-                {
-	          mac_addr_device_path_t *mac = (mac_addr_device_path_t *)(data + offset + 4);
-		  MSG_DEBUG("MAC: %02X:%02X:%02X:%02X:%02X:%02X",
-			    mac->mac_addr[0], mac->mac_addr[1],
-			    mac->mac_addr[2], mac->mac_addr[3],
-			    mac->mac_addr[4], mac->mac_addr[5]);
-		}
+              mac_addr_device_path_t *mac = (mac_addr_device_path_t *)(data + offset + 4);
+              MSG_EFIVARS("MAC: %02X:%02X:%02X:%02X:%02X:%02X",
+			  mac->mac_addr[0], mac->mac_addr[1],
+			  mac->mac_addr[2], mac->mac_addr[3],
+			  mac->mac_addr[4], mac->mac_addr[5]);
 	      pxe_boot = true;
 	      break;
 	    case DST_MSG_IPV4: // XXX print all fields
 	      {
 		ipv4_device_path_t *ipv4 = (ipv4_device_path_t *)(data + offset + 4);
-                if (_efivars_debug)
-                  MSG_DEBUG("Remote IP: %d.%d.%d.%d",
+                MSG_EFIVARS("Remote IP: %d.%d.%d.%d",
 			    ipv4->RemoteIp[0], ipv4->RemoteIp[1],
 			    ipv4->RemoteIp[2], ipv4->RemoteIp[3]);
 		if (!ipv4->RemoteIp[0] && !ipv4->RemoteIp[1] &&
@@ -404,8 +392,7 @@ parse_device_path(char *data, size_t limit, efivars_t **res)
 	      }
 	      break;
 	    default:
-	      if (_efivars_debug)
-                MSG_DEBUG("Unknown sub-type of DT_MESSAGING: %02X", head->sub_type);
+              MSG_EFIVARS("Unknown sub-type of DT_MESSAGING: %02X", head->sub_type);
 	      break;
 	    }
 	}
@@ -414,8 +401,7 @@ parse_device_path(char *data, size_t limit, efivars_t **res)
 	  if (head->sub_type == 0x01) // XXX -> 0x01 should be a define
 	    {
 	      pci_device_path_t *pci = (pci_device_path_t *)(data + offset + 4);
-	      if (_efivars_debug)
-                MSG_DEBUG("Pci(Device=0x%x, Function=0x%x)", pci->device, pci->function);
+              MSG_EFIVARS("Pci(Device=0x%x, Function=0x%x)", pci->device, pci->function);
 	      if (pci->device != 0 && pci->function != 0)
 		{
 		  pci_device = pci->device;
@@ -423,18 +409,15 @@ parse_device_path(char *data, size_t limit, efivars_t **res)
 		}
 	    }
 	  else
-            if (_efivars_debug)
-              MSG_DEBUG("Unsupportd: DT_HARDWARE, subtype: %02X", head->sub_type);
+            MSG_EFIVARS("Unsupportd: DT_HARDWARE, subtype: %02X", head->sub_type);
 	}
       else if (head->type == DT_ACPI)
 	{
-          if (_efivars_debug)
-	    MSG_DEBUG("Unsupported: DT_ACPI, subtype: %02X", head->sub_type);
+          MSG_EFIVARS("Unsupported: DT_ACPI, subtype: %02X", head->sub_type);
 	}
       else
-          if (_efivars_debug)
-            MSG_DEBUG("Unknown device path type: %02X, subtype: %02X",
-		      head->type, head->sub_type);
+        MSG_EFIVARS("Unknown device path type: %02X, subtype: %02X",
+		    head->type, head->sub_type);
 
       offset += head->length;
     }
@@ -460,8 +443,7 @@ efi_boot_current(efivars_t **res)
   size_t size;
   int r;
 
-  if (_efivars_debug)
-    MSG_DEBUG("Trying efi_boot_current()...");
+  MSG_EFIVARS("Trying efi_boot_current()...");
 
   r = read_efi_var("BootCurrent", EFI_GLOBAL_VARIABLE_GUID, &data, &size);
   if (r < 0)
@@ -476,8 +458,7 @@ efi_boot_current(efivars_t **res)
   char boot_var_name[9];
   snprintf(boot_var_name, sizeof(boot_var_name), "Boot%04X", boot_index);
 
-  if (_efivars_debug)
-    MSG_DEBUG("Reading %s", boot_var_name);
+  MSG_EFIVARS("Reading %s", boot_var_name);
 
   r = read_efi_var(boot_var_name, EFI_GLOBAL_VARIABLE_GUID, &data, &size);
   if (r < 0)
@@ -520,8 +501,7 @@ efi_boot_current(efivars_t **res)
       if (r < 0)
 	return r;
 
-      if (_efivars_debug)
-        MSG_DEBUG("Description='%s'", str);
+      MSG_EFIVARS("Description='%s'", str);
 
       (*res)->entry = TAKE_PTR(str);
     }
@@ -550,8 +530,7 @@ find_device_by_pci(uint8_t pci_device, uint8_t pci_function, char **res_dev)
   _cleanup_(closedirp) DIR *dir = NULL;
   int r;
 
-  if (_efivars_debug)
-    MSG_DEBUG("find_device_by_pci(%02x.%d)", pci_device, pci_function);
+  MSG_EFIVARS("find_device_by_pci(%02x.%d)", pci_device, pci_function);
 
   if (asprintf(&pci_addr, "devices/pci0000:00/0000:00:%02x.%d",
 	       pci_device, pci_function) < 0)
@@ -561,8 +540,7 @@ find_device_by_pci(uint8_t pci_device, uint8_t pci_function, char **res_dev)
   if (!dir)
     {
       r = -errno;
-      if (_efivars_debug)
-        MSG_ERROR("Error: Failed to open /sys/block: %s", strerror(-r));
+      MSG_EFIVARS("Error: Failed to open /sys/block: %s", strerror(-r));
       return r;
     }
 
@@ -590,8 +568,7 @@ find_device_by_pci(uint8_t pci_device, uint8_t pci_function, char **res_dev)
 	      if (asprintf(&device, "/dev/%s", ent->d_name) < 0)
 		return -ENOMEM;
 
-              if (_efivars_debug)
-                MSG_DEBUG("Found Match : %s (%s)", real_path, device);
+              MSG_EFIVARS("Found Match : %s (%s)", real_path, device);
 
 	      *res_dev = TAKE_PTR(device);
 	      return 0;
@@ -599,8 +576,7 @@ find_device_by_pci(uint8_t pci_device, uint8_t pci_function, char **res_dev)
         }
     }
 
-  if (_efivars_debug)
-    MSG_DEBUG("No block devices found for PCI 0000:00:%02x.%d.",
+  MSG_EFIVARS("No block devices found for PCI 0000:00:%02x.%d.",
 	      pci_device, pci_function);
   return -ENODEV;
 }
@@ -612,14 +588,12 @@ efi_get_default_boot_partition(char **res_part)
   size_t size;
   int r;
 
-  if (_efivars_debug)
-    MSG_DEBUG("efi_get_default_boot_partition() called...");
+  MSG_EFIVARS("efi_get_default_boot_partition() called...");
 
   if (access(EFIVARS_PATH, F_OK) != 0)
     {
       r = -errno;
-      if (_efivars_debug)
-        MSG_ERROR("Error: %s is not accessible: %s",
+      MSG_EFIVARS("Error: %s is not accessible: %s",
 		  EFIVARS_PATH, strerror(-r));
       if (r == -ENOENT)
 	return -EOPNOTSUPP;
@@ -640,8 +614,7 @@ efi_get_default_boot_partition(char **res_part)
   char boot_var_name[9];
   snprintf(boot_var_name, sizeof(boot_var_name), "Boot%04X", boot_index);
 
-  if (_efivars_debug)
-    MSG_DEBUG("Reading %s", boot_var_name);
+  MSG_EFIVARS("Reading %s", boot_var_name);
 
   r = read_efi_var(boot_var_name, EFI_GLOBAL_VARIABLE_GUID, &data, &size);
   if (r < 0)
@@ -677,8 +650,7 @@ efi_get_default_boot_partition(char **res_part)
     return -ENOMEM;
 
   r = parse_device_path(data + offset, size - offset, &efi);
-  if (_efivars_debug)
-    MSG_DEBUG("parse_device_path returned: %d", r);
+  MSG_EFIVARS("parse_device_path returned: %d", r);
   if (r < 0 && r != -ENODEV)
     return r;
 
@@ -692,8 +664,7 @@ efi_get_default_boot_partition(char **res_part)
   if (isempty(efi->partition))
     return -ENODEV;
 
-  if (_efivars_debug)
-    MSG_DEBUG("EFI default boot partition: %s", strna(efi->partition));
+  MSG_EFIVARS("EFI default boot partition: %s", strna(efi->partition));
 
   (*res_part) = TAKE_PTR(efi->partition);
 
@@ -710,8 +681,7 @@ efi_get_boot_source(efivars_t **res)
   if (access(EFIVARS_PATH, F_OK) != 0)
     {
       r = -errno;
-      if (_efivars_debug)
-        MSG_ERROR("Error: %s is not accessible: %s",
+      MSG_EFIVARS("Error: %s is not accessible: %s",
 		  EFIVARS_PATH, strerror(-r));
       if (r == -ENOENT)
 	return -EOPNOTSUPP;
@@ -723,8 +693,8 @@ efi_get_boot_source(efivars_t **res)
     return -ENOMEM;
 
   r = efi_boot_systemd_stub(&efi);
-  if (r < 0 && _efivars_debug)
-    MSG_ERROR("efi_boot_systemd_stub: %s", strerror(-r));
+  if (r < 0)
+    MSG_EFIVARS("efi_boot_systemd_stub: %s", strerror(-r));
   if (r == -ENOENT)
     r = efi_boot_current(&efi);
   if (r < 0)
