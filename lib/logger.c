@@ -97,7 +97,10 @@ log_write(LogLevel level, const char *file, int line, const char *func,
       else
         sd_journal_printv(level, fmt, args);
     } else {
-      /* Writing EVERYTHING to log file */
+      /* Writing EVERYTHING to log file; except EFI setting if it is not set explicit */
+      if (level == LOG_LEVEL_EFIVARS &&  current_log_level != LOG_LEVEL_EFIVARS)
+        return;
+
       time_t now;
       time(&now);
       struct tm *tm_info = localtime(&now);
