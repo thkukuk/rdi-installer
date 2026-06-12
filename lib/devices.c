@@ -229,7 +229,7 @@ get_devices(device_t **ret, int *ret_count)
 
       if (count == 128)
 	{
-          MSG_ERROR("Error: you have too many disks!");
+	  MSG_ERROR("Error: you have too many disks!");
 	  return -E2BIG;
 	}
     }

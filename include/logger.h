@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 
+// Log levels
 // The values are almost the same as in syslog.h defined.
 typedef enum {
     LOG_LEVEL_TRACE = -1,
@@ -19,7 +20,7 @@ typedef enum {
 // Initialize the logger
 
 // console_log: The logs can be written to console.
-// If the console is not available it will be written to journald.
+//              If the console is not available it will be written to journald.
 // filename:    If it is not NULL, the logging will written into this file too.
 //
 // If log_init is not called, the default values are : console_log = CONSOLE_LOG; filename = NULL

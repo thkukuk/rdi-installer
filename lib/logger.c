@@ -6,7 +6,6 @@
 #include <stdarg.h>
 #include <time.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include "logger.h"
 
 static FILE *log_file = NULL;
