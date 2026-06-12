@@ -316,7 +316,7 @@ parse_ifcfg_arg(const char *output_dir, int nr, const char *arg)
   int rfc2132 = 0;
   int r;
 
-  MSG_INFO("parse_ifcfg_arg=%d - '%s'", nr, arg);
+  MSG_DEBUG("parse_ifcfg_arg=%d - '%s'", nr, arg);
 
   // Syntax: <interface>=<str>
 
@@ -327,8 +327,8 @@ parse_ifcfg_arg(const char *output_dir, int nr, const char *arg)
   if (isempty(token) || isempty(str))
     return return_syntax_error(nr, arg, -ENOENT);
 
-  MSG_INFO("Interface - Config: '%s' - '%s'",
-          token, str);
+  MSG_DEBUG("Interface - Config: '%s' - '%s'",
+	    token, str);
 
   if (!isempty(token))
     {
@@ -360,7 +360,7 @@ parse_ifcfg_arg(const char *output_dir, int nr, const char *arg)
 
 	      vlans[nr_vlanids] = vlanid;
 	      nr_vlanids++;
-              MSG_INFO("Stored VLAN ID: %d", vlanid);
+              MSG_DEBUG("Stored VLAN ID: %d", vlanid);
 	    }
 	}
     }

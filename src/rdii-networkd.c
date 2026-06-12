@@ -152,7 +152,7 @@ merge_configs(ip_t *cfg)
   bool found = false;
   int r;
 
-  MSG_FUNC("merge_configs called");
+  MSG_DEBUG("merge_configs called");
 
   if (used_configs == MAX_INTERFACES)
     {
