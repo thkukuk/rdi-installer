@@ -140,7 +140,7 @@ main_disk(int argc, char **argv)
         kind = " [Default]";
       if (disk[i].is_boot_device)
         kind = " [Booted]";
-      MSG_INFO("%s -xx %s (%s, %.1f GB) %s", disk[i].device,
+      MSG_INFO("%s - %s (%s, %.1f GB) %s", disk[i].device,
 	       strunknown(disk[i].model), disk[i].bus, disk[i].size_gb, kind);
     }
 
