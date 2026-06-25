@@ -144,7 +144,7 @@ main(int argc, char **argv)
       switch (c)
         {
         case 'd':
-          set_max_log_level(LOG_LEVEL_EFIVARS);
+	  _efivars_debug = true;
           break;
 	case 'l':
 	  no_network = true;

@@ -81,7 +81,7 @@ main_boot(int argc, char **argv)
       switch (c)
         {
 	case 'd':
-	  set_max_log_level(LOG_LEVEL_EFIVARS);
+          _efivars_debug = true;
           break;
 	case 'h':
           print_help();
@@ -159,7 +159,7 @@ main_set_default_loader_entry(int argc, char **argv)
       switch (c)
         {
 	case 'd':
-          set_max_log_level(LOG_LEVEL_EFIVARS);
+	  _efivars_debug = true;
           break;
 	case 'V':
           set_max_log_level(LOG_LEVEL_INFO);

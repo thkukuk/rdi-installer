@@ -6,12 +6,12 @@
 // Log levels
 // The values are almost the same as in syslog.h defined.
 typedef enum {
+    LOG_EFIVARS = -2,
     LOG_LEVEL_TRACE = -1,
     LOG_LEVEL_ERROR = 3,
     LOG_LEVEL_WARNING = 4,
     LOG_LEVEL_INFO = 6,
-    LOG_LEVEL_DEBUG = 7,
-    LOG_LEVEL_EFIVARS = 8
+    LOG_LEVEL_DEBUG = 7
 } LogLevel;
 
 #define CONSOLE_LOG true
@@ -42,9 +42,9 @@ const char* log_level_to_str(LogLevel level);
 #define MSG_FUNC(...) \
     log_write(LOG_LEVEL_TRACE, __FILE__, __LINE__, __func__, "CALLED with args: " __VA_ARGS__)
 
-/* Enables output with more concret information about EFI settings */
-/* This will be mainly set by the -d option in the command line interfaces */
-#define MSG_EFIVARS(...) log_write(LOG_LEVEL_EFIVARS, __FILE__, __LINE__, __func__, __VA_ARGS__)
+/* Output with more concret information about EFI settings */
+/* This will be done by the -d option in the command line interfaces */
+#define MSG_EFIVARS(...) log_write(LOG_EFIVARS, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
 // General purpose logging macros for use anywhere
 #define MSG_DEBUG(...) log_write(LOG_LEVEL_DEBUG,   __FILE__, __LINE__, __func__, __VA_ARGS__)

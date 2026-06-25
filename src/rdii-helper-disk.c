@@ -88,7 +88,7 @@ main_disk(int argc, char **argv)
 	  all_devices = true;
 	  break;
 	case 'd':
-          set_max_log_level(LOG_LEVEL_EFIVARS);
+	  _efivars_debug = true;
           break;
 	case 's':
 	  r = parse_size(optarg, &minsize);

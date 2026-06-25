@@ -20,7 +20,7 @@ const char* log_level_to_str(LogLevel level) {
         case LOG_LEVEL_INFO:    return "INFO";
         case LOG_LEVEL_DEBUG:   return "DEBUG";
         case LOG_LEVEL_TRACE:   return "TRACE";
-        case LOG_LEVEL_EFIVARS: return "EFIVARS";
+        case LOG_EFIVARS:       return "EFIVARS";
         default:                return "UNKNOWN";
     }
 }
@@ -75,10 +75,13 @@ log_write(LogLevel level, const char *file, int line, const char *func,
     {
       /* Writing to TTY if availabel. Otherwise redirect to journald automatically. */
 
-      if (level > current_log_level) /* regarding log level */
+      if (level != LOG_EFIVARS && /* LOG_EFIVARS will always be logged here. It is decided by _efivars_debug before */
+	  level > current_log_level /* Or log level does not fit */ ) {
+	va_end(args);
         return;
+      }
 
-      if (level <= LOG_LEVEL_ERROR)
+      if (level == LOG_LEVEL_ERROR || level == LOG_EFIVARS )
         {
           vfprintf(stderr, fmt, args);
 	  fputc('\n', stderr);
@@ -90,12 +93,9 @@ log_write(LogLevel level, const char *file, int line, const char *func,
 	}
     }
 
-  if (log_file)
+  if (log_file && level != LOG_EFIVARS)
     {
-      /* Writing EVERYTHING to log file; except EFI setting if it is not set explicit */
-      if (level == LOG_LEVEL_EFIVARS &&  current_log_level != LOG_LEVEL_EFIVARS)
-        return;
-
+      /* Do not write EFI setting in the log file.*/
       time_t now;
       time(&now);
       struct tm *tm_info = localtime(&now);
