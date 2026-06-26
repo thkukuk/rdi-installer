@@ -26,7 +26,7 @@ typedef enum {
 // If log_init is not called, the default values are : console_log = CONSOLE_LOG; filename = NULL
 int log_init(const bool console_log, const char *filename);
 
-// The default log level is LOG_LEVEL_WARNING
+// The default log level is LOG_LEVEL_INFO
 void set_max_log_level(LogLevel level);
 
 // Close the logger

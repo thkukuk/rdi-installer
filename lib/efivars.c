@@ -421,8 +421,7 @@ parse_device_path(char *data, size_t limit, efivars_t **res)
 		  pci_function = pci->function;
 		}
 	    }
-	  else
-	    if (_efivars_debug)
+	  else if (_efivars_debug)
               MSG_EFIVARS("Unsupportd: DT_HARDWARE, subtype: %02X", head->sub_type);
 	}
       else if (head->type == DT_ACPI)
