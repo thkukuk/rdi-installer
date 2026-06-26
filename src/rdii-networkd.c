@@ -721,7 +721,7 @@ main(int argc, char *argv[])
 		r = parse_vlan_arg(nr++, arg_start+5, &cfg);
 	      else
 		{
-		  MSG_DEBUG("skip: '%s'\n", arg_start);
+		  MSG_DEBUG("skip: '%s'", arg_start);
 		  r = 255;
 		}
 

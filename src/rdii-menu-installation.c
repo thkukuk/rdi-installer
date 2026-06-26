@@ -293,7 +293,7 @@ write_net_image(const char *url, const char *device)
 	  // ignore SIGPIPE, follow up error
 	  if (WTERMSIG(status) != 13)
 	    {
-	      MSG_ERROR("Process %i killed by signal %d\n", i, WTERMSIG(status));
+	      MSG_ERROR("Process %i killed by signal %d", i, WTERMSIG(status));
 	      first_error = 1;
 	    }
 	}
@@ -502,7 +502,7 @@ sha256_eq(const char *path1, const char *path2)
       return false;
     }
 
-  MSG_INFO("'%s' - '%s' - %i\n", hash1, hash2, streq(hash1, hash2));
+  MSG_INFO("'%s' - '%s' - %i", hash1, hash2, streq(hash1, hash2));
 
   return streq(hash1, hash2);
 }

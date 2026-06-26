@@ -87,7 +87,7 @@ main_boot(int argc, char **argv)
           print_help();
           return 0;
         case 'v':
-          MSG_INFO("rdii-helper (%s) %s\n", PACKAGE, VERSION);
+          MSG_INFO("rdii-helper (%s) %s", PACKAGE, VERSION);
           return 0;
         default:
           print_error();
