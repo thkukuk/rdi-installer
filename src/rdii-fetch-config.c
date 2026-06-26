@@ -159,8 +159,7 @@ main(int argc, char **argv)
           print_help();
           return 0;
         case 'v':
-          set_max_log_level(LOG_LEVEL_INFO);
-	  MSG_INFO("rdii-fetch-config (%s) %s\n", PACKAGE, VERSION);
+	  MSG_INFO("rdii-fetch-config (%s) %s", PACKAGE, VERSION);
           return 0;
         default:
           print_error();

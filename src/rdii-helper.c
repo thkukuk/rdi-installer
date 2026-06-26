@@ -87,7 +87,6 @@ main_boot(int argc, char **argv)
           print_help();
           return 0;
         case 'v':
-	  set_max_log_level(LOG_LEVEL_INFO);
           MSG_INFO("rdii-helper (%s) %s\n", PACKAGE, VERSION);
           return 0;
         default:
@@ -162,14 +161,12 @@ main_set_default_loader_entry(int argc, char **argv)
 	  _efivars_debug = true;
           break;
 	case 'V':
-          set_max_log_level(LOG_LEVEL_INFO);
 	  verbose = true;
 	  break;
 	case 'h':
           print_help();
           return 0;
         case 'v':
-          set_max_log_level(LOG_LEVEL_INFO);
           MSG_INFO("rdii-helper (%s) %s", PACKAGE, VERSION);
           return 0;
         default:
@@ -271,7 +268,6 @@ main(int argc, char **argv)
           print_help();
           return 0;
         case 'v':
-          set_max_log_level(LOG_LEVEL_INFO);
           MSG_INFO("rdii-helper (%s) %s", PACKAGE, VERSION);
           return 0;
         default:

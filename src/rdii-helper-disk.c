@@ -61,8 +61,6 @@ main_disk(int argc, char **argv)
   bool all_devices = false;
   int r;
 
-  set_max_log_level(LOG_LEVEL_INFO);
-
   while (1)
     {
       int c;

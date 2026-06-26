@@ -514,7 +514,6 @@ main(int argc, char *argv[])
           print_help();
           return 0;
         case 'v':
-          set_max_log_level(LOG_LEVEL_INFO);
           MSG_INFO("rdii-networkd (%s) %s", PACKAGE, VERSION);
           return 0;
         default:
