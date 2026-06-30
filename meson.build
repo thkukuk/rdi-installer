@@ -14,7 +14,7 @@ project(
                   'werror=true',
 		  'warning_level=2'],
   license : ['MIT', 'GPL-2.0-or-later'],
-  version : '0.5.0',
+  version : '0.6.0',
 )
 
 conf = configuration_data()
