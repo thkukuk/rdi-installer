@@ -11,6 +11,7 @@
 #include "basics.h"
 #include "rdii-networkd.h"
 #include "ip.h"
+#include "logger.h"
 
 /* Converts a netmask string (e.g., "255.255.0.0") to a CIDR integer (e.g., 16).
    Returns -1 if the format is invalid or if the mask is not contiguous. */
@@ -130,8 +131,7 @@ parse_ip_arg(int nr, char *arg, ip_t *cfg)
   _cleanup_free_ char *orig = strdup(arg); // for syntax error msg
   int r;
 
-  if (debug)
-    printf("parse_ip_arg(%s)\n", arg);
+  MSG_DEBUG("parse_ip_arg(%s)", arg);
 
   if (orig == NULL)
     return -ENOMEM;
@@ -189,7 +189,7 @@ parse_ip_arg(int nr, char *arg, ip_t *cfg)
 	      if (errno == ERANGE || l < 0 || l > 128 ||
 		  token == ep || *ep != '\0')
 		{
-		  fprintf(stderr, "Invalid netmask: %s\n", token);
+                  MSG_ERROR( "Invalid netmask: %s", token);
 		  return -EINVAL;
 		}
 	      cfg->netmask = l;
@@ -307,8 +307,7 @@ parse_nameserver_arg(int nr, char *arg, ip_t *cfg)
   _cleanup_free_ char *orig = strdup(arg); // for syntax error msg
   int r;
 
-  if (debug)
-    printf("parse_nameserver_arg(%s)\n", arg);
+  MSG_DEBUG("parse_nameserver_arg(%s)", arg);
 
   if (orig == NULL)
     return -ENOMEM;
@@ -331,8 +330,7 @@ parse_rd_peerdns_arg(int nr, char *arg, ip_t *cfg)
   _cleanup_free_ char *orig = strdup(arg); // for syntax error msg
   int r;
 
-  if (debug)
-    printf("parse_rd_peerdns_arg(%s)\n", arg);
+  MSG_DEBUG("parse_rd_peerdns_arg(%s)", arg);
 
   if (orig == NULL)
     return -ENOMEM;
@@ -360,8 +358,7 @@ parse_rd_route_arg(int nr, char *arg, ip_t *cfg)
   _cleanup_free_ char *orig = strdup(arg); // for syntax error msg
   int r;
 
-  if (debug)
-    printf("parse_rd_route_arg(%s)\n", arg);
+  MSG_DEBUG("parse_rd_route_arg(%s)", arg);
 
   if (orig == NULL)
     return -ENOMEM;
@@ -405,8 +402,7 @@ parse_vlan_arg(int nr, char *arg, ip_t *cfg)
   _cleanup_free_ char *orig = strdup(arg); // for syntax error msg
   int r;
 
-  if (debug)
-    printf("parse_vlan_arg(%s)\n", arg);
+  MSG_DEBUG("parse_vlan_arg(%s)", arg);
 
   if (orig == NULL)
     return -ENOMEM;

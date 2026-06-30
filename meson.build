@@ -92,6 +92,7 @@ librdii = static_library(
 
 executable('rdii-networkd', 'src/rdii-networkd.c', 'lib/mkdir_p.c',
            'lib/string-util-fundamental.c', 'src/ip.c', 'src/ifcfg.c',
+	   'lib/logger.c',
            include_directories : inc,
            install : true)
 

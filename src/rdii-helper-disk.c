@@ -14,6 +14,7 @@
 #include "efivars.h"
 #include "devices.h"
 #include "rdii-helper.h"
+#include "logger.h"
 
 /* simple helper function, not very robust */
 static int
@@ -91,8 +92,8 @@ main_disk(int argc, char **argv)
 	  r = parse_size(optarg, &minsize);
 	  if (r < 0)
 	    {
-	      fprintf(stderr, "Error parsing '%s': %s\n",
-		      optarg, strerror(-r));
+	      MSG_ERROR("Error parsing '%s': %s",
+		     optarg, strerror(-r));
 	      return -r;
 	    }
 	  break;
@@ -100,7 +101,7 @@ main_disk(int argc, char **argv)
           print_help();
           return 0;
         case 'v':
-          printf("rdii-helper (%s) %s\n", PACKAGE, VERSION);
+          MSG_INFO("rdii-helper (%s) %s", PACKAGE, VERSION);
           return 0;
         default:
           print_error();
@@ -113,7 +114,7 @@ main_disk(int argc, char **argv)
 
   if (argc > 0)
     {
-      fprintf(stderr, "rdii-helper disk: Too many arguments.\n");
+      MSG_ERROR("rdii-helper disk: Too many arguments.");
       print_error();
       return EINVAL;
     }
@@ -131,13 +132,14 @@ main_disk(int argc, char **argv)
 	  if (disk[i].size < minsize)
 	    continue;
 	}
-      printf("%s - %s (%s, %.1f GB)", disk[i].device,
-	     strunknown(disk[i].model), disk[i].bus, disk[i].size_gb);
+
+      char *kind = "";
       if (disk[i].is_default_device)
-	fputs(" [Default]", stdout);
+        kind = " [Default]";
       if (disk[i].is_boot_device)
-	fputs(" [Booted]", stdout);
-      fputs("\n", stdout);
+        kind = " [Booted]";
+      MSG_INFO("%s - %s (%s, %.1f GB) %s", disk[i].device,
+	       strunknown(disk[i].model), disk[i].bus, disk[i].size_gb, kind);
     }
 
   return 0;

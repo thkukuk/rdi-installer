@@ -31,7 +31,7 @@ verify_signature(const char *file, const char *key)
   int status;
   int r;
 
-  LOG_FUNC("file='%s', key='%s'", file, key);
+  MSG_FUNC("file='%s', key='%s'", file, key);
 
   char *argv[] = {"gpgv", "--keyring", "/etc/systemd/import-pubring.gpg",
 		  (char *)key, (char *)file, NULL};
@@ -43,14 +43,14 @@ verify_signature(const char *file, const char *key)
   r = posix_spawnp(&pid, "gpgv", NULL, NULL, argv, environ);
   if (r != 0)
     {
-      fprintf(stderr, "Failed to spawn gpgv: %s\n", strerror(r)); // XXX
+      MSG_ERROR( "Failed to spawn gpgv: %s", strerror(r));
       return -r;
     }
 
   if (waitpid(pid, &status, 0) == -1)
     {
       r = errno;
-      perror("waitpid failed"); // XXX
+      MSG_ERROR( "waitpid failed: %s", strerror(r));
       return -r;
     }
 
@@ -58,19 +58,18 @@ verify_signature(const char *file, const char *key)
     {
       if (WEXITSTATUS(status)) // Signature doesn't match
 	{
-	  LOG_ERROR("Signature does not match (gpgv failed with %i)",
-		    WEXITSTATUS(status));
+	  MSG_ERROR("Signature does not match (gpgv failed with %i)",
+		 WEXITSTATUS(status));
 	  keywait(8, 0, NULL, 0);
 	}
       else
-	LOG_INFO("Signature matches");
+	MSG_INFO("Signature matches");
       return WEXITSTATUS(status);
     }
   else
     {
-      LOG_ERROR("gpgv terminated abnormally");
-      fprintf(stderr, "gpgv terminated abnormally\n"); // XXX
-      return -1; // XXX
+      MSG_ERROR("gpgv terminated abnormally");
+      return -1;
     }
 }
 
@@ -80,14 +79,15 @@ fix_partition_table(const char *device)
 {
   int r;
 
-  LOG_FUNC("device='%s'", device);
+  MSG_FUNC("device='%s'", device);
 
   r = exec_cmd("/usr/sbin/sgdisk", "sgdisk", "-e", (char *)device, NULL);
 
   if (r < 0)
     {
-      LOG_ERROR("Failed to start sgdisk: %s", strerror(-r));
-      fprintf(stderr, "Failed to start sgdisk: %s\n", strerror(-r)); // XXX
+      show_error_popup("Adjusting partition table to real disk size failed.",
+                       "Failed to start sgdisk:",
+		       strerror(-r));
       return r;
     }
   if (r > 0)
@@ -95,13 +95,13 @@ fix_partition_table(const char *device)
       if (r > 128) // aborted by signal
 	{
 	  int sig = r - 128;
-	  LOG_ERROR("sgdisk was terminated by signal %d (%s)",
-		    sig, strsignal(sig));
-	  fprintf(stderr, "sgdisk was terminated by signal %d (%s)\n",
-		  sig, strsignal(sig)); // XXX
+          show_error_popup("Adjusting partition table to real disk size failed.",
+			   "sgdisk was terminated by signal:",
+			   strsignal(sig));
 	}
       else
-	LOG_ERROR("sgdisk failed with %i", r);
+        show_error_popup("Adjusting partition table to real disk size failed.",
+			 "sgdisk failed with:", strerror(r));
 
       keywait(8, 0, NULL, 0);
       return -ECHILD;
@@ -123,7 +123,7 @@ write_net_image(const char *url, const char *device)
   int p_wget_tee[2], p_tee_sha[2], p_tee_decomp[2], p_decomp_dd[2];
   int r;
 
-  LOG_FUNC("url='%s', device='%s'", url, device);
+  MSG_FUNC("url='%s', device='%s'", url, device);
 
   if (endswith(url, ".xz"))
     decomp_args = decomp_xz_args;
@@ -136,14 +136,14 @@ write_net_image(const char *url, const char *device)
   else
     decomp_args = decomp_cat_args;
 
-  LOG_INFO("decompressor=%s", decomp_args[0]);
+  MSG_INFO("decompressor=%s", decomp_args[0]);
 
   if (pipe(p_wget_tee) != 0 || pipe(p_tee_sha) != 0 ||
       pipe(p_tee_decomp) != 0 || pipe(p_decomp_dd) != 0)
     {
       r = errno;
-      LOG_ERROR("pipe allocation failed: %s", strerror(r));
-      show_error_popup("pipe allocation failed", strerror(r));
+      show_error_popup("Cannot start image download.",
+		       "Pipe allocation failed:", strerror(r));
       return -r;
     }
 
@@ -169,7 +169,7 @@ write_net_image(const char *url, const char *device)
     posix_spawn_file_actions_addclose(&fa[0], all_pipes[i]);
   if (posix_spawnp(&pids[0], "wget", &fa[0], NULL, wget_args, environ) != 0)
     {
-      fprintf(stderr, "Starting 'wget' failed: %s", strerror(errno));
+      MSG_ERROR("Starting 'wget' failed: %s", strerror(errno));
       keywait(LINES-3, 0, NULL, 0);
       for (int i = 0; i < 8; i++)
 	close(all_pipes[i]);
@@ -194,7 +194,7 @@ write_net_image(const char *url, const char *device)
     }
   if (posix_spawnp(&pids[1], "tee", &fa[1], NULL, tee_args, environ) != 0)
     {
-      fprintf(stderr, "Starting 'tee' failed: %s", strerror(errno));
+      MSG_ERROR("Starting 'tee' failed: %s", strerror(errno));
       keywait(LINES-3, 0, NULL, 0);
       for (int i = 0; i < 8; i++)
 	close(all_pipes[i]);
@@ -210,7 +210,7 @@ write_net_image(const char *url, const char *device)
     posix_spawn_file_actions_addclose(&fa[2], all_pipes[i]);
   if (posix_spawnp(&pids[2], decomp_args[0], &fa[2], NULL, decomp_args, environ) != 0)
     {
-      fprintf(stderr, "Starting '%s' failed: %s", decomp_args[0], strerror(errno));
+      MSG_ERROR("Starting '%s' failed: %s", decomp_args[0], strerror(errno));
       keywait(LINES-3, 0, NULL, 0);
       for (int i = 0; i < 8; i++)
 	close(all_pipes[i]);
@@ -229,7 +229,7 @@ write_net_image(const char *url, const char *device)
     posix_spawn_file_actions_addclose(&fa[3], all_pipes[i]);
   if (posix_spawnp(&pids[3], "dd", &fa[3], NULL, dd_args, environ) != 0)
     {
-      fprintf(stderr, "Starting 'dd' failed: %s", strerror(errno));
+      MSG_ERROR("Starting 'dd' failed: %s", strerror(errno));
       keywait(LINES-3, 0, NULL, 0);
       for (int i = 0; i < 8; i++)
 	close(all_pipes[i]);
@@ -250,7 +250,7 @@ write_net_image(const char *url, const char *device)
     posix_spawn_file_actions_addclose(&fa[4], all_pipes[i]);
   if (posix_spawnp(&pids[4], "sha256sum", &fa[4], NULL, sha_args, environ) != 0)
     {
-      fprintf(stderr, "Starting 'sha256sum' failed: %s", strerror(errno));
+      MSG_ERROR("Starting 'sha256sum' failed: %s", strerror(errno));
       keywait(LINES-3, 0, NULL, 0);
       for (int i = 0; i < 8; i++)
 	close(all_pipes[i]);
@@ -274,7 +274,12 @@ write_net_image(const char *url, const char *device)
       if (waitpid(pids[i], &status, 0) == -1)
 	{
 	  r = errno;
-	  fprintf(stderr, "waitpid(%i) failed: %s\n", i, strerror(r)); // XXX show_error
+	  _cleanup_free_ char *err_msg = NULL;
+
+	  if (asprintf(&err_msg, "waitpid(%i) failed: %s\n", i, strerror(r)) < 0)
+            return -ENOMEM;
+          show_error_popup("Cannot finish image download correctl.",
+			   err_msg, NULL);
 	  return -r;
 	}
 
@@ -288,13 +293,13 @@ write_net_image(const char *url, const char *device)
 	  // ignore SIGPIPE, follow up error
 	  if (WTERMSIG(status) != 13)
 	    {
-	      fprintf(stderr, "Process %i killed by signal %d\n", i, WTERMSIG(status));
+	      MSG_ERROR("Process %i killed by signal %d", i, WTERMSIG(status));
 	      first_error = 1;
 	    }
 	}
       else
 	{
-	  fprintf(stderr, "Process %i terminated abnormally\n", i); // XXX
+	  MSG_ERROR("Process %i terminated abnormally", i); // XXX
 	  first_error = 1;
 	}
     }
@@ -320,7 +325,7 @@ write_local_image(const char *file, const char *device)
   int p_pv_decomp[2], p_decomp_dd[2];
   int r;
 
-  LOG_FUNC("file='%s', device='%s'", file, device);
+  MSG_FUNC("file='%s', device='%s'", file, device);
 
   if (endswith(file, ".xz"))
     decomp_args = decomp_xz_args;
@@ -333,13 +338,13 @@ write_local_image(const char *file, const char *device)
   else
     decomp_args = decomp_cat_args;
 
-  LOG_INFO("decompressor=%s", decomp_args[0]);
+  MSG_INFO("decompressor=%s", decomp_args[0]);
 
   if (pipe(p_pv_decomp) != 0 || pipe(p_decomp_dd) != 0)
     {
       r = errno;
-      LOG_ERROR("pipe allocation failed: %s", strerror(r));
-      show_error_popup("pipe allocation failed", strerror(r));
+      show_error_popup("Cannot start installation process.",
+		       "Pipe allocation failed: %s", strerror(r));
       return -r;
     }
 
@@ -363,7 +368,7 @@ write_local_image(const char *file, const char *device)
     posix_spawn_file_actions_addclose(&fa[0], all_pipes[i]);
   if (posix_spawnp(&pids[0], "pv", &fa[0], NULL, pv_args, environ) != 0)
     {
-      fprintf(stderr, "Starting 'pv' failed: %s", strerror(errno));
+      MSG_ERROR("Starting 'pv' failed: %s", strerror(errno));
       keywait(LINES-3, 0, NULL, 0);
       for (int i = 0; i < 4; i++)
 	close(all_pipes[i]);
@@ -379,7 +384,7 @@ write_local_image(const char *file, const char *device)
     posix_spawn_file_actions_addclose(&fa[1], all_pipes[i]);
   if (posix_spawnp(&pids[1], decomp_args[0], &fa[1], NULL, decomp_args, environ) != 0)
     {
-      fprintf(stderr, "Starting '%s' failed: %s", decomp_args[0], strerror(errno));
+      MSG_ERROR("Starting '%s' failed: %s", decomp_args[0], strerror(errno));
       keywait(LINES-3, 0, NULL, 0);
       for (int i = 0; i < 4; i++)
 	close(all_pipes[i]);
@@ -398,7 +403,7 @@ write_local_image(const char *file, const char *device)
     posix_spawn_file_actions_addclose(&fa[2], all_pipes[i]);
   if (posix_spawnp(&pids[2], "dd", &fa[2], NULL, dd_args, environ) != 0)
     {
-      fprintf(stderr, "Starting 'dd' failed: %s", strerror(errno));
+      MSG_ERROR("Starting 'dd' failed: %s", strerror(errno));
       keywait(LINES-3, 0, NULL, 0);
       for (int i = 0; i < 4; i++)
 	close(all_pipes[i]);
@@ -422,7 +427,7 @@ write_local_image(const char *file, const char *device)
       if (waitpid(pids[i], &status, 0) == -1)
 	{
 	  r = errno;
-	  fprintf(stderr, "waitpid(%i) failed: %s\n", i, strerror(r)); // XXX show_error
+	  MSG_ERROR("waitpid(%i) failed: %s", i, strerror(r)); // XXX show_error
 	  return -r;
 	}
 
@@ -436,13 +441,13 @@ write_local_image(const char *file, const char *device)
 	  // ignore SIGPIPE, follow up error
 	  if (WTERMSIG(status) != 13)
 	    {
-	      fprintf(stderr, "Process %i killed by signal %d\n", i, WTERMSIG(status));
+	      MSG_ERROR("Process %i killed by signal %d", i, WTERMSIG(status));
 	      first_error = 1;
 	    }
 	}
       else
 	{
-	  fprintf(stderr, "Process %i terminated abnormally\n", i); // XXX
+	  MSG_ERROR("Process %i terminated abnormally", i); // XXX
 	  first_error = 1;
 	}
     }
@@ -460,14 +465,13 @@ sha256_eq(const char *path1, const char *path2)
   _cleanup_fclose_ FILE *fp2 = NULL;
   int r;
 
-  LOG_FUNC("path1='%s', path2='%s'", path1, path2);
+  MSG_FUNC("path1='%s', path2='%s'", path1, path2);
 
   fp1 = fopen(path1, "r");
   if (!fp1)
     {
       r = errno;
-      LOG_ERROR("Cannot open '%s': %s", path1, strerror(r));
-      fprintf(stderr, "Cannot open '%s': %s", path1, strerror(r));
+      MSG_ERROR("Cannot open '%s': %s", path1, strerror(r));
       return false;
     }
 
@@ -475,8 +479,7 @@ sha256_eq(const char *path1, const char *path2)
   if (!fp2)
     {
       r = errno;
-      LOG_ERROR("Cannot open '%s': %s", path2, strerror(r));
-      fprintf(stderr, "Cannot open '%s': %s", path2, strerror(r));
+      MSG_ERROR("Cannot open '%s': %s", path2, strerror(r));
       return false;
     }
 
@@ -488,18 +491,18 @@ sha256_eq(const char *path1, const char *path2)
   nread = getdelim(&hash1, &len, ' ', fp1);
   if (nread != 65) // includes trailing space
     {
-      LOG_ERROR("Read '%s' failed - nread=%li (%s)", path2, nread, hash1);
+      MSG_ERROR("Read '%s' failed - nread=%li (%s)", path2, nread, hash1);
       return false;
     }
 
   nread = getdelim(&hash2, &len, ' ', fp2);
   if (nread != 65) // includes trailing space
     {
-      LOG_ERROR("Read '%s' failed - nread=%li (%s)", path2, nread, hash2);
+      MSG_ERROR("Read '%s' failed - nread=%li (%s)", path2, nread, hash2);
       return false;
     }
 
-  LOG_INFO("'%s' - '%s' - %i\n", hash1, hash2, streq(hash1, hash2));
+  MSG_INFO("'%s' - '%s' - %i", hash1, hash2, streq(hash1, hash2));
 
   return streq(hash1, hash2);
 }
@@ -511,7 +514,7 @@ run_installation(const char *url, const char *device)
   bool is_neturl = startswith(url, "https://") || startswith(url, "http://");
   int r;
 
-  LOG_FUNC("url='%s', device='%s'", strna(url), strna(device));
+  MSG_FUNC("url='%s', device='%s'", strna(url), strna(device));
 
   if (is_device_mounted(device))
     {
@@ -519,8 +522,6 @@ run_installation(const char *url, const char *device)
       if (asprintf(&msg, "The device %s contains mounted partitions.",
 		   device) < 0)
 	return -ENOMEM;
-
-      LOG_ERROR(msg);
 
       r = show_warning_popup("!!! CRITICAL WARNING: DRIVE IS CURRENTLY MOUNTED !!!",
 			     msg,
@@ -537,7 +538,7 @@ run_installation(const char *url, const char *device)
     {
       _cleanup_free_ char *sha256_url = NULL;
 
-      LOG_INFO("Is network url");
+      MSG_INFO("Is network url");
 
       if (asprintf(&sha256_url, "%s.sha256", url) < 0)
 	return -ENOMEM;
@@ -576,7 +577,11 @@ run_installation(const char *url, const char *device)
 	    {
 	      r = verify_signature(d_sha256_fn, d_gpgasc);
 	      if (r < 0)
-		return r;
+		{
+                  if (!show_warning_popup ("Cannot verify signature.",
+					   "Continue without signature verification?", NULL))
+		    return r;
+		}
 	    }
 	}
     }
@@ -585,7 +590,7 @@ run_installation(const char *url, const char *device)
     {
       _cleanup_free_ char *sha256_file = NULL;
 
-      LOG_INFO("Is a file url");
+      MSG_INFO("Is a file url");
 
       if (asprintf(&sha256_file, "%s.sha256", url) < 0)
 	return -ENOMEM;
@@ -618,14 +623,17 @@ run_installation(const char *url, const char *device)
 	    {
 	      r = verify_signature(sha256_file, gpgasc_file);
 	      if (r < 0)
-		return r;
+		{
+                  if (!show_warning_popup ("Cannot verify signature.",
+					   "Continue without signature verification?", NULL))
+		    return r;
+		}
 	    }
 	}
     }
   else
     {
-      LOG_ERROR("Unknown URL format: %s", url);
-      fprintf(stderr, "Unknown URL format: %s\n", url); // XXX
+      show_error_popup("Unknown URL format:", url, NULL);
       return -EINVAL;
     }
 
@@ -662,10 +670,10 @@ run_installation(const char *url, const char *device)
 	{
 	  _cleanup_free_ char *errmsg = NULL;
 	  show_error_popup("ERROR: SHA256 verification failed!",
-			   "Wiping invalid data and aborting...");
+			   "Wiping invalid data and aborting...", NULL);
 	  if (zap_partition_tables(device, &errmsg) < 0)
 	    show_error_popup("ERROR: wiping invalid data failed!",
-			     errmsg);
+			     errmsg, NULL);
 
 
 	  return -EIO;

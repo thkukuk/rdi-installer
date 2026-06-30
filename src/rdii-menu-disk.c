@@ -12,6 +12,7 @@
 #include "basics.h"
 #include "devices.h"
 #include "rdii-menu.h"
+#include "logger.h"
 
 // Returns 1 if mounted, 0 if not mounted, -errno on error
 int
@@ -30,7 +31,7 @@ is_device_mounted(const char *device)
   if (fp == NULL)
     {
       r = -errno;
-      perror("setmntent"); // XXX
+      MSG_ERROR("setmntent failed: %s", strerror(errno));
       return r;
     }
 

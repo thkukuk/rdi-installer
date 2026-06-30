@@ -16,6 +16,7 @@
 #include "basics.h"
 #include "ifcfg.h"
 #include "rdii-networkd.h"
+#include "logger.h"
 
 /* Configuration */
 #define NETDEV_PREFIX  "62-ifcfg-vlan"
@@ -79,8 +80,8 @@ write_vlan_file(const char *output_dir, const char *interface, int vlanid)
 	       output_dir, VLAN_PREFIX, interface) < 0)
     return -ENOMEM;
 
-  printf("Creating vlan config: %s for interface '%s.%d'\n", filepath,
-	 interface, vlanid);
+  MSG_INFO("Creating vlan config: %s for interface '%s.%d'", filepath,
+          interface, vlanid);
 
   if (access(filepath, F_OK) != 0)
     { // file does not exist
@@ -88,8 +89,8 @@ write_vlan_file(const char *output_dir, const char *interface, int vlanid)
       if (!fp)
 	{
 	  r = -errno;
-	  fprintf(stderr, "Failed to open network file '%s' for writing: %s",
-		  filepath, strerror(-r));
+          MSG_ERROR("Failed to open network file '%s' for writing: %s",
+                 filepath, strerror(-r));
 	  return r;
 	}
 
@@ -113,8 +114,8 @@ write_vlan_file(const char *output_dir, const char *interface, int vlanid)
       if (!fp)
 	{
 	  r = -errno;
-	  fprintf(stderr, "Failed to open network file '%s' for appending: %s",
-		  filepath, strerror(-r));
+          MSG_ERROR("Failed to open network file '%s' for appending: %s",
+                 filepath, strerror(-r));
 	  return r;
 	}
       fprintf(fp, "VLAN=Vlan%04d\n", vlanid);
@@ -137,15 +138,15 @@ write_network_file(const char *output_dir, int nr, ip_t *cfg,
 	       output_dir, IFCFG_PREFIX, nr) < 0)
     return -ENOMEM;
 
-  printf("Creating config: %s for interface '%s'\n", filepath,
-	 cfg->interface);
+  MSG_INFO("Creating config: %s for interface '%s'", filepath,
+          cfg->interface);
 
   fp = fopen(filepath, "w");
   if (!fp)
     {
       r = -errno;
-      fprintf(stderr, "Failed to open network file '%s' for writing: %s",
-	      filepath, strerror(-r));
+      MSG_ERROR("Failed to open network file '%s' for writing: %s",
+             filepath, strerror(-r));
       return r;
     }
 
@@ -250,15 +251,15 @@ write_netdev_file(const char *output_dir, int vlanid)
 	       output_dir, NETDEV_PREFIX, vlanid) < 0)
     return -ENOMEM;
 
-  printf("Creating vlan netdev: %s for vlan id '%d'\n", filepath,
-	 vlanid);
+  MSG_INFO("Creating vlan netdev: %s for vlan id '%d'", filepath,
+          vlanid);
 
   fp = fopen(filepath, "w");
   if (!fp)
     {
       r = -errno;
-      fprintf(stderr, "Failed to open network file '%s' for writing: %s",
-	      filepath, strerror(-r));
+      MSG_ERROR("Failed to open network file '%s' for writing: %s",
+             filepath, strerror(-r));
       return r;
     }
 
@@ -315,8 +316,7 @@ parse_ifcfg_arg(const char *output_dir, int nr, const char *arg)
   int rfc2132 = 0;
   int r;
 
-  if (debug)
-    printf("parse_ifcfg_arg=%d - '%s'\n", nr, arg);
+  MSG_DEBUG("parse_ifcfg_arg=%d - '%s'", nr, arg);
 
   // Syntax: <interface>=<str>
 
@@ -327,9 +327,8 @@ parse_ifcfg_arg(const char *output_dir, int nr, const char *arg)
   if (isempty(token) || isempty(str))
     return return_syntax_error(nr, arg, -ENOENT);
 
-  if (debug)
-    printf("Interface - Config: '%s' - '%s'\n",
-	   token, str);
+  MSG_DEBUG("Interface - Config: '%s' - '%s'",
+	    token, str);
 
   if (!isempty(token))
     {
@@ -346,7 +345,7 @@ parse_ifcfg_arg(const char *output_dir, int nr, const char *arg)
 	  if (errno == ERANGE || l < 1 || l > 4095 ||
 	      vlanid_str == ep || *ep != '\0')
 	    {
-	      fprintf(stderr, "Invalid VLAN interface: %s\n", token);
+	      MSG_ERROR("Invalid VLAN interface: %s", token);
 	      return -EINVAL;
 	    }
 	  vlanid = l;
@@ -355,14 +354,13 @@ parse_ifcfg_arg(const char *output_dir, int nr, const char *arg)
 	    {
 	      if ((nr_vlanids+1) == vlan_capacity)
 		{
-		  fprintf(stderr, "Too many vlans!\n");
+		  MSG_ERROR("Too many vlans!");
 		  return -ENOMEM;
 		}
 
 	      vlans[nr_vlanids] = vlanid;
 	      nr_vlanids++;
-	      if (debug)
-		printf("Stored VLAN ID: %d\n", vlanid);
+              MSG_DEBUG("Stored VLAN ID: %d", vlanid);
 	    }
 	}
     }

@@ -115,7 +115,8 @@ get_url(const char *prefill, char **ret)
 	  curs_set(0);
 	  if (!url_is_valid(url, &error_msg))
 	    {
-	      if (show_warning_popup("URL doesn't seem to be valid:", error_msg, "Really use this URL?"))
+	      if (show_warning_popup("URL doesn't seem to be valid:",
+				     error_msg, "Really use this URL?"))
 		break;
 	      // Redraw screen
 	      print_global_header_footer(NULL);
@@ -243,7 +244,7 @@ load_directory(const char *path,
   int capacity = 42;
   int count = 0;
 
-  LOG_FUNC("path='%s'", path);
+  MSG_FUNC("path='%s'", path);
 
   entries = malloc(capacity * sizeof(entry));
   if (!entries)
@@ -283,14 +284,14 @@ load_directory(const char *path,
       count++;
     }
 
-  LOG_INFO("Starting qsort(%i)", count);
+  MSG_INFO("Starting qsort(%i)", count);
   qsort(&entries[0], count, sizeof(entry), compare_entries);
-  LOG_INFO("Finished qsort()");
+  MSG_INFO("Finished qsort()");
 
   *entries_ret = TAKE_PTR(entries);
   *entries_size_ret = capacity;
 
-  LOG_INFO("Done (%i)", count);
+  MSG_INFO("Done (%i)", count);
 
   return count;
 }
@@ -306,11 +307,11 @@ get_file(const char *prefill, char **ret)
   int num_options = 0;
   int r;
 
-  LOG_FUNC("prefill='%s', ret='%s'", strna(prefill), strna(*ret));
+  MSG_FUNC("prefill='%s', ret='%s'", strna(prefill), strna(*ret));
 
   if (!ret)
     {
-      LOG_ERROR("Internal error: variable ret not provided");
+      MSG_ERROR("Internal error: variable ret not provided");
       return -EINVAL;
     }
 
@@ -337,7 +338,7 @@ get_file(const char *prefill, char **ret)
       print_global_header_footer(NULL);
       print_title(curr_dir /*"Select Source Image"*/);
 
-      LOG_INFO("Current directory='%s'", curr_dir);
+      MSG_INFO("Current directory='%s'", curr_dir);
 
       if (entries)
 	entries = mfree(entries);
@@ -358,12 +359,12 @@ get_file(const char *prefill, char **ret)
       selected = choose_entry(4, (const char **)options, num_options, selected);
       if (selected < 0) // canceld or error.
 	{
-	  LOG_INFO("get_file aborted: %i", -selected);
+	  MSG_INFO("get_file aborted: %i", -selected);
 	  return selected;
 	}
 
-      LOG_INFO("Selected entry: %i (%s|%s)", selected, entries[selected].name,
-	       strbool(entries[selected].is_dir));
+      MSG_INFO("Selected entry: %i (%s|%s)", selected, entries[selected].name,
+	      strbool(entries[selected].is_dir));
 
       if (entries[selected].is_dir)
 	{
@@ -376,7 +377,7 @@ get_file(const char *prefill, char **ret)
 	    {
 	      curr_dir = mfree(curr_dir);
 	      curr_dir = strdup(resolved_path);
-	      LOG_INFO("curr_dir after strdup: '%s'", curr_dir);
+	      MSG_INFO("curr_dir after strdup: '%s'", curr_dir);
 	      if (!curr_dir)
 		return -ENOMEM;
 	      selected = 0;
@@ -384,14 +385,14 @@ get_file(const char *prefill, char **ret)
 	  else
 	    {
 	      r = -errno;
-	      LOG_ERROR("realpath(%s) failed: %s", new_path, strerror(-r));
+	      MSG_ERROR("realpath(%s) failed: %s", new_path, strerror(-r));
 	      return r;
 	    }
-	  LOG_INFO("New curr_dir='%s'", curr_dir);
+	  MSG_INFO("New curr_dir='%s'", curr_dir);
 	}
       else
 	{
-	  LOG_INFO("Selected image: '%s/%s'", curr_dir, entries[selected].name);
+	  MSG_INFO("Selected image: '%s/%s'", curr_dir, entries[selected].name);
 	  if (asprintf(ret, "%s/%s", curr_dir, entries[selected].name) < 0)
 	    return -ENOMEM;
 	  return 0;
@@ -401,7 +402,7 @@ get_file(const char *prefill, char **ret)
   return -ENOSYS;
 }
 
-int
+void
 select_installation_source(const char *prefill, char **ret)
 {
   const char *options[] = {
@@ -423,7 +424,7 @@ select_installation_source(const char *prefill, char **ret)
 	case 0: // url
 	  r = get_url(prefill?prefill:"https://", ret);
 	  if (r == 0)
-	    return 0;
+            return;
 	  break;
 	case 1: // local image
 	  char **new = ret;
@@ -431,15 +432,18 @@ select_installation_source(const char *prefill, char **ret)
 	  if (r == 0)
 	    {
 	      *ret = *new;
-	      return 0;
+	      return;
 	    }
 	  else
-	    LOG_ERROR("get_file() quit with %i: %s", r, strerror(-r));
+	    {
+              if (r == -ECANCELED)
+		MSG_INFO("get_file() quit with %i: %s", r, strerror(-r));
+	      else
+	        MSG_ERROR("get_file() quit with %i: %s", r, strerror(-r));
+	    }
 	  break;
 	default:
-	  return 0;
-	  break;
+          return;
 	}
     }
-  return 0;
 }
