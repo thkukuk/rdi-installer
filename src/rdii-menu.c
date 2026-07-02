@@ -291,7 +291,7 @@ show_error_popup(const char *headline,
   int width = strlen(headline) + 6;
 
   if (headline)
-    {  
+    {
       MSG_ERROR(headline);
       height++;
     }
@@ -305,10 +305,10 @@ show_error_popup(const char *headline,
   if (descr_line2)
     {
       MSG_ERROR(descr_line2);
-      height++;      
+      height++;
       if ((int)(strlen(descr_line2) + 6) > width)
 	width = strlen(descr_line2) + 6;
-    }  
+    }
 
   int start_y = (LINES - height) / 2 - 2;
   int start_x = (COLS - width) / 2;
@@ -466,6 +466,9 @@ show_main_menu(const char *def_image, const char *def_device, bool preserve_ssh_
       options[1] = target_entry;
     }
 
+  if (!isempty(image) && !isempty(device))
+    selected = 4;
+
   while (1)
     {
       print_global_header_footer(NULL);
@@ -592,7 +595,6 @@ init_ncurses(void)
 
   if (has_colors())
     init_colors();
-	
 }
 
 int
