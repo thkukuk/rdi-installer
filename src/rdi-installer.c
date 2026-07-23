@@ -170,7 +170,7 @@ main(int argc, char **argv)
 	  {NULL,        0,                 NULL, '\0'}
         };
 
-      c = getopt_long(argc, argv, "c:hv",
+      c = getopt_long(argc, argv, "c:fhv",
                       long_options, &option_index);
       if (c == (-1))
         break;
@@ -179,6 +179,9 @@ main(int argc, char **argv)
 	case 'c':
           rdii_config = optarg;
           break;
+	case 'f':
+	  // ignore -f, it's added by agetty for autologin
+	  break;
 	case 'h':
           print_help();
           return 0;
@@ -194,7 +197,7 @@ main(int argc, char **argv)
   argc -= optind;
   argv += optind;
 
-  if (argc > 0)
+  if (argc > 1) // 1 because of "hostname" argument from agetty
     {
       fprintf(stderr, "rdi-installer: Too many arguments.\n");
       print_error();
