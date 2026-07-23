@@ -98,7 +98,11 @@ process_file(const char *fpath, const struct stat *sb _unused_,
 
   // Duplicate and clean the filename
   _cleanup_free_ char *clean_name = strdup(filename);
-  // XXX OOM
+  if (!clean_name)
+    {
+      MSG_ERROR("Out of memory!");
+      return -ENOMEM;
+    }
 
   // Strip the extension (.map or .kmap and anything after)
   char *dot = strstr(clean_name, ".kmap");
