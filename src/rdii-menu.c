@@ -522,7 +522,7 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 		    if (asprintf(&mdraid_entry, "Enable MD Devices (Raid1) (%s, %s)",
 				 device, mdraid) < 0)
 		      return -ENOMEM;
-		    options[3] = mdraid_entry;
+		    options[2] = mdraid_entry;
 		  }
 	      }
 	  }
@@ -536,7 +536,7 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 		if (asprintf(&keymap_entry, "Select Keymap (%s)",
 			     strna(keymap)) < 0)
 		  return -ENOMEM;
-		options[2] = keymap_entry;
+		options[3] = keymap_entry;
 	      }
 	  }
 	  break;
