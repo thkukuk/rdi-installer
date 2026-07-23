@@ -242,8 +242,6 @@ copy_ssh_hostkeys(const char *src_dir, const char *dst_dir)
 
           _cleanup_close_ int src_fd = -EBADF;
           _cleanup_close_ int dst_fd = -EBADF;
-          char buf[4096]; // XXX no static buffer
-          ssize_t nread;
           struct stat st;
 
           src_fd = open(src_path, O_RDONLY);
@@ -269,28 +267,56 @@ copy_ssh_hostkeys(const char *src_dir, const char *dst_dir)
               return -r;
             }
 
-          while ((nread = read(src_fd, buf, sizeof(buf))) > 0)
-            {
-              ssize_t nwritten = 0;
-              while (nwritten < nread)
-                {
-                  ssize_t n = write(dst_fd, buf + nwritten, nread - nwritten);
-                  if (n < 0)
-                    {
-                      int r = errno;
-                      MSG_ERROR("Failed to write to '%s': %s", dst_path, strerror(r));
-                      return -r;
-                    }
-                  nwritten += n;
-                }
-            }
-
-          if (nread < 0)
+	  /* Allocate exact buffer size on the heap */
+          off_t file_size = st.st_size;
+          char *buf = malloc(file_size);
+          if (buf == NULL)
             {
               int r = errno;
-              MSG_ERROR("Failed to read from '%s': %s", src_path, strerror(r));
-              return -r;
-            }
+              MSG_ERROR("Failed to allocate %ld bytes: %s",
+			(long)file_size, strerror(r));
+	      return -r;
+	    }
+
+          /* Read the entire file into memory */
+          ssize_t total_read = 0;
+          while (total_read < file_size)
+            {
+               ssize_t nread = read(src_fd, buf + total_read,
+				    file_size - total_read);
+	       if (nread <= 0)
+                 {
+                   if (nread < 0)
+                     {
+                       int r = errno;
+		       MSG_ERROR("Failed to read from source: %s", strerror(r));
+		       free(buf);
+		       return -r;
+		     }
+		   break; /* Unexpected EOF (file may have shrunk) */
+		 }
+	       total_read += nread;
+	    }
+
+	  /* Write the entire buffer in one go */
+	  ssize_t total_written = 0;
+	  while (total_written < total_read)
+            {
+              ssize_t n = write(dst_fd, buf + total_written,
+				total_read - total_written);
+	      if (n < 0)
+		{
+                  int r = errno;
+		  MSG_ERROR("Failed to write to '%s': %s", dst_path,
+			    strerror(r));
+		  free(buf);
+		  return -r;
+		}
+	      total_written += n;
+	    }
+
+          /* Free allocated memory */
+	  free(buf);
 
           MSG_INFO("Copied SSH host key: %s", entry->d_name);
           copied++;
