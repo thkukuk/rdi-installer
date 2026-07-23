@@ -703,14 +703,36 @@ run_installation(const char *url, const char *device, const char *mdraid,
       // Create /dev/md0
 
       r = exec_cmd("mdadm", "mdadm", "--create", "--verbose", "/dev/md0",
-		   "--level=1", "--metadata=1.0", "--raid-devices=2",
+		   "--level=1", "--metadata=1.0", "--bitmap=internal",
+		   "--raid-devices=2", "--run",
 		   (char *)device, (char *)mdraid, NULL);
       if (r < 0)
 	{
+	  MSG_ERROR("Creating MD Raid failed (mdadm): %s",
+		    strerror(-r));
+
 	  show_error_popup("Creating MD Raid failed.",
 			   "Failed to run mdadm:",
 			   strerror(-r));
 	  return r;
+	}
+      if (r > 0)
+	{
+	  if (r > 128) // aborted by signal
+	    {
+	      int sig = r - 128;
+	      MSG_ERROR("mdadm got terminated by signal %d (%s)",
+			sig, strsignal(sig));
+	      show_error_popup("mdadm got terminated by signal",
+			       strsignal(sig), NULL);
+	    }
+	  else
+	    {
+	      MSG_ERROR("mdadm failed with exit code %i", r);
+	      show_error_popup("mdadm failed with exit code",
+			       NULL, NULL); // XXX print r like itoa(r)
+	    }
+	  return false;
 	}
 
       // set device to /dev/md0
