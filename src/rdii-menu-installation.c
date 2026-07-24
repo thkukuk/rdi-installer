@@ -164,9 +164,11 @@ write_net_image(const char *url, const char *device)
   posix_spawn_file_actions_adddup2(&fa[0], p_wget_tee[1], STDOUT_FILENO);
   for (int i = 0; i < 8; i++) // XXX calculate 8
     posix_spawn_file_actions_addclose(&fa[0], all_pipes[i]);
+  reset_shell_mode();
   if (posix_spawnp(&pids[0], "wget", &fa[0], NULL, wget_args, environ) != 0)
     {
       MSG_ERROR("Starting 'wget' failed: %s", strerror(errno));
+      reset_prog_mode();
       keywait(LINES-3, 0, NULL, 0);
       for (int i = 0; i < 8; i++)
 	close(all_pipes[i]);
@@ -192,6 +194,7 @@ write_net_image(const char *url, const char *device)
   if (posix_spawnp(&pids[1], "tee", &fa[1], NULL, tee_args, environ) != 0)
     {
       MSG_ERROR("Starting 'tee' failed: %s", strerror(errno));
+      reset_prog_mode();
       keywait(LINES-3, 0, NULL, 0);
       for (int i = 0; i < 8; i++)
 	close(all_pipes[i]);
@@ -208,6 +211,7 @@ write_net_image(const char *url, const char *device)
   if (posix_spawnp(&pids[2], decomp_args[0], &fa[2], NULL, decomp_args, environ) != 0)
     {
       MSG_ERROR("Starting '%s' failed: %s", decomp_args[0], strerror(errno));
+      reset_prog_mode();
       keywait(LINES-3, 0, NULL, 0);
       for (int i = 0; i < 8; i++)
 	close(all_pipes[i]);
@@ -227,6 +231,7 @@ write_net_image(const char *url, const char *device)
   if (posix_spawnp(&pids[3], "dd", &fa[3], NULL, dd_args, environ) != 0)
     {
       MSG_ERROR("Starting 'dd' failed: %s", strerror(errno));
+      reset_prog_mode();
       keywait(LINES-3, 0, NULL, 0);
       for (int i = 0; i < 8; i++)
 	close(all_pipes[i]);
@@ -248,6 +253,7 @@ write_net_image(const char *url, const char *device)
   if (posix_spawnp(&pids[4], "sha256sum", &fa[4], NULL, sha_args, environ) != 0)
     {
       MSG_ERROR("Starting 'sha256sum' failed: %s", strerror(errno));
+      reset_prog_mode();
       keywait(LINES-3, 0, NULL, 0);
       for (int i = 0; i < 8; i++)
 	close(all_pipes[i]);
@@ -273,9 +279,10 @@ write_net_image(const char *url, const char *device)
 	  r = errno;
 	  _cleanup_free_ char *err_msg = NULL;
 
+          reset_prog_mode();
 	  if (asprintf(&err_msg, "waitpid(%i) failed: %s\n", i, strerror(r)) < 0)
             return -ENOMEM;
-          show_error_popup("Cannot finish image download correctl.",
+          show_error_popup("Cannot finish image download correct.",
 			   err_msg, NULL);
 	  return -r;
 	}
@@ -301,6 +308,7 @@ write_net_image(const char *url, const char *device)
 	}
     }
 
+  reset_prog_mode();
   if (first_error)
     keywait(LINES-3, 0, NULL, 0);
 
@@ -363,9 +371,11 @@ write_local_image(const char *file, const char *device)
   posix_spawn_file_actions_adddup2(&fa[0], p_pv_decomp[1], STDOUT_FILENO);
   for (int i = 0; i < 4; i++) // XXX calculate 4
     posix_spawn_file_actions_addclose(&fa[0], all_pipes[i]);
+  reset_shell_mode();
   if (posix_spawnp(&pids[0], "pv", &fa[0], NULL, pv_args, environ) != 0)
     {
       MSG_ERROR("Starting 'pv' failed: %s", strerror(errno));
+      reset_prog_mode();
       keywait(LINES-3, 0, NULL, 0);
       for (int i = 0; i < 4; i++)
 	close(all_pipes[i]);
@@ -382,6 +392,7 @@ write_local_image(const char *file, const char *device)
   if (posix_spawnp(&pids[1], decomp_args[0], &fa[1], NULL, decomp_args, environ) != 0)
     {
       MSG_ERROR("Starting '%s' failed: %s", decomp_args[0], strerror(errno));
+      reset_prog_mode();
       keywait(LINES-3, 0, NULL, 0);
       for (int i = 0; i < 4; i++)
 	close(all_pipes[i]);
@@ -401,6 +412,7 @@ write_local_image(const char *file, const char *device)
   if (posix_spawnp(&pids[2], "dd", &fa[2], NULL, dd_args, environ) != 0)
     {
       MSG_ERROR("Starting 'dd' failed: %s", strerror(errno));
+      reset_prog_mode();
       keywait(LINES-3, 0, NULL, 0);
       for (int i = 0; i < 4; i++)
 	close(all_pipes[i]);
@@ -425,6 +437,7 @@ write_local_image(const char *file, const char *device)
 	{
 	  r = errno;
 	  MSG_ERROR("waitpid(%i) failed: %s", i, strerror(r)); // XXX show_error
+	  reset_prog_mode();
 	  return -r;
 	}
 
@@ -449,6 +462,7 @@ write_local_image(const char *file, const char *device)
 	}
     }
 
+  reset_prog_mode();
   if (first_error)
     keywait(LINES-3, 0, NULL, 0);
 
@@ -789,10 +803,11 @@ run_installation(const char *url, const char *device, const char *mdraid,
       else if (r > 0)
         {
           MSG_INFO("Successfully restored %d SSH host key(s)", r);
+	  r = 0; // for final return from function
         }
     }
 
-  keywait(LINES-3, 0, NULL, 60);
+  keywait(LINES-3, 0, NULL, 0);
 
   return r;
 }
