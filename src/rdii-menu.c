@@ -14,6 +14,7 @@
 #include "rdii-menu.h"
 #include "logger.h"
 #include "exec_cmd.h"
+#include "zap_partition_table.h"
 
 #define TITLE "Raw Disk Installer Version " VERSION
 
@@ -191,20 +192,14 @@ show_warning_popup(const char *headline,
   unsigned int height = 7;
   unsigned int width;
 
-  if (headline)
-    {
-      MSG_WARN(headline);
-    }
+  MSG_FUNC("headline='%s', descr1='%s', descr2='%s'", strna(headline),
+	   strna(descr_line1), strna(descr_line2));
+
   if (descr_line1)
-    {
-      MSG_WARN(descr_line1);
-      height++;
-    }
+    height++;
+
   if (descr_line2)
-    {
-      MSG_WARN(descr_line2);
-      height++;
-    }
+    height++;
 
   width = strlen(headline) + 6;
   if (descr_line1)
@@ -290,21 +285,20 @@ show_error_popup(const char *headline,
   int height = 7;
   int width = strlen(headline) + 6;
 
+  MSG_FUNC("headline='%s', descr1='%s', descr2='%s'", strna(headline),
+	   strna(descr_line1), strna(descr_line2));
+
   if (headline)
-    {
-      MSG_ERROR(headline);
-      height++;
-    }
+    height++;
+
   if (descr_line1)
     {
-      MSG_ERROR(descr_line1);
       height++;
       if ((int)(strlen(descr_line1) + 6) > width)
 	width = strlen(descr_line1) + 6;
     }
   if (descr_line2)
     {
-      MSG_ERROR(descr_line2);
       height++;
       if ((int)(strlen(descr_line2) + 6) > width)
 	width = strlen(descr_line2) + 6;
@@ -334,6 +328,57 @@ show_error_popup(const char *headline,
     }
 
   delwin(win);
+}
+
+void
+show_info_popup(const char *headline, const char *descr)
+{
+  int height = 6;
+  int width = strlen(headline) + 6;
+
+  MSG_FUNC("headline='%s', descr='%s'", headline, strna(descr));
+
+  if (descr)
+    {
+      height += 2;
+      if ((int)(strlen(descr) + 6) > width)
+	width = strlen(descr) + 6;
+    }
+
+  int start_y = (LINES - height) / 2 - 2;
+  int start_x = (COLS - width) / 2;
+
+  WINDOW *win = newwin(height, width, start_y, start_x);
+  wbkgd(win, COLOR_PAIR(CP_SPLASH_BOX));
+  keypad(win, TRUE);
+  box(win, 0, 0);
+  mvwprintw(win, 2, (width - strlen(headline)) / 2, "%s", headline);
+  if (descr)
+    mvwprintw(win, 4, (width - strlen(descr)) / 2, "%s", descr);
+  mvwprintw(win, height - 2, width / 2 - 3, "[ OK ]");
+
+  // Use wgetch/wrefresh on the popup window instead of keywait() which
+  // calls refresh() on stdscr.  After clear(), stdscr has clearok set,
+  // so a refresh() would flush blank stdscr cells over the popup window
+  // in the virtual screen, making the popup invisible.
+  wtimeout(win, 100);
+
+  const char spinner[] = "|/-\\";
+  int spinner_idx = 0;
+  int elapsed_ms = 0;
+
+  while (elapsed_ms < 30 * 1000)
+    {
+      mvwprintw(win, height - 2, width - 2, "%c", spinner[spinner_idx]);
+      spinner_idx = (spinner_idx + 1) % 4;
+      wrefresh(win);
+      if (wgetch(win) != ERR)
+	break;
+      elapsed_ms += 100;
+    }
+
+  delwin(win);
+  refresh();
 }
 
 int
@@ -432,6 +477,7 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
     "Select Keymap",
     "System Information",
     "Start Installation",
+    "Destroy Partition Table",
     "Refresh Screen",
     "Abort",
     "Reboot System",
@@ -496,7 +542,7 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 		image_entry = mfree(image_entry);
 		if (asprintf(&image_entry, "Select Image (%s)", cp) < 0)
 		  return -ENOMEM;
-		options[0] = image_entry;
+		options[selected] = image_entry;
 	      }
 	  }
 	  break;
@@ -508,7 +554,7 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 		target_entry = mfree(target_entry);
 		if (asprintf(&target_entry, "Select Target (%s)", device) < 0)
 		  return -ENOMEM;
-		options[1] = target_entry;
+		options[selected] = target_entry;
 	      }
 	  }
 	  break;
@@ -522,7 +568,7 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 		    if (asprintf(&mdraid_entry, "Enable MD Devices (Raid1) (%s, %s)",
 				 device, mdraid) < 0)
 		      return -ENOMEM;
-		    options[2] = mdraid_entry;
+		    options[selected] = mdraid_entry;
 		  }
 	      }
 	  }
@@ -536,7 +582,7 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 		if (asprintf(&keymap_entry, "Select Keymap (%s)",
 			     strna(keymap)) < 0)
 		  return -ENOMEM;
-		options[3] = keymap_entry;
+		options[selected] = keymap_entry;
 	      }
 	  }
 	  break;
@@ -558,16 +604,41 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 		}
 	    }
 	  break;
-	case 6: // Refresh Screen
+	case 6: // Destroy partition table
+	  select_target_device(0, &device);
+	  if (!isempty(device))
+	    {
+	      _cleanup_free_ char *errmsg = NULL;
+
+	      if (!show_warning_popup("WARNING: PERMANENT DATA LOSS - Are you absolutely sure?",
+				      device, NULL))
+		break;
+
+	      if (zap_partition_tables(device, &errmsg) < 0)
+		{
+		  MSG_ERROR("ERROR: Destroying partition table failed: %s", errmsg);
+		  show_error_popup("ERROR: Destroying partition table failed!",
+				   errmsg, NULL);
+		}
+	      else
+		{
+		  MSG_INFO("Destroying partition table on device '%s' successful.", device);
+		  print_global_header_footer(NULL); // remove warning popup
+		  refresh();
+		  show_info_popup("Destroying partition table was successful", NULL);
+		}
+	    }
+	  break;
+	case 7: // Refresh Screen
 	  // loop will redraw screen
 	  break;
-	case 7: // Abort
+	case 8: // Abort
 	  return 0;
 	  break;
-	case 8: // Reboot
+	case 9: // Reboot
 	  return exec_cmd("reboot", "reboot");
 	  break;
-	case 9: // PowerOff
+	case 10: // PowerOff
 	  return exec_cmd("poweroff", "poweroff");
 	  break;
 	case -ECANCELED:

@@ -23,6 +23,7 @@ extern int show_warning_popup(const char *headline,
 extern void show_error_popup(const char *headline,
 			     const char *descr_line1,
 			     const char *descr_line2);
+extern void show_info_popup(const char *headline, const char *descr);
 
 extern int choose_entry(int row, const char *options[], int num_options,
 		 	int start);
