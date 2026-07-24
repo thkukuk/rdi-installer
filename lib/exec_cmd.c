@@ -55,7 +55,6 @@ exec_cmd(const char *cmd, ...)
     {
 #ifdef HAVE_NCURSES
       reset_prog_mode();
-      clearok(stdscr, TRUE);
 #endif
       return -r;
     }
@@ -66,14 +65,12 @@ exec_cmd(const char *cmd, ...)
     {
 #ifdef HAVE_NCURSES
       reset_prog_mode();
-      clearok(stdscr, TRUE);
 #endif
       return -r;
     }
 
 #ifdef HAVE_NCURSES
   reset_prog_mode();
-  clearok(stdscr, TRUE);
 #endif
 
   // Evaluate the exit status
