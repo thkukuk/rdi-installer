@@ -9,6 +9,7 @@
 #include <sys/mount.h>
 
 #include "basics.h"
+#include "logger.h"
 
 #include "zap_partition_table.h"
 
@@ -34,6 +35,8 @@ zap_partition_tables(const char *device, char **error)
 {
   _cleanup_close_ int fd = -EBADF;
   _cleanup_free_ char *zero_buf = NULL;
+
+  MSG_FUNC("device='%s'", device);
 
   fd = open(device, O_RDWR | O_SYNC);
   if (fd < 0)
