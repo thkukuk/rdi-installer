@@ -94,21 +94,28 @@ show_splash_screen(void)
   WINDOW *win = newwin(height, width, start_y, start_x);
   wbkgd(win, COLOR_PAIR(CP_SPLASH_BOX));
 
-  // box(win, 0, 0);
+  /* The linux console (TERM=linux) does not support the wide-character
+     interface used by wborder_set, so fall back to ACS single-line border. */
+  const char *term = getenv("TERM");
+  if (term && strcmp(term, "linux") == 0)
+    {
+      box(win, 0, 0);
+    }
+  else
+    {
+      cchar_t ls, rs, ts, bs, tl, tr, bl, br;
 
-  // Define double-line Unicode characters for the border
-  cchar_t ls, rs, ts, bs, tl, tr, bl, br;
+      setcchar(&ls, L"║", WA_NORMAL, 0, NULL);
+      setcchar(&rs, L"║", WA_NORMAL, 0, NULL);
+      setcchar(&ts, L"═", WA_NORMAL, 0, NULL);
+      setcchar(&bs, L"═", WA_NORMAL, 0, NULL);
+      setcchar(&tl, L"╔", WA_NORMAL, 0, NULL);
+      setcchar(&tr, L"╗", WA_NORMAL, 0, NULL);
+      setcchar(&bl, L"╚", WA_NORMAL, 0, NULL);
+      setcchar(&br, L"╝", WA_NORMAL, 0, NULL);
 
-  setcchar(&ls, L"║", WA_NORMAL, 0, NULL); // Left side
-  setcchar(&rs, L"║", WA_NORMAL, 0, NULL); // Right side
-  setcchar(&ts, L"═", WA_NORMAL, 0, NULL); // Top side
-  setcchar(&bs, L"═", WA_NORMAL, 0, NULL); // Bottom side
-  setcchar(&tl, L"╔", WA_NORMAL, 0, NULL); // Top-left corner
-  setcchar(&tr, L"╗", WA_NORMAL, 0, NULL); // Top-right corner
-  setcchar(&bl, L"╚", WA_NORMAL, 0, NULL); // Bottom-left corner
-  setcchar(&br, L"╝", WA_NORMAL, 0, NULL); // Bottom-right corner
-
-  wborder_set(win, &ls, &rs, &ts, &bs, &tl, &tr, &bl, &br);
+      wborder_set(win, &ls, &rs, &ts, &bs, &tl, &tr, &bl, &br);
+    }
 
   int text_y = height / 2;
   int text_x = (width - strlen(TITLE)) / 2;
