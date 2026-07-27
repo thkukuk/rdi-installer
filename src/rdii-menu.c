@@ -728,6 +728,8 @@ rdii_menu(const char *image0, const char *image1, const char *image2,
 	  return -EPROTO; /* XXX better error handling */
 	}
     }
+  else
+    image = image0;
 
   r = show_main_menu(image, device, mdraid, preserve_ssh_hostkey);
   endwin();
