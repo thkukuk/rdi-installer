@@ -589,6 +589,7 @@ run_installation(const char *url, const char *device, const char *mdraid,
 				  r < 0?strerror(-r):curl_easy_strerror(r),
 				  "Continue without image verification?"))
 	    return r;
+	  d_sha256_fn = mfree(d_sha256_fn);
 	}
       else
 	{
@@ -764,7 +765,7 @@ run_installation(const char *url, const char *device, const char *mdraid,
       if (asprintf(&written_sha256_fn, "%s/written.sha256", rdii_tmp_dir) < 0)
 	return -ENOMEM;
 
-      if (!sha256_eq(written_sha256_fn, d_sha256_fn))
+      if (d_sha256_fn && !sha256_eq(written_sha256_fn, d_sha256_fn))
 	{
 	  _cleanup_free_ char *errmsg = NULL;
 	  show_error_popup("ERROR: SHA256 verification failed!",
