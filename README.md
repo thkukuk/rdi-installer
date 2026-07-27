@@ -39,13 +39,15 @@ add_extra_partition.sh <image name> [<part size> [<label> [<fs type>]]]
 Currently only x86-64 systems with UEFI firmware and at minimum 2GB of
 memory are supported.
 
-## Compressed Images
+## Compressed Raw Images
 
-Raw Images compressed with xz, gzip or bzip2 are supported. The images will be decompressed on the fly while writing to disk.
+Raw Images compressed with xz, gzip, bzip2 or zstd are supported. The images will be decompressed on the fly while writing to disk.
 
 ## Raw Image Verification
 
 The `rdi-installer` application tries to download a gpg signed sha256 hash for an image and uses that to verify the image. If the image URL is `https://download.example.org/example-image.raw.xz`, attempts will be made to also download the files `https://download.example.org/example-image.raw.xz.sha256` and `https://download.example.org/example-image.raw.xz.sha256.asc`.
+
+Signature verification is done by `gpgv` with a keyring at `/etc/systemd/import-pubring.gpg`. The signing key must be imported into that keyring for verification to succeed. If the signature file cannot be downloaded or verification fails, the installer will warn the user but still allow the installation to proceed.
 
 ## Options
 
@@ -65,7 +67,7 @@ With `rdii.url1` and `rdii.url2` additional images can be specified. At the star
 
 The `rdii.preserve-ssh-hostkey` option enables automatic preservation of SSH host keys during installation. When enabled, the installer will:
 
-1. Before writing the new image, scan all Linux partitions on the target device for `/etc/ssh/ssh_host_*` files
+1. Before writing the new image, scan all partitions on the target device with a supported filesystem (ext2, ext3, ext4, xfs, btrfs) for `/etc/ssh/ssh_host_*` files
 2. Back up any found SSH host keys to a temporary directory
 3. After writing and mounting the new image, restore the backed-up keys to the new installation's `/etc/ssh/` directory (only if no host keys already exist in the new installation)
 
@@ -130,6 +132,45 @@ Note: The dracut-style options (**ip=**, etc.) are not evaluated when
 reading from `/proc/cmdline` by default, because
 [systemd-network-generator(8)](https://manpages.opensuse.org/systemd-network-generator.8)
 handles them already.
+
+#### ip= and dracut-style options
+
+The following dracut-style options are supported. They are always parsed from
+the config file and from command line arguments. They are only parsed from
+`/proc/cmdline` when `--parse-all` is specified.
+
+* `ip=<autoconf>` — Global DHCP/autoconf shorthand. Valid values for _autoconf_:
+    * `dhcp` — IPv4 DHCP only
+    * `dhcp6` / `either6` — IPv6 DHCP only
+    * `on` / `any` — Both IPv4 and IPv6 DHCP
+    * `auto6` — IPv6 stateless autoconf (RA only)
+    * `link6` — Link-local addressing only
+    * `none` / `off` — No automatic configuration
+
+* `ip=<interface>:<autoconf>[:[<mtu>][:<macaddr>]]` — Per-interface DHCP/autoconf.
+
+* Full static configuration:
+  `ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<hostname>:<interface>:<autoconf>[:[<dns1>[:<dns2>[:<ntp>]]]`
+    * _client-IP_ — Client IP address (IPv4 or IPv6 in `[brackets]`)
+    * _peer_ — Optional peer IP (may be empty)
+    * _gateway-IP_ — Default gateway
+    * _netmask_ — Subnet mask in dotted notation (e.g. `255.255.0.0`) or CIDR prefix length
+    * _hostname_ — Client hostname (may be empty)
+    * _interface_ — Network interface name or MAC address
+    * _autoconf_ — DHCP mode (see above) or `none`/`off` to disable
+    * _dns1_, _dns2_ — Optional DNS server addresses
+    * _ntp_ — Optional NTP server address
+
+* `nameserver=<IP>` — Add a DNS server.
+
+* `rd.peerdns=<0|1>` — Control whether DHCP-supplied DNS servers are used.
+  `0` disables, `1` enables.
+
+* `rd.route=<destination>:<gateway>[:<interface>]` — Add a static route.
+  _destination_ is in `network/prefix` notation (IPv6 destinations may be wrapped in `[brackets]`).
+
+* `vlan=<vlanname>:<physdev>` — Configure a VLAN. _vlanname_ determines the VLAN
+  ID and supports four naming styles: `vlan0005`, `vlan5`, `eth0.0005`, `eth0.5`.
 
 #### ifcfg option
 
