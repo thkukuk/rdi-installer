@@ -1,9 +1,6 @@
 # Raw Disk Image Installer (rdi-installer)
 
-This project contains of several utilities and images for
-an image installer, which main purpose is to have a comfortable and
-robust tool to boot on bare metal and install a raw disk image on
-that hardware.
+This project contains of several utilities and images for an image installer, which main purpose is to have a comfortable and robust tool to boot on bare metal and install a raw disk image on that hardware.
 
 ## Images
 
@@ -42,6 +39,14 @@ add_extra_partition.sh <image name> [<part size> [<label> [<fs type>]]]
 Currently only x86-64 systems with UEFI firmware and at minimum 2GB of
 memory are supported.
 
+## Compressed Images
+
+Raw Images compressed with xz, gzip or bzip2 are supported. The images will be decompressed on the fly while writing to disk.
+
+## Raw Image Verification
+
+The `rdi-installer` application tries to download a gpg signed sha256 hash for an image and uses that to verify the image. If the image URL is `https://download.example.org/example-image.raw.xz`, attempts will be made to also download the files `https://download.example.org/example-image.raw.xz.sha256` and `https://download.example.org/example-image.raw.xz.sha256.asc`.
+
 ## Options
 
 The options can be provided either via the kernel cmdline during boot or with a configuration file.
@@ -50,12 +55,13 @@ The options can be provided either via the kernel cmdline during boot or with a 
 | --------- | ------ | ----------- |
 | rdii.url  | http url/local file | Specifies a the URL or the filename under which the to be installed image can be downloaded |
 | rdii.device | /dev/... | Device on which the image should be installed |
+| rdii.mdraid | /dev/... | Second device together with rdii.device for MD Raid 1 |
 | rdii.keymap | name | Configures the key mapping table for the keyboard |
 | rdii.preserve-ssh-hostkey | true/false/yes/no/1/0 | Preserves SSH host keys from the old installation and restores them to the new installation |
 
 With `rdii.url1` and `rdii.url2` additional images can be specified. At the start of `rdi-installer`, the user has to selected the one he wants to install.
 
-#### SSH Host Key Preservation
+### SSH Host Key Preservation
 
 The `rdii.preserve-ssh-hostkey` option enables automatic preservation of SSH host keys during installation. When enabled, the installer will:
 
@@ -64,6 +70,10 @@ The `rdii.preserve-ssh-hostkey` option enables automatic preservation of SSH hos
 3. After writing and mounting the new image, restore the backed-up keys to the new installation's `/etc/ssh/` directory (only if no host keys already exist in the new installation)
 
 This feature is useful when reinstalling a system and you want to avoid SSH "host key changed" warnings for clients that previously connected to the machine.
+
+### MD Raid (Raid 1)
+
+During installation a MD Raid can be created and used as device for the image. If `rdii.mdraid` is set, `rdii.device` is the first device of the MD Raid and `rdii.mdraid` is the second device. `rdi-intaller` does not make any modifications to the image, it needs to contain already everything to assembly the MD device during boot.
 
 ### Configuration file
 
@@ -96,14 +106,6 @@ rdii.preserve-ssh-hostkey=true
 ssh=1
 ssh.key=ZXhhbXBsZSBzc2ggcHVibGljIGtleQo=
 ```
-
-### Compressed Images
-
-Raw Images compressed with xz, gzip or bzip2 are supported. The images will be decompressed on the fly while writing to disk.
-
-### Raw Image Verification
-
-The `rdi-installer` application tries to download a gpg signed sha256 hash for an image and uses that to verify the image. If the image URL is `https://download.example.org/example-image.raw.xz`, attempts will be made to also download the files `https://download.example.org/example-image.raw.xz.sha256` and `https://download.example.org/example-image.raw.xz.sha256.asc`.
 
 ## Utilities
 
