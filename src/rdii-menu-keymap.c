@@ -24,6 +24,7 @@ set_keymap(const char *keymap)
   move(2,2);
   refresh();
 
+  MSG_INFO("Set keymap to %s", keymap);
   r = exec_cmd("loadkeys", "loadkeys", keymap, NULL);
   if (r != 0)
     show_error_popup("Cannot set keymap with the call 'loadkeys' to:", keymap, NULL);

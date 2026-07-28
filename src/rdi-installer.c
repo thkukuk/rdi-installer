@@ -2,6 +2,7 @@
 
 #include "config.h"
 
+#include <stdio.h>
 #include <getopt.h>
 #include <string.h>
 #include <libeconf.h>
@@ -215,7 +216,12 @@ main(int argc, char **argv)
     }
 
   if (keymap)
-    set_keymap(keymap);
+    {
+      if (!isatty(STDIN_FILENO))
+        set_keymap(keymap);
+      else
+        MSG_WARN("Not running on console. Keymap will not be set.");
+    }
 
   const char *tmpdir_template = "/tmp/rdi-installer-XXXXXX";
   r = mkdtemp_malloc(tmpdir_template, &rdii_tmp_dir_cleanup);
