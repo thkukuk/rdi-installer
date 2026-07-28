@@ -15,6 +15,21 @@
 #include "rdii-menu.h"
 #include "logger.h"
 
+int
+set_keymap(const char *keymap)
+{
+  int r;
+
+  print_global_header_footer(NULL);
+  move(2,2);
+  refresh();
+
+  r = exec_cmd("loadkeys", "loadkeys", keymap, NULL);
+  if (r != 0)
+    show_error_popup("Cannot set keymap with the call 'loadkeys' to:", keymap, NULL);
+  return r;
+}
+
 static int
 get_vconsole_keymap(char **ret)
 {
@@ -41,21 +56,6 @@ get_vconsole_keymap(char **ret)
 
   *ret = TAKE_PTR(keymap);
   return 0;
-}
-
-static int
-set_keymap(const char *keymap)
-{
-  int r;
-
-  print_global_header_footer(NULL);
-  move(2,2);
-  refresh();
-
-  r = exec_cmd("loadkeys", "loadkeys", keymap, NULL);
-  if (r != 0)
-    keywait(8, 0, NULL, 0);
-  return r;
 }
 
 // Dynamic list of available keymaps
@@ -298,8 +298,6 @@ select_keymap(char **ret)
       r = set_keymap(keymap);
       if (ret && r == 0)
 	*ret = TAKE_PTR(keymap);
-      else
-        show_error_popup("Cannot set keymap.", NULL, NULL);
       return r;
     }
 

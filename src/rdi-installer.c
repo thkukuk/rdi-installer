@@ -142,6 +142,7 @@ main(int argc, char **argv)
   _cleanup_free_ char *image2 = NULL;
   _cleanup_free_ char *device = NULL;
   _cleanup_free_ char *mdraid = NULL;
+  _cleanup_free_ char *keymap = NULL;
   bool preserve_ssh_hostkey = false;
   int r;
   econf_err conf_err;
@@ -206,13 +207,15 @@ main(int argc, char **argv)
 
   init_ncurses();
 
-  // XXX keymap ignored
-  conf_err = read_config(rdii_config, &device, &mdraid, &image, &image1, &image2, NULL, &preserve_ssh_hostkey);
+  conf_err = read_config(rdii_config, &device, &mdraid, &image, &image1, &image2, &keymap, &preserve_ssh_hostkey);
   if (conf_err != ECONF_SUCCESS)
     {
       show_error_popup("Failed to read config file:",
                        econf_errString(conf_err), NULL);
     }
+
+  if (keymap)
+    set_keymap(keymap);
 
   const char *tmpdir_template = "/tmp/rdi-installer-XXXXXX";
   r = mkdtemp_malloc(tmpdir_template, &rdii_tmp_dir_cleanup);
