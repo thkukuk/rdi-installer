@@ -582,14 +582,19 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 	  break;
 	case 3: // Select Keymap
 	  {
-	    _cleanup_free_ char *keymap = NULL;
-	    if (select_keymap(&keymap) == 0)
-	      {
-		keymap_entry = mfree(keymap_entry);
-		if (asprintf(&keymap_entry, "Select Keymap (%s)",
-			     strna(keymap)) < 0)
-		  return -ENOMEM;
-		options[selected] = keymap_entry;
+            if (is_linux_vt() ||
+		show_warning_popup ("Keymaps can only be configured directly on a console.", NULL,
+                                    "Continue?"))
+              {
+	        _cleanup_free_ char *keymap = NULL;
+	        if (select_keymap(&keymap) == 0)
+	          {
+                    keymap_entry = mfree(keymap_entry);
+                    if (asprintf(&keymap_entry, "Select Keymap (%s)",
+                        strna(keymap)) < 0)
+                      return -ENOMEM;
+                    options[selected] = keymap_entry;
+	          }
 	      }
 	  }
 	  break;

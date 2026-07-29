@@ -32,6 +32,7 @@ extern int is_device_mounted(const char *device);
 
 extern void keywait(int y, int x, const char *text, int sec);
 extern int set_keymap(const char *keymap);
+extern bool is_linux_vt(void);
 
 extern int select_keymap(char **device);
 extern int select_target_device(uint64_t minsize, char **device);
