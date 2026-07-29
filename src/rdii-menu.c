@@ -435,7 +435,7 @@ show_post_menu(void)
 {
   const char *options[] = {
     "Reboot",
-    "Next Image",
+    "Try Again/Next Image",
     "PowerOff",
     "Exit"
   };
@@ -451,7 +451,7 @@ show_post_menu(void)
 	case 0: // Reboot
 	  return exec_cmd("reboot", "reboot");
 	  break;
-	case 1: // Next Image
+	case 1: // Try Again/Next Image
 	  return 1;
 	  break;
 	case 2: // PowerOff
