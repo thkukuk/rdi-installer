@@ -20,7 +20,7 @@ const char *rdii_config = "/run/rdi-installer/rdii-config";
 const char *rdii_tmp_dir = NULL;
 const char *rdii_log = "/var/log/rdi-installer.log";
 
-static bool is_linux_vt(void)
+bool is_linux_vt(void)
   {
       char kbtype;
       int fd = open("/dev/tty", O_RDWR|O_CLOEXEC|O_NOCTTY);
