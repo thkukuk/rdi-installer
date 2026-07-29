@@ -2,10 +2,12 @@
 
 #include "config.h"
 
-#include <stdio.h>
 #include <getopt.h>
 #include <string.h>
 #include <libeconf.h>
+#include <linux/kd.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
 
 #include "basics.h"
 #include "rm_rf.h"
@@ -17,6 +19,17 @@
 const char *rdii_config = "/run/rdi-installer/rdii-config";
 const char *rdii_tmp_dir = NULL;
 const char *rdii_log = "/var/log/rdi-installer.log";
+
+static bool is_linux_vt(void)
+  {
+      char kbtype;
+      int fd = open("/dev/tty", O_RDWR|O_CLOEXEC|O_NOCTTY);
+      if (fd < 0)
+          return false;
+      int r = ioctl(fd, KDGKBTYPE, &kbtype);
+      close(fd);
+      return r >= 0;
+  }
 
 static econf_err
 read_config(const char *config, char **ret_device, char **ret_mdraid,
@@ -217,10 +230,10 @@ main(int argc, char **argv)
 
   if (keymap)
     {
-      if (!isatty(STDIN_FILENO))
+      if (is_linux_vt())
         set_keymap(keymap);
       else
-        MSG_WARN("Not running on console. Keymap will not be set.");
+        MSG_INFO("Not a Linux VT, skipping loadkeys");
     }
 
   const char *tmpdir_template = "/tmp/rdi-installer-XXXXXX";
