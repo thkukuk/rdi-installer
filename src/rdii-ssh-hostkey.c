@@ -267,56 +267,62 @@ copy_ssh_hostkeys(const char *src_dir, const char *dst_dir)
               return -r;
             }
 
-	  /* Allocate exact buffer size on the heap */
+          /* Allocate a buffer for the whole file; host keys are small.
+             Never call malloc(0), it may legally return NULL. */
           off_t file_size = st.st_size;
-          char *buf = malloc(file_size);
+          _cleanup_free_ char *buf = malloc(file_size > 0 ? file_size : 1);
           if (buf == NULL)
             {
-              int r = errno;
-              MSG_ERROR("Failed to allocate %ld bytes: %s",
-			(long)file_size, strerror(r));
-	      return -r;
-	    }
+              MSG_ERROR("Failed to allocate %lld bytes for '%s'",
+                        (long long)file_size, src_path);
+              return -ENOMEM;
+            }
 
           /* Read the entire file into memory */
-          ssize_t total_read = 0;
+          off_t total_read = 0;
           while (total_read < file_size)
             {
-               ssize_t nread = read(src_fd, buf + total_read,
-				    file_size - total_read);
-	       if (nread <= 0)
-                 {
-                   if (nread < 0)
-                     {
-                       int r = errno;
-		       MSG_ERROR("Failed to read from source: %s", strerror(r));
-		       free(buf);
-		       return -r;
-		     }
-		   break; /* Unexpected EOF (file may have shrunk) */
-		 }
-	       total_read += nread;
-	    }
+              ssize_t nread = read(src_fd, buf + total_read,
+                                   file_size - total_read);
+              if (nread < 0)
+                {
+                  if (errno == EINTR)
+                    continue; /* try again */
 
-	  /* Write the entire buffer in one go */
-	  ssize_t total_written = 0;
-	  while (total_written < total_read)
+                  int r = errno;
+                  MSG_ERROR("Failed to read from '%s': %s", src_path,
+                            strerror(r));
+                  return -r;
+                }
+              if (nread == 0)
+                {
+                  /* Unexpected EOF, the file shrunk after fstat(). Do not
+                     silently install a truncated host key. */
+                  MSG_ERROR("Short read on '%s': got %zd of %lld bytes",
+                            src_path, total_read, (long long)file_size);
+                  return -EIO;
+                }
+              total_read += nread;
+            }
+
+          /* Write the buffer back out */
+          ssize_t total_written = 0;
+          while (total_written < total_read)
             {
               ssize_t n = write(dst_fd, buf + total_written,
-				total_read - total_written);
-	      if (n < 0)
-		{
-                  int r = errno;
-		  MSG_ERROR("Failed to write to '%s': %s", dst_path,
-			    strerror(r));
-		  free(buf);
-		  return -r;
-		}
-	      total_written += n;
-	    }
+                                total_read - total_written);
+              if (n < 0)
+                {
+                  if (errno == EINTR)
+                    continue; /* try again */
 
-          /* Free allocated memory */
-	  free(buf);
+                  int r = errno;
+                  MSG_ERROR("Failed to write to '%s': %s", dst_path,
+                            strerror(r));
+                  return -r;
+                }
+              total_written += n;
+            }
 
           MSG_INFO("Copied SSH host key: %s", entry->d_name);
           copied++;

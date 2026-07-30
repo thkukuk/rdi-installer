@@ -78,6 +78,12 @@
           <para>
             Configures the key mapping table for the keyboard.
           </para>
+          <para>
+            The key mapping is only applied when
+            <command>rdi-installer</command> runs on a Linux virtual
+            console. On a serial console or a pseudo terminal the setting
+            is ignored and a message is written to the log file.
+          </para>
         </listitem>
       </varlistentry>
     </variablelist>

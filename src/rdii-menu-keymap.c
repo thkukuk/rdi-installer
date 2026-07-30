@@ -93,8 +93,15 @@ process_file(const char *fpath, const struct stat *sb _unused_,
 
   if (total_keymaps >= capacity_keymaps)
     {
-      capacity_keymaps = capacity_keymaps == 0 ? 128 : capacity_keymaps * 2;
-      all_keymaps = realloc(all_keymaps, capacity_keymaps * sizeof(char *));
+      int new_capacity = capacity_keymaps == 0 ? 128 : capacity_keymaps * 2;
+      char **tmp = realloc(all_keymaps, new_capacity * sizeof(char *));
+      if (!tmp)
+        {
+          MSG_ERROR("Out of memory!");
+          return -ENOMEM;
+        }
+      all_keymaps = tmp;
+      capacity_keymaps = new_capacity;
     }
 
   // Duplicate and clean the filename
