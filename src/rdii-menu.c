@@ -719,7 +719,7 @@ rdii_menu(const char *image0, const char *image1, const char *image2,
           image = image2;
           break;
         case -ECANCELED:
-	  endwin();
+          endwin();
           return 0;
 	default:
           MSG_ERROR("select_image() failed: %s", strerror(-r));
