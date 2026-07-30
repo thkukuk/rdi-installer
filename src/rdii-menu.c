@@ -470,16 +470,12 @@ show_post_menu(void)
 	{
 	case 0: // Reboot
 	  return exec_cmd("reboot", "reboot");
-	  break;
 	case 1: // Try Again/Next Image
 	  return 1;
-	  break;
 	case 2: // PowerOff
 	  return exec_cmd("poweroff", "poweroff");
-	  break;
 	case 3: // Exit
 	  return 0;
-	  break;
 	default:
 	  return -EIO;
 	}
@@ -736,22 +732,26 @@ rdii_menu(const char *image0, const char *image1, const char *image2,
   if (!isempty(image0) && (!isempty(image1) || !isempty(image2)))
     {
       r = select_image(image0, image1, image2);
-      if (r < 0)
-	{
-	  endwin();
-	  return r;
-	}
-      else if (r == 0)
-	image = image0;
-      else if (r == 1)
-	image = image1;
-      else if (r == 2)
-	image = image2;
-      else
-	{
-	  endwin();
-	  return -EPROTO; /* XXX better error handling */
-	}
+      switch(r)
+        {
+        case 0:
+          image = image0;
+          break;
+        case 1:
+          image = image1;
+          break;
+        case 2:
+          image = image2;
+          break;
+        case -ECANCELED:
+          endwin();
+          return 0;
+	default:
+          MSG_ERROR("select_image() failed: %s", strerror(-r));
+          show_error_popup("Internal Error", NULL, NULL);
+          endwin();
+          return r;
+        }
     }
   else
     image = image0;
