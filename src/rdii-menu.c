@@ -722,6 +722,7 @@ rdii_menu(const char *image0, const char *image1, const char *image2,
 	  endwin();
           return 0;
 	default:
+          MSG_ERROR("select_image() failed: %s", strerror(-r));
           show_error_popup("Internal Error", NULL, NULL);
           endwin();
           return r;
