@@ -5,9 +5,6 @@
 #include <getopt.h>
 #include <string.h>
 #include <libeconf.h>
-#include <linux/kd.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
 
 #include "basics.h"
 #include "rm_rf.h"
@@ -19,17 +16,6 @@
 const char *rdii_config = "/run/rdi-installer/rdii-config";
 const char *rdii_tmp_dir = NULL;
 const char *rdii_log = "/var/log/rdi-installer.log";
-
-bool is_linux_vt(void)
-  {
-      char kbtype;
-      int fd = open("/dev/tty", O_RDWR|O_CLOEXEC|O_NOCTTY);
-      if (fd < 0)
-          return false;
-      int r = ioctl(fd, KDGKBTYPE, &kbtype);
-      close(fd);
-      return r >= 0;
-  }
 
 static econf_err
 read_config(const char *config, char **ret_device, char **ret_mdraid,

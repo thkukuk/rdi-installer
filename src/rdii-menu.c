@@ -3,11 +3,14 @@
 #include "config.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <locale.h>
 #include <wchar.h>
+#include <linux/kd.h>
+#include <sys/ioctl.h>
 
 #include "basics.h"
 #include "mkdir_p.h"
@@ -17,6 +20,23 @@
 #include "zap_partition_table.h"
 
 #define TITLE "Raw Disk Installer Version " VERSION
+
+/* Returns true if the controlling terminal is a Linux virtual console.
+   Only there can the keyboard mapping be changed with loadkeys(1);
+   serial consoles and pseudo terminals fail KDGKBTYPE with ENOTTY. */
+bool
+is_linux_vt(void)
+{
+  char kbtype;
+
+  _cleanup_close_ int fd = open("/dev/tty", O_RDWR|O_CLOEXEC|O_NOCTTY);
+  if (fd < 0)
+    return false;
+
+  int r = ioctl(fd, KDGKBTYPE, &kbtype);
+  close(fd);
+  return r >= 0;
+}
 
 static void
 init_colors(void)
@@ -582,19 +602,19 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 	  break;
 	case 3: // Select Keymap
 	  {
-            if (is_linux_vt() ||
-		show_warning_popup ("Keymaps can only be configured directly on a console.", NULL,
-                                    "Continue?"))
-              {
-	        _cleanup_free_ char *keymap = NULL;
-	        if (select_keymap(&keymap) == 0)
-	          {
-                    keymap_entry = mfree(keymap_entry);
-                    if (asprintf(&keymap_entry, "Select Keymap (%s)",
-                        strna(keymap)) < 0)
-                      return -ENOMEM;
-                    options[selected] = keymap_entry;
-	          }
+	    if (is_linux_vt() ||
+		show_warning_popup("Keymaps can only be configured directly on a virtual console.",
+				   NULL, "Continue?"))
+	      {
+		_cleanup_free_ char *keymap = NULL;
+		if (select_keymap(&keymap) == 0)
+		  {
+		    keymap_entry = mfree(keymap_entry);
+		    if (asprintf(&keymap_entry, "Select Keymap (%s)",
+				 strna(keymap)) < 0)
+		      return -ENOMEM;
+		    options[selected] = keymap_entry;
+		  }
 	      }
 	  }
 	  break;

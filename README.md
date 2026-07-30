@@ -58,7 +58,7 @@ The options can be provided either via the kernel cmdline during boot or with a 
 | rdii.url  | http url/local file | Specifies a the URL or the filename under which the to be installed image can be downloaded |
 | rdii.device | /dev/... | Device on which the image should be installed |
 | rdii.mdraid | /dev/... | Second device together with rdii.device for MD Raid 1 |
-| rdii.keymap | name | Configures the key mapping table for the keyboard |
+| rdii.keymap | name | Configures the key mapping table for the keyboard. Only applied when running on a Linux virtual console; ignored on serial consoles and pseudo terminals |
 | rdii.preserve-ssh-hostkey | true/false/yes/no/1/0 | Preserves SSH host keys from the old installation and restores them to the new installation |
 
 With `rdii.url1` and `rdii.url2` additional images can be specified. At the start of `rdi-installer`, the user has to selected the one he wants to install.
