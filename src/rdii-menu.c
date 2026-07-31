@@ -41,6 +41,8 @@ is_linux_vt(void)
 static void
 init_colors(void)
 {
+  MSG_FUNC();
+
   start_color();
   use_default_colors();
 
@@ -72,6 +74,8 @@ keywait(int y, int x, const char *text, int sec)
   int elapsed_ms = 0;
   const char *msg = "Press any key...";
 
+  MSG_FUNC("y=%i, x=%i, text='%s', sec=%i", y, x, strempty(text), sec);
+
   if (text)
     msg = text;
 
@@ -92,7 +96,10 @@ keywait(int y, int x, const char *text, int sec)
 	mvprintw(y, x, "%s", msg);
       refresh();
       if (getch() != ERR)
-	break;
+	{
+	  MSG_INFO("keywait: key pressed");
+	  break;
+	}
       elapsed_ms += 100;
     }
 
@@ -107,6 +114,8 @@ show_splash_screen(void)
   int height = 7;
   int start_x = (COLS - width) / 2;
   int start_y = (LINES - height) / 2 - 2;
+
+  MSG_FUNC();
 
   clear();
   refresh();
@@ -150,6 +159,8 @@ show_splash_screen(void)
 void
 print_global_header_footer(const char *addkeys)
 {
+  MSG_FUNC("addkeys='%s'", strempty(addkeys));
+
   clear();
   // Draw Header (Green on Blue)
   attron(COLOR_PAIR(CP_HEADER) | A_BOLD);
@@ -171,6 +182,8 @@ print_global_header_footer(const char *addkeys)
 void
 print_title(const char *title)
 {
+  MSG_FUNC("title='%s'", title);
+
   attron(COLOR_PAIR(CP_TITLE));
   mvprintw(2, 2, "%s", title);
   attroff(COLOR_PAIR(CP_TITLE));
@@ -413,6 +426,9 @@ choose_entry(int row, const char *options[], int num_options, int start)
 {
   int selected = start;
 
+  MSG_FUNC("row=%i, options[0]='%s', num_options=%i, start=%i",
+	   row, options[0], num_options, start);
+
   while (1)
     {
       for (int i = 0; i < num_options; i++)
@@ -437,14 +453,22 @@ choose_entry(int row, const char *options[], int num_options, int start)
 
       int ch = getch();
       if (ch == 27) // 27 is the ASCII code for ESC
-	return -ECANCELED;
+	{
+	  MSG_INFO("Canceld with ESC");
+	  return -ECANCELED;
+	}
       else if (ch == KEY_UP)
 	selected = (selected - 1 + num_options) % num_options;
       else if (ch == KEY_DOWN)
 	selected = (selected + 1) % num_options;
       else if (ch == '\n' || ch == KEY_ENTER)
-	return selected;
+	{
+	  MSG_INFO("Selected entry %i", selected);
+	  return selected;
+	}
     }
+
+  MSG_ERROR("quit while loop without return!");
 
   // we should never reach this
   return -2;
@@ -462,6 +486,8 @@ show_post_menu(void)
   int num_options = sizeof(options) / sizeof(options[0]);
   int selected = 0;
 
+  MSG_FUNC();
+
   while (1)
     {
       print_global_header_footer(NULL);
@@ -469,14 +495,19 @@ show_post_menu(void)
       switch(selected)
 	{
 	case 0: // Reboot
+	  MSG_INFO("Calling exec_cmd(reboot)");
 	  return exec_cmd("reboot", "reboot");
 	case 1: // Try Again/Next Image
+	  MSG_INFO("Try Again/Next Image selected");
 	  return 1;
 	case 2: // PowerOff
+	  MSG_INFO("Calling exec_cmd(poweroff)");
 	  return exec_cmd("poweroff", "poweroff");
 	case 3: // Exit
+	  MSG_INFO("Quit");
 	  return 0;
 	default:
+	  MSG_WARN("Menu returned with %i", selected);
 	  return -EIO;
 	}
     }
@@ -688,6 +719,9 @@ select_image(const char *image1, const char *image2,
 {
   _cleanup_free_ char **options = NULL;
 
+  MSG_FUNC("image1='%s', image2='%s', image3='%s'",
+	   strempty(image1), strempty(image2), strempty(image3));
+
   options = calloc(3, sizeof(char *));
   if (!options)
     return -ENOMEM;
@@ -708,6 +742,8 @@ init_ncurses(void)
   // For correctly rendering the double borders
   setlocale(LC_ALL, "");
 
+  MSG_FUNC();
+
   // Initialize ncurses
   initscr();
   cbreak();
@@ -726,6 +762,10 @@ rdii_menu(const char *image0, const char *image1, const char *image2,
 {
   const char *image = NULL;
   int r;
+
+  MSG_FUNC("image0='%s', image1='%s', image2='%s', device='%s', mdraid='%s', preserve_ssh_hostkey=%i",
+	   strempty(image0), strempty(image1), strempty(image2),
+	   strempty(device), strempty(mdraid), preserve_ssh_hostkey);
 
   show_splash_screen();
 
