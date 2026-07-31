@@ -106,33 +106,101 @@ fix_partition_table(const char *device)
   return 0;
 }
 
-// XXX Add cleanup functions for close all_pipes and destroy actions
+static char * const *
+decompression(const char *url)
+{
+  static char *decomp_cat_args[] = { "cat", NULL };
+  static char *decomp_bz2_args[] = {"pbzip2", "-dc", NULL};
+  static char *decomp_gz_args[] = {"pigz", "-dc",  NULL};
+  static char *decomp_xz_args[] = {"xz", "-dc",  "-T0", NULL};
+  static char *decomp_zst_args[] = {"zstd", "-dc",  "-T0", NULL};
+
+  if (endswith(url, ".xz"))
+    return decomp_xz_args;
+  else if (endswith(url, ".zst"))
+    return decomp_zst_args;
+  else if (endswith(url, ".gz"))
+    return decomp_gz_args;
+  else if (endswith(url, ".bz2"))
+    return decomp_bz2_args;
+  else
+    return decomp_cat_args;
+}
+
+static void
+reset_all(int all_pipes[], const int all_pipe_size,
+        posix_spawn_file_actions_t fa[], const int fa_size)
+{
+  reset_prog_mode();
+  for (int i = 0; i < all_pipe_size; i++)
+    close(all_pipes[i]);
+  for (int i = 0; i < fa_size; i++)
+    posix_spawn_file_actions_destroy(&fa[i]);
+}
+
+static int
+wait_for_finish(pid_t pids[], const int pids_size)
+{
+  int first_error = 0;
+  // Wait for all processes to finish
+  for (int i = 0; i < pids_size; i++)
+    {
+      int status;
+
+      if (waitpid(pids[i], &status, 0) == -1)
+	{
+	  int r = errno;
+	  _cleanup_free_ char *err_msg = NULL;
+	  if (asprintf(&err_msg, "waitpid(%i) failed: %s\n", i, strerror(r)) < 0)
+            return -ENOMEM;
+          show_error_popup("Cannot finish installation correctly.",
+			   err_msg, NULL);
+	  return -r;
+	}
+
+      if (WIFEXITED(status))
+	{
+	  if (WEXITSTATUS(status) && first_error == 0)
+	    first_error = WEXITSTATUS(status);
+	}
+      else if (WIFSIGNALED(status))
+	{
+	  // ignore SIGPIPE, follow up error
+	  if (WTERMSIG(status) != 13)
+	    {
+              _cleanup_free_ char *err_msg = NULL;
+              if (asprintf(&err_msg, "Process %i killed by signal %d", i, WTERMSIG(status)) < 0)
+                return -ENOMEM;
+              show_error_popup("Cannot finish installation correctly.",
+                               err_msg, NULL);
+	      first_error = 1;
+	    }
+	}
+      else
+	{
+          _cleanup_free_ char *err_msg = NULL;
+          if (asprintf(&err_msg, "Process %i terminated abnormally", i) < 0)
+            return -ENOMEM;
+          show_error_popup("Cannot finish installation correctly.",
+                           err_msg, NULL);
+	  first_error = 1;
+	}
+    }
+
+  if (first_error)
+    keywait(LINES-3, 0, NULL, 0);
+
+  return -first_error;
+}
+
 static int
 write_net_image(const char *url, const char *device)
 {
-  char **decomp_args;
-  char *decomp_cat_args[] = { "cat", NULL };
-  char *decomp_bz2_args[] = {"pbzip2", "-dc", NULL};
-  char *decomp_gz_args[] = {"pigz", "-dc",  NULL};
-  char *decomp_xz_args[] = {"xz", "-dc",  "-T0", NULL};
-  char *decomp_zst_args[] = {"zstd", "-dc",  "-T0", NULL};
-
+  char * const *decomp_args = decompression(url);
   int p_wget_tee[2], p_tee_sha[2], p_tee_decomp[2], p_decomp_dd[2];
   int r;
 
   MSG_FUNC("url='%s', device='%s'", url, device);
-
-  if (endswith(url, ".xz"))
-    decomp_args = decomp_xz_args;
-  else if (endswith(url, ".zst"))
-    decomp_args = decomp_zst_args;
-  else if (endswith(url, ".gz"))
-    decomp_args = decomp_gz_args;
-  else if (endswith(url, ".bz2"))
-    decomp_args = decomp_bz2_args;
-  else
-    decomp_args = decomp_cat_args;
-
   MSG_INFO("decompressor=%s", decomp_args[0]);
 
   if (pipe(p_wget_tee) != 0 || pipe(p_tee_sha) != 0 ||
@@ -153,27 +221,25 @@ write_net_image(const char *url, const char *device)
       p_tee_decomp[0], p_tee_decomp[1],
       p_decomp_dd[0], p_decomp_dd[1]
     };
+  int all_pipe_size = (int)(sizeof(all_pipes) / sizeof(all_pipes[0]));
 
   pid_t pids[5];
+  int pids_size = (int)(sizeof(pids) / sizeof(pids[0]));
   posix_spawn_file_actions_t fa[5];
-  for (int i = 0; i < 5; i++)
+  int fa_size =  (int)(sizeof(fa) / sizeof(fa[0]));
+  for (int i = 0; i < fa_size; i++)
     posix_spawn_file_actions_init(&fa[i]);
 
   // Process 1: wget
   char *wget_args[] = {"wget", "--tries=5", "-q", "-O", "-", (char *)url, NULL};
   posix_spawn_file_actions_adddup2(&fa[0], p_wget_tee[1], STDOUT_FILENO);
-  for (int i = 0; i < 8; i++) // XXX calculate 8
+  for (int i = 0; i < all_pipe_size; i++)
     posix_spawn_file_actions_addclose(&fa[0], all_pipes[i]);
   reset_shell_mode();
   if (posix_spawnp(&pids[0], "wget", &fa[0], NULL, wget_args, environ) != 0)
     {
-      MSG_ERROR("Starting 'wget' failed: %s", strerror(errno));
-      reset_prog_mode();
-      keywait(LINES-3, 0, NULL, 0);
-      for (int i = 0; i < 8; i++)
-	close(all_pipes[i]);
-      for (int i = 0; i < 5; i++)
-	posix_spawn_file_actions_destroy(&fa[i]);
+      show_error_popup("Starting 'wget' failed: %s", strerror(errno), NULL);
+      reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
     }
 
@@ -185,7 +251,7 @@ write_net_image(const char *url, const char *device)
 
   posix_spawn_file_actions_adddup2(&fa[1], p_wget_tee[0], STDIN_FILENO);
   posix_spawn_file_actions_adddup2(&fa[1], p_tee_sha[1], STDOUT_FILENO);
-  for (int i = 0; i < 8; i++)
+  for (int i = 0; i < all_pipe_size; i++)
     {
       // Crucial: Leave p_tee_decomp[1] open so tee can write to it via /dev/fd/...
       if (all_pipes[i] != p_tee_decomp[1])
@@ -193,30 +259,20 @@ write_net_image(const char *url, const char *device)
     }
   if (posix_spawnp(&pids[1], "tee", &fa[1], NULL, tee_args, environ) != 0)
     {
-      MSG_ERROR("Starting 'tee' failed: %s", strerror(errno));
-      reset_prog_mode();
-      keywait(LINES-3, 0, NULL, 0);
-      for (int i = 0; i < 8; i++)
-	close(all_pipes[i]);
-      for (int i = 0; i < 5; i++)
-	posix_spawn_file_actions_destroy(&fa[i]);
+      show_error_popup("Starting 'tee' failed: %s", strerror(errno), NULL);
+      reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
     }
 
   // Process 3: decompressor
   posix_spawn_file_actions_adddup2(&fa[2], p_tee_decomp[0], STDIN_FILENO);
   posix_spawn_file_actions_adddup2(&fa[2], p_decomp_dd[1], STDOUT_FILENO);
-  for (int i = 0; i < 8; i++)
+  for (int i = 0; i < all_pipe_size; i++)
     posix_spawn_file_actions_addclose(&fa[2], all_pipes[i]);
   if (posix_spawnp(&pids[2], decomp_args[0], &fa[2], NULL, decomp_args, environ) != 0)
     {
-      MSG_ERROR("Starting '%s' failed: %s", decomp_args[0], strerror(errno));
-      reset_prog_mode();
-      keywait(LINES-3, 0, NULL, 0);
-      for (int i = 0; i < 8; i++)
-	close(all_pipes[i]);
-      for (int i = 0; i < 5; i++)
-	posix_spawn_file_actions_destroy(&fa[i]);
+      show_error_popup("Starting '%s' failed: %s", decomp_args[0], strerror(errno));
+      reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
     }
 
@@ -226,17 +282,12 @@ write_net_image(const char *url, const char *device)
     return -ENOMEM;
   char *dd_args[] = {"dd", dd_of_arg, "status=progress", "conv=fsync", "oflag=direct", NULL};
   posix_spawn_file_actions_adddup2(&fa[3], p_decomp_dd[0], STDIN_FILENO);
-  for (int i = 0; i < 8; i++)
+  for (int i = 0; i < all_pipe_size; i++)
     posix_spawn_file_actions_addclose(&fa[3], all_pipes[i]);
   if (posix_spawnp(&pids[3], "dd", &fa[3], NULL, dd_args, environ) != 0)
     {
-      MSG_ERROR("Starting 'dd' failed: %s", strerror(errno));
-      reset_prog_mode();
-      keywait(LINES-3, 0, NULL, 0);
-      for (int i = 0; i < 8; i++)
-	close(all_pipes[i]);
-      for (int i = 0; i < 5; i++)
-	posix_spawn_file_actions_destroy(&fa[i]);
+      show_error_popup("Starting 'dd' failed: %s", strerror(errno), NULL);
+      reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
     }
 
@@ -248,101 +299,29 @@ write_net_image(const char *url, const char *device)
   posix_spawn_file_actions_adddup2(&fa[4], p_tee_sha[0], STDIN_FILENO);
   posix_spawn_file_actions_addopen(&fa[4], STDOUT_FILENO, written_sha256_fn,
 				   O_WRONLY | O_CREAT | O_TRUNC, 0644);
-  for (int i = 0; i < 8; i++)
+  for (int i = 0; i < all_pipe_size; i++)
     posix_spawn_file_actions_addclose(&fa[4], all_pipes[i]);
   if (posix_spawnp(&pids[4], "sha256sum", &fa[4], NULL, sha_args, environ) != 0)
     {
-      MSG_ERROR("Starting 'sha256sum' failed: %s", strerror(errno));
-      reset_prog_mode();
-      keywait(LINES-3, 0, NULL, 0);
-      for (int i = 0; i < 8; i++)
-	close(all_pipes[i]);
-      for (int i = 0; i < 5; i++)
-	posix_spawn_file_actions_destroy(&fa[i]);
+      show_error_popup("Starting 'sha256sum' failed: %s", strerror(errno), NULL);
+      reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
     }
 
   // Close its copies of the pipes so the childs don't hang waiting for EOF
-  for (int i = 0; i < 8; i++)
-    close(all_pipes[i]);
-  for (int i = 0; i < 5; i++)
-    posix_spawn_file_actions_destroy(&fa[i]);
+  reset_all(all_pipes, all_pipe_size, fa, fa_size);
 
-  int first_error = 0;
-  // Wait for all processes to finish
-  for (int i = 0; i < 5; i++)
-    {
-      int status;
-
-      if (waitpid(pids[i], &status, 0) == -1)
-	{
-	  r = errno;
-	  _cleanup_free_ char *err_msg = NULL;
-
-          reset_prog_mode();
-	  if (asprintf(&err_msg, "waitpid(%i) failed: %s\n", i, strerror(r)) < 0)
-            return -ENOMEM;
-          show_error_popup("Cannot finish image download correct.",
-			   err_msg, NULL);
-	  return -r;
-	}
-
-      if (WIFEXITED(status))
-	{
-	  if (WEXITSTATUS(status) && first_error == 0)
-	    first_error = WEXITSTATUS(status);
-	}
-      else if (WIFSIGNALED(status))
-	{
-	  // ignore SIGPIPE, follow up error
-	  if (WTERMSIG(status) != 13)
-	    {
-	      MSG_ERROR("Process %i killed by signal %d", i, WTERMSIG(status));
-	      first_error = 1;
-	    }
-	}
-      else
-	{
-	  MSG_ERROR("Process %i terminated abnormally", i); // XXX
-	  first_error = 1;
-	}
-    }
-
-  reset_prog_mode();
-  if (first_error)
-    keywait(LINES-3, 0, NULL, 0);
-
-  return -first_error;
+  return wait_for_finish(pids, pids_size);
 }
 
-// XXX Add cleanup functions for close all_pipes and destroy actions
 static int
 write_local_image(const char *file, const char *device)
 {
-  // XXX share with write_net_image
-  char **decomp_args;
-  char *decomp_cat_args[] = { "cat", NULL };
-  char *decomp_bz2_args[] = {"pbzip2", "-dc", NULL};
-  char *decomp_gz_args[] = {"pigz", "-dc",  NULL};
-  char *decomp_xz_args[] = {"xz", "-dc",  "-T0", NULL};
-  char *decomp_zst_args[] = {"zstd", "-dc",  "-T0", NULL};
-
+  char * const *decomp_args = decompression(file);
   int p_pv_decomp[2], p_decomp_dd[2];
   int r;
 
   MSG_FUNC("file='%s', device='%s'", file, device);
-
-  if (endswith(file, ".xz"))
-    decomp_args = decomp_xz_args;
-  else if (endswith(file, ".zst"))
-    decomp_args = decomp_zst_args;
-  else if (endswith(file, ".gz"))
-    decomp_args = decomp_gz_args;
-  else if (endswith(file, ".bz2"))
-    decomp_args = decomp_bz2_args;
-  else
-    decomp_args = decomp_cat_args;
-
   MSG_INFO("decompressor=%s", decomp_args[0]);
 
   if (pipe(p_pv_decomp) != 0 || pipe(p_decomp_dd) != 0)
@@ -360,44 +339,37 @@ write_local_image(const char *file, const char *device)
       p_pv_decomp[0], p_pv_decomp[1],
       p_decomp_dd[0], p_decomp_dd[1]
     };
+  int all_pipe_size = (int)(sizeof(all_pipes) / sizeof(all_pipes[0]));
 
   pid_t pids[3];
+  int pids_size = (int)(sizeof(pids) / sizeof(pids[0]));
   posix_spawn_file_actions_t fa[3];
-  for (int i = 0; i < 3; i++)
+  int fa_size = (int)(sizeof(fa) / sizeof(fa[0]));
+  for (int i = 0; i < fa_size; i++)
     posix_spawn_file_actions_init(&fa[i]);
 
   // Process 1: pv
   char *pv_args[] = {"pv", (char *)file, NULL};
   posix_spawn_file_actions_adddup2(&fa[0], p_pv_decomp[1], STDOUT_FILENO);
-  for (int i = 0; i < 4; i++) // XXX calculate 4
+  for (long unsigned int i = 0; i < (sizeof(all_pipes) / sizeof(all_pipes[0])); i++)
     posix_spawn_file_actions_addclose(&fa[0], all_pipes[i]);
   reset_shell_mode();
   if (posix_spawnp(&pids[0], "pv", &fa[0], NULL, pv_args, environ) != 0)
     {
-      MSG_ERROR("Starting 'pv' failed: %s", strerror(errno));
-      reset_prog_mode();
-      keywait(LINES-3, 0, NULL, 0);
-      for (int i = 0; i < 4; i++)
-	close(all_pipes[i]);
-      for (int i = 0; i < 3; i++)
-	posix_spawn_file_actions_destroy(&fa[i]);
+      show_error_popup("Starting 'pv' failed: %s", strerror(errno), NULL);
+      reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
     }
 
   // Process 2: decompressor
   posix_spawn_file_actions_adddup2(&fa[1], p_pv_decomp[0], STDIN_FILENO);
   posix_spawn_file_actions_adddup2(&fa[1], p_decomp_dd[1], STDOUT_FILENO);
-  for (int i = 0; i < 4; i++)
+  for (int i = 0; i < all_pipe_size; i++)
     posix_spawn_file_actions_addclose(&fa[1], all_pipes[i]);
   if (posix_spawnp(&pids[1], decomp_args[0], &fa[1], NULL, decomp_args, environ) != 0)
     {
-      MSG_ERROR("Starting '%s' failed: %s", decomp_args[0], strerror(errno));
-      reset_prog_mode();
-      keywait(LINES-3, 0, NULL, 0);
-      for (int i = 0; i < 4; i++)
-	close(all_pipes[i]);
-      for (int i = 0; i < 3; i++)
-	posix_spawn_file_actions_destroy(&fa[i]);
+      show_error_popup("Starting '%s' failed: %s", decomp_args[0], strerror(errno));
+      reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
     }
 
@@ -407,66 +379,19 @@ write_local_image(const char *file, const char *device)
     return -ENOMEM;
   char *dd_args[] = {"dd", dd_of_arg, "bs=4M", "conv=fsync", "oflag=direct", NULL};
   posix_spawn_file_actions_adddup2(&fa[2], p_decomp_dd[0], STDIN_FILENO);
-  for (int i = 0; i < 4; i++)
+  for (int i = 0; i < all_pipe_size; i++)
     posix_spawn_file_actions_addclose(&fa[2], all_pipes[i]);
   if (posix_spawnp(&pids[2], "dd", &fa[2], NULL, dd_args, environ) != 0)
     {
-      MSG_ERROR("Starting 'dd' failed: %s", strerror(errno));
-      reset_prog_mode();
-      keywait(LINES-3, 0, NULL, 0);
-      for (int i = 0; i < 4; i++)
-	close(all_pipes[i]);
-      for (int i = 0; i < 3; i++)
-	posix_spawn_file_actions_destroy(&fa[i]);
+      show_error_popup("Starting 'dd' failed: %s", strerror(errno), NULL);
+      reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
     }
 
   // Close its copies of the pipes so the childs don't hang waiting for EOF
-  for (int i = 0; i < 4; i++)
-    close(all_pipes[i]);
-  for (int i = 0; i < 3; i++)
-    posix_spawn_file_actions_destroy(&fa[i]);
+  reset_all(all_pipes, all_pipe_size, fa, fa_size);
 
-  int first_error = 0;
-  // Wait for all processes to finish
-  for (int i = 0; i < 3; i++)
-    {
-      int status;
-
-      if (waitpid(pids[i], &status, 0) == -1)
-	{
-	  r = errno;
-	  MSG_ERROR("waitpid(%i) failed: %s", i, strerror(r)); // XXX show_error
-	  reset_prog_mode();
-	  return -r;
-	}
-
-      if (WIFEXITED(status))
-	{
-	  if (WEXITSTATUS(status) && first_error == 0)
-	    first_error = WEXITSTATUS(status);
-	}
-      else if (WIFSIGNALED(status))
-	{
-	  // ignore SIGPIPE, follow up error
-	  if (WTERMSIG(status) != 13)
-	    {
-	      MSG_ERROR("Process %i killed by signal %d", i, WTERMSIG(status));
-	      first_error = 1;
-	    }
-	}
-      else
-	{
-	  MSG_ERROR("Process %i terminated abnormally", i); // XXX
-	  first_error = 1;
-	}
-    }
-
-  reset_prog_mode();
-  if (first_error)
-    keywait(LINES-3, 0, NULL, 0);
-
-  return -first_error;
+  return wait_for_finish(pids, pids_size);
 }
 
 static bool
@@ -743,9 +668,14 @@ run_installation(const char *url, const char *device, const char *mdraid,
 	    }
 	  else
 	    {
+              _cleanup_free_ char *ret = NULL;
 	      MSG_ERROR("mdadm failed with exit code %i", r);
-	      show_error_popup("mdadm failed with exit code",
-			       NULL, NULL); // XXX print r like itoa(r)
+              if (asprintf(&ret, "%i", r) > 0)
+                show_error_popup("mdadm failed with exit code",
+                                 ret, NULL);
+              else
+                show_error_popup("mdadm failed with exit code",
+                                 NULL, NULL);
 	    }
 	  return false;
 	}
