@@ -4,6 +4,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -128,13 +129,46 @@ decompression(const char *url)
 }
 
 static void
-reset_all(int all_pipes[], const int all_pipe_size,
-        posix_spawn_file_actions_t fa[], const int fa_size)
+cleanup_pipes_and_actions(int all_pipes[], const int all_pipe_size,
+                          posix_spawn_file_actions_t fa[], const int fa_size)
 {
   for (int i = 0; i < all_pipe_size; i++)
     close(all_pipes[i]);
   for (int i = 0; i < fa_size; i++)
     posix_spawn_file_actions_destroy(&fa[i]);
+}
+
+// Terminate and reap the processes which have already been started when
+// setting up the pipeline fails half way through. Without this they would
+// keep running and end up as zombies, as nobody will ever wait for them.
+static void
+kill_and_reap(pid_t pids[], const int spawned)
+{
+  for (int i = 0; i < spawned; i++)
+    {
+      if (kill(pids[i], SIGKILL) != 0 && errno != ESRCH)
+	MSG_ERROR("Cannot kill process %i: %s", i, strerror(errno));
+
+      while (waitpid(pids[i], NULL, 0) == -1)
+	{
+	  if (errno == EINTR)
+	    continue;
+	  MSG_ERROR("waitpid(%i) failed: %s", i, strerror(errno));
+	  break;
+	}
+    }
+}
+
+// Cleanup after an error while setting up the pipeline. The pipes are closed
+// first, so that the already running processes get EOF or SIGPIPE and have a
+// chance to terminate on their own before they get killed.
+static void
+cleanup_after_error(int all_pipes[], const int all_pipe_size,
+		    posix_spawn_file_actions_t fa[], const int fa_size,
+		    pid_t pids[], const int spawned)
+{
+  cleanup_pipes_and_actions(all_pipes, all_pipe_size, fa, fa_size);
+  kill_and_reap(pids, spawned);
 }
 
 static int
@@ -165,7 +199,7 @@ wait_for_finish(pid_t pids[], const int pids_size)
       else if (WIFSIGNALED(status))
 	{
 	  // ignore SIGPIPE, follow up error
-	  if (WTERMSIG(status) != 13)
+	  if (WTERMSIG(status) != SIGPIPE)
 	    {
               _cleanup_free_ char *err_msg = NULL;
               if (asprintf(&err_msg, "Process %i killed by signal %d", i, WTERMSIG(status)) < 0)
@@ -185,7 +219,6 @@ wait_for_finish(pid_t pids[], const int pids_size)
 	  first_error = 1;
 	}
     }
-
   reset_prog_mode();
   if (first_error)
     keywait(LINES-3, 0, NULL, 0);
@@ -224,14 +257,17 @@ write_net_image(const char *url, const char *device)
       p_tee_decomp[0], p_tee_decomp[1],
       p_decomp_dd[0], p_decomp_dd[1]
     };
-  int all_pipe_size = (int)(sizeof(all_pipes) / sizeof(all_pipes[0]));
+  const int all_pipe_size = (int)(sizeof(all_pipes) / sizeof(all_pipes[0]));
 
   pid_t pids[5];
-  int pids_size = (int)(sizeof(pids) / sizeof(pids[0]));
+  const int pids_size = (int)(sizeof(pids) / sizeof(pids[0]));
   posix_spawn_file_actions_t fa[5];
-  int fa_size =  (int)(sizeof(fa) / sizeof(fa[0]));
+  const int fa_size =  (int)(sizeof(fa) / sizeof(fa[0]));
   for (int i = 0; i < fa_size; i++)
     posix_spawn_file_actions_init(&fa[i]);
+
+  // Number of processes started so far, needed to clean them up on error
+  int spawned = 0;
 
   // Process 1: wget
   char *wget_args[] = {"wget", "--tries=5", "-q", "-O", "-", (char *)url, NULL};
@@ -243,17 +279,24 @@ write_net_image(const char *url, const char *device)
     {
        _cleanup_free_ char *msg = NULL;
       if (asprintf(&msg, "Starting 'wget' failed: %s", strerror(errno)) < 0)
-        return -ENOMEM;
-      show_error_popup(msg, NULL, NULL);
+        {
+          cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
+          return -ENOMEM;
+        }
       reset_prog_mode();
-      reset_all(all_pipes, all_pipe_size, fa, fa_size);
+      show_error_popup("Cannot start installation.", msg, NULL);
+      cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
       return -1;
     }
+  spawned++;
 
   // Process 2: tee
   _cleanup_free_ char *dev_fd_path = NULL;
   if (asprintf(&dev_fd_path, "/dev/fd/%d", p_tee_decomp[1]) < 0)
-    return -ENOMEM;
+    {
+      cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
+      return -ENOMEM;
+    }
   char *tee_args[] = {"tee", dev_fd_path, NULL};
 
   posix_spawn_file_actions_adddup2(&fa[1], p_wget_tee[0], STDIN_FILENO);
@@ -268,12 +311,16 @@ write_net_image(const char *url, const char *device)
     {
        _cleanup_free_ char *msg = NULL;
       if (asprintf(&msg, "Starting 'tee' failed: %s", strerror(errno)) < 0)
-        return -ENOMEM;
-      show_error_popup(msg, NULL, NULL);
+        {
+          cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
+          return -ENOMEM;
+        }
       reset_prog_mode();
-      reset_all(all_pipes, all_pipe_size, fa, fa_size);
+      show_error_popup("Cannot start installation.", msg, NULL);
+      cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
       return -1;
     }
+  spawned++;
 
   // Process 3: decompressor
   posix_spawn_file_actions_adddup2(&fa[2], p_tee_decomp[0], STDIN_FILENO);
@@ -284,17 +331,24 @@ write_net_image(const char *url, const char *device)
     {
        _cleanup_free_ char *msg = NULL;
       if (asprintf(&msg, "Starting '%s' failed: %s", decomp_args[0], strerror(errno)) < 0)
-        return -ENOMEM;
-      show_error_popup(msg, NULL, NULL);
+        {
+          cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
+          return -ENOMEM;
+        }
       reset_prog_mode();
-      reset_all(all_pipes, all_pipe_size, fa, fa_size);
+      show_error_popup("Cannot start installation.", msg, NULL);
+      cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
       return -1;
     }
+  spawned++;
 
   // Process 4: dd
   _cleanup_free_ char *dd_of_arg = NULL;
   if (asprintf(&dd_of_arg, "of=%s", device) < 0)
-    return -ENOMEM;
+    {
+      cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
+      return -ENOMEM;
+    }
   char *dd_args[] = {"dd", dd_of_arg, "status=progress", "conv=fsync", "oflag=direct", NULL};
   posix_spawn_file_actions_adddup2(&fa[3], p_decomp_dd[0], STDIN_FILENO);
   for (int i = 0; i < all_pipe_size; i++)
@@ -303,18 +357,25 @@ write_net_image(const char *url, const char *device)
     {
        _cleanup_free_ char *msg = NULL;
       if (asprintf(&msg, "Starting 'dd' failed: %s", strerror(errno)) < 0)
-        return -ENOMEM;
-      show_error_popup(msg, NULL, NULL);
+        {
+          cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
+          return -ENOMEM;
+        }
       reset_prog_mode();
-      reset_all(all_pipes, all_pipe_size, fa, fa_size);
+      show_error_popup("Cannot start installation.", msg, NULL);
+      cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
       return -1;
     }
+  spawned++;
 
   // Process 5: sha256sum
   char *sha_args[] = {"sha256sum", NULL};
   _cleanup_free_ char *written_sha256_fn = NULL;
   if (asprintf(&written_sha256_fn, "%s/written.sha256", rdii_tmp_dir) < 0)
-    return -ENOMEM;
+    {
+      cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
+      return -ENOMEM;
+    }
   posix_spawn_file_actions_adddup2(&fa[4], p_tee_sha[0], STDIN_FILENO);
   posix_spawn_file_actions_addopen(&fa[4], STDOUT_FILENO, written_sha256_fn,
 				   O_WRONLY | O_CREAT | O_TRUNC, 0644);
@@ -324,15 +385,18 @@ write_net_image(const char *url, const char *device)
     {
        _cleanup_free_ char *msg = NULL;
       if (asprintf(&msg, "Starting 'sha256sum' failed: %s", strerror(errno)) < 0)
-        return -ENOMEM;
-      show_error_popup(msg, NULL, NULL);
+        {
+          cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
+          return -ENOMEM;
+        }
       reset_prog_mode();
-      reset_all(all_pipes, all_pipe_size, fa, fa_size);
+      show_error_popup("Cannot start installation.", msg, NULL);
+      cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
       return -1;
     }
 
   // Close its copies of the pipes so the childs don't hang waiting for EOF
-  reset_all(all_pipes, all_pipe_size, fa, fa_size);
+  cleanup_pipes_and_actions(all_pipes, all_pipe_size, fa, fa_size);
 
   return wait_for_finish(pids, pids_size);
 }
@@ -365,31 +429,38 @@ write_local_image(const char *file, const char *device)
       p_pv_decomp[0], p_pv_decomp[1],
       p_decomp_dd[0], p_decomp_dd[1]
     };
-  int all_pipe_size = (int)(sizeof(all_pipes) / sizeof(all_pipes[0]));
+  const int all_pipe_size = (int)(sizeof(all_pipes) / sizeof(all_pipes[0]));
 
   pid_t pids[3];
-  int pids_size = (int)(sizeof(pids) / sizeof(pids[0]));
+  const int pids_size = (int)(sizeof(pids) / sizeof(pids[0]));
   posix_spawn_file_actions_t fa[3];
-  int fa_size = (int)(sizeof(fa) / sizeof(fa[0]));
+  const int fa_size = (int)(sizeof(fa) / sizeof(fa[0]));
   for (int i = 0; i < fa_size; i++)
     posix_spawn_file_actions_init(&fa[i]);
+
+  // Number of processes started so far, needed to clean them up on error
+  int spawned = 0;
 
   // Process 1: pv
   char *pv_args[] = {"pv", (char *)file, NULL};
   posix_spawn_file_actions_adddup2(&fa[0], p_pv_decomp[1], STDOUT_FILENO);
-  for (long unsigned int i = 0; i < (sizeof(all_pipes) / sizeof(all_pipes[0])); i++)
+  for (int i = 0; i < all_pipe_size; i++)
     posix_spawn_file_actions_addclose(&fa[0], all_pipes[i]);
   reset_shell_mode();
   if (posix_spawnp(&pids[0], "pv", &fa[0], NULL, pv_args, environ) != 0)
     {
       _cleanup_free_ char *msg = NULL;
       if (asprintf(&msg, "Starting 'pv' failed: %s", strerror(errno)) < 0)
-        return -ENOMEM;
-      show_error_popup(msg, NULL, NULL);
+        {
+          cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
+          return -ENOMEM;
+        }
       reset_prog_mode();
-      reset_all(all_pipes, all_pipe_size, fa, fa_size);
+      show_error_popup("Cannot start installation.", msg, NULL);
+      cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
       return -1;
     }
+  spawned++;
 
   // Process 2: decompressor
   posix_spawn_file_actions_adddup2(&fa[1], p_pv_decomp[0], STDIN_FILENO);
@@ -400,17 +471,24 @@ write_local_image(const char *file, const char *device)
     {
       _cleanup_free_ char *msg = NULL;
       if (asprintf(&msg, "Starting '%s' failed: %s", decomp_args[0], strerror(errno)) < 0)
-        return -ENOMEM;
-      show_error_popup(msg, NULL, NULL);
+        {
+          cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
+          return -ENOMEM;
+        }
       reset_prog_mode();
-      reset_all(all_pipes, all_pipe_size, fa, fa_size);
+      show_error_popup("Cannot start installation.", msg, NULL);
+      cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
       return -1;
     }
+  spawned++;
 
   // Process 3: dd
   _cleanup_free_ char *dd_of_arg = NULL;
   if (asprintf(&dd_of_arg, "of=%s", device) < 0)
-    return -ENOMEM;
+    {
+      cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
+      return -ENOMEM;
+    }
   char *dd_args[] = {"dd", dd_of_arg, "bs=4M", "conv=fsync", "oflag=direct", NULL};
   posix_spawn_file_actions_adddup2(&fa[2], p_decomp_dd[0], STDIN_FILENO);
   for (int i = 0; i < all_pipe_size; i++)
@@ -419,15 +497,18 @@ write_local_image(const char *file, const char *device)
     {
       _cleanup_free_ char *msg = NULL;
       if (asprintf(&msg, "Starting 'dd' failed: %s", strerror(errno)) < 0)
-        return -ENOMEM;
-      show_error_popup(msg, NULL, NULL);
+        {
+          cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
+          return -ENOMEM;
+        }
       reset_prog_mode();
-      reset_all(all_pipes, all_pipe_size, fa, fa_size);
+      show_error_popup("Cannot start installation.", msg, NULL);
+      cleanup_after_error(all_pipes, all_pipe_size, fa, fa_size, pids, spawned);
       return -1;
     }
 
   // Close its copies of the pipes so the childs don't hang waiting for EOF
-  reset_all(all_pipes, all_pipe_size, fa, fa_size);
+  cleanup_pipes_and_actions(all_pipes, all_pipe_size, fa, fa_size);
 
   return wait_for_finish(pids, pids_size);
 }
@@ -708,7 +789,7 @@ run_installation(const char *url, const char *device, const char *mdraid,
 	    {
               _cleanup_free_ char *ret = NULL;
               if (asprintf(&ret, "mdadm failed with exit code %i", r) > 0)
-                show_error_popup(ret, NULL,NULL);
+                show_error_popup(ret, NULL, NULL);
               else
                 show_error_popup("mdadm failed with exit code",
                                  NULL, NULL);
