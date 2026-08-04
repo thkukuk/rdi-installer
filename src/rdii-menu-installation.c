@@ -131,7 +131,6 @@ static void
 reset_all(int all_pipes[], const int all_pipe_size,
         posix_spawn_file_actions_t fa[], const int fa_size)
 {
-  reset_prog_mode();
   for (int i = 0; i < all_pipe_size; i++)
     close(all_pipes[i]);
   for (int i = 0; i < fa_size; i++)
@@ -187,6 +186,7 @@ wait_for_finish(pid_t pids[], const int pids_size)
 	}
     }
 
+  reset_prog_mode();
   if (first_error)
     keywait(LINES-3, 0, NULL, 0);
 
@@ -239,6 +239,7 @@ write_net_image(const char *url, const char *device)
   if (posix_spawnp(&pids[0], "wget", &fa[0], NULL, wget_args, environ) != 0)
     {
       show_error_popup("Starting 'wget' failed: %s", strerror(errno), NULL);
+      reset_prog_mode();
       reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
     }
@@ -260,6 +261,7 @@ write_net_image(const char *url, const char *device)
   if (posix_spawnp(&pids[1], "tee", &fa[1], NULL, tee_args, environ) != 0)
     {
       show_error_popup("Starting 'tee' failed: %s", strerror(errno), NULL);
+      reset_prog_mode();
       reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
     }
@@ -272,6 +274,7 @@ write_net_image(const char *url, const char *device)
   if (posix_spawnp(&pids[2], decomp_args[0], &fa[2], NULL, decomp_args, environ) != 0)
     {
       show_error_popup("Starting '%s' failed: %s", decomp_args[0], strerror(errno));
+      reset_prog_mode();
       reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
     }
@@ -287,6 +290,7 @@ write_net_image(const char *url, const char *device)
   if (posix_spawnp(&pids[3], "dd", &fa[3], NULL, dd_args, environ) != 0)
     {
       show_error_popup("Starting 'dd' failed: %s", strerror(errno), NULL);
+      reset_prog_mode();
       reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
     }
@@ -304,6 +308,7 @@ write_net_image(const char *url, const char *device)
   if (posix_spawnp(&pids[4], "sha256sum", &fa[4], NULL, sha_args, environ) != 0)
     {
       show_error_popup("Starting 'sha256sum' failed: %s", strerror(errno), NULL);
+      reset_prog_mode();
       reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
     }
@@ -357,6 +362,7 @@ write_local_image(const char *file, const char *device)
   if (posix_spawnp(&pids[0], "pv", &fa[0], NULL, pv_args, environ) != 0)
     {
       show_error_popup("Starting 'pv' failed: %s", strerror(errno), NULL);
+      reset_prog_mode();
       reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
     }
@@ -369,6 +375,7 @@ write_local_image(const char *file, const char *device)
   if (posix_spawnp(&pids[1], decomp_args[0], &fa[1], NULL, decomp_args, environ) != 0)
     {
       show_error_popup("Starting '%s' failed: %s", decomp_args[0], strerror(errno));
+      reset_prog_mode();
       reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
     }
@@ -384,6 +391,7 @@ write_local_image(const char *file, const char *device)
   if (posix_spawnp(&pids[2], "dd", &fa[2], NULL, dd_args, environ) != 0)
     {
       show_error_popup("Starting 'dd' failed: %s", strerror(errno), NULL);
+      reset_prog_mode();
       reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
     }
@@ -669,10 +677,8 @@ run_installation(const char *url, const char *device, const char *mdraid,
 	  else
 	    {
               _cleanup_free_ char *ret = NULL;
-	      MSG_ERROR("mdadm failed with exit code %i", r);
-              if (asprintf(&ret, "%i", r) > 0)
-                show_error_popup("mdadm failed with exit code",
-                                 ret, NULL);
+              if (asprintf(&ret, "mdadm failed with exit code %i", r) > 0)
+                show_error_popup(ret, NULL,NULL);
               else
                 show_error_popup("mdadm failed with exit code",
                                  NULL, NULL);
