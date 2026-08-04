@@ -32,7 +32,12 @@ url_is_valid(const char *url, const char **error)
   CURLcode res;
   bool is_valid = false;
 
-  curl_global_init(CURL_GLOBAL_DEFAULT); // XXX Don't ignore return code
+  res = curl_global_init(CURL_GLOBAL_DEFAULT);
+  if (res != CURLE_OK)
+    {
+      *error = curl_easy_strerror(res);
+      return false;
+    }
 
   curl = curl_easy_init();
   if(curl)
