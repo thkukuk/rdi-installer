@@ -59,10 +59,12 @@ if [ "$ENABLE_SSH" -eq 1 ]; then
     if [ -n "$SSH_PUB_KEY_B64" ]; then
         echo "Deploying SSH Public Key..."
 
-        # Create .ssh directory with correct permissions
-        mkdir -m 0700 /root/.ssh
-
+	if [ ! -d /root/.ssh ]; then
+            # Create .ssh directory with correct permissions
+            mkdir -p -m 0700 /root/.ssh
+        fi
 	if [ ! -f /root/.ssh/authorized_keys ]; then
+	    # avoid a race/window where the file would briefly exist with default permissions
 	    install -m 600 /dev/null /root/.ssh/authorized_keys
 	fi
         echo "$SSH_PUB_KEY_B64" | base64 -d >> /root/.ssh/authorized_keys
