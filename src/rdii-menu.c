@@ -485,6 +485,7 @@ show_post_menu(void)
   };
   int num_options = sizeof(options) / sizeof(options[0]);
   int selected = 0;
+  int r;
 
   MSG_FUNC();
 
@@ -496,13 +497,19 @@ show_post_menu(void)
 	{
 	case 0: // Reboot
 	  MSG_INFO("Calling exec_cmd(reboot)");
-	  return exec_cmd("reboot", "reboot");
+	  r = exec_cmd("reboot", "reboot", NULL);
+	  if (r != 0)
+	    keywait(LINES-3, 0, NULL, 0);
+	  return r;
 	case 1: // Try Again/Next Image
 	  MSG_INFO("Try Again/Next Image selected");
 	  return 1;
 	case 2: // PowerOff
 	  MSG_INFO("Calling exec_cmd(poweroff)");
-	  return exec_cmd("poweroff", "poweroff");
+	  r = exec_cmd("poweroff", "poweroff", NULL);
+	  if (r != 0)
+	    keywait(LINES-3, 0, NULL, 0);
+	  return r;
 	case 3: // Exit
 	  MSG_INFO("Quit");
 	  return 0;
@@ -539,6 +546,7 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
   };
   int num_options = sizeof(options) / sizeof(options[0]);
   int selected = 0;
+  int r;
 
   if (def_image)
     {
@@ -654,7 +662,7 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 			     NULL, NULL);
 	  else
 	    {
-	      int r = run_installation(image, device, mdraid, preserve_ssh_hostkey);
+	      r = run_installation(image, device, mdraid, preserve_ssh_hostkey);
 	      if (r == 0)
 		{
 		  r = show_post_menu();
@@ -695,11 +703,15 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 	  return 0;
 	  break;
 	case 9: // Reboot
-	  return exec_cmd("reboot", "reboot");
-	  break;
+	  r = exec_cmd("reboot", "reboot", NULL);
+	  if (r != 0)
+	    keywait(LINES-3, 0, NULL, 0);
+	  return r;
 	case 10: // PowerOff
-	  return exec_cmd("poweroff", "poweroff");
-	  break;
+	  r = exec_cmd("poweroff", "poweroff", NULL);
+	  if (r != 0)
+	    keywait(LINES-3, 0, NULL, 0);
+	  return r;
 	case -ECANCELED:
 	  return 0;
 	  break;
