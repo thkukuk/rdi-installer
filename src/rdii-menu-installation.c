@@ -207,8 +207,11 @@ write_net_image(const char *url, const char *device)
       pipe(p_tee_decomp) != 0 || pipe(p_decomp_dd) != 0)
     {
       r = errno;
+      _cleanup_free_ char *msg = NULL;
+      if (asprintf(&msg, "Pipe allocation failed: %s", strerror(r)) < 0)
+        return -ENOMEM;
       show_error_popup("Cannot start image download.",
-		       "Pipe allocation failed:", strerror(r));
+		       msg, NULL);
       return -r;
     }
 
@@ -238,7 +241,10 @@ write_net_image(const char *url, const char *device)
   reset_shell_mode();
   if (posix_spawnp(&pids[0], "wget", &fa[0], NULL, wget_args, environ) != 0)
     {
-      show_error_popup("Starting 'wget' failed: %s", strerror(errno), NULL);
+       _cleanup_free_ char *msg = NULL;
+      if (asprintf(&msg, "Starting 'wget' failed: %s", strerror(errno)) < 0)
+        return -ENOMEM;
+      show_error_popup(msg, NULL, NULL);
       reset_prog_mode();
       reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
@@ -260,7 +266,10 @@ write_net_image(const char *url, const char *device)
     }
   if (posix_spawnp(&pids[1], "tee", &fa[1], NULL, tee_args, environ) != 0)
     {
-      show_error_popup("Starting 'tee' failed: %s", strerror(errno), NULL);
+       _cleanup_free_ char *msg = NULL;
+      if (asprintf(&msg, "Starting 'tee' failed: %s", strerror(errno)) < 0)
+        return -ENOMEM;
+      show_error_popup(msg, NULL, NULL);
       reset_prog_mode();
       reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
@@ -273,7 +282,10 @@ write_net_image(const char *url, const char *device)
     posix_spawn_file_actions_addclose(&fa[2], all_pipes[i]);
   if (posix_spawnp(&pids[2], decomp_args[0], &fa[2], NULL, decomp_args, environ) != 0)
     {
-      show_error_popup("Starting '%s' failed: %s", decomp_args[0], strerror(errno));
+       _cleanup_free_ char *msg = NULL;
+      if (asprintf(&msg, "Starting '%s' failed: %s", decomp_args[0], strerror(errno)) < 0)
+        return -ENOMEM;
+      show_error_popup(msg, NULL, NULL);
       reset_prog_mode();
       reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
@@ -289,7 +301,10 @@ write_net_image(const char *url, const char *device)
     posix_spawn_file_actions_addclose(&fa[3], all_pipes[i]);
   if (posix_spawnp(&pids[3], "dd", &fa[3], NULL, dd_args, environ) != 0)
     {
-      show_error_popup("Starting 'dd' failed: %s", strerror(errno), NULL);
+       _cleanup_free_ char *msg = NULL;
+      if (asprintf(&msg, "Starting 'dd' failed: %s", strerror(errno)) < 0)
+        return -ENOMEM;
+      show_error_popup(msg, NULL, NULL);
       reset_prog_mode();
       reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
@@ -307,7 +322,10 @@ write_net_image(const char *url, const char *device)
     posix_spawn_file_actions_addclose(&fa[4], all_pipes[i]);
   if (posix_spawnp(&pids[4], "sha256sum", &fa[4], NULL, sha_args, environ) != 0)
     {
-      show_error_popup("Starting 'sha256sum' failed: %s", strerror(errno), NULL);
+       _cleanup_free_ char *msg = NULL;
+      if (asprintf(&msg, "Starting 'sha256sum' failed: %s", strerror(errno)) < 0)
+        return -ENOMEM;
+      show_error_popup(msg, NULL, NULL);
       reset_prog_mode();
       reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
@@ -332,8 +350,11 @@ write_local_image(const char *file, const char *device)
   if (pipe(p_pv_decomp) != 0 || pipe(p_decomp_dd) != 0)
     {
       r = errno;
-      show_error_popup("Cannot start installation process.",
-		       "Pipe allocation failed: %s", strerror(r));
+       _cleanup_free_ char *msg = NULL;
+       if (asprintf(&msg, "Pipe allocation failed: %s", strerror(r)) < 0)
+        return -ENOMEM;
+       show_error_popup("Cannot start installation process.",
+                        msg, NULL);
       return -r;
     }
 
@@ -361,7 +382,10 @@ write_local_image(const char *file, const char *device)
   reset_shell_mode();
   if (posix_spawnp(&pids[0], "pv", &fa[0], NULL, pv_args, environ) != 0)
     {
-      show_error_popup("Starting 'pv' failed: %s", strerror(errno), NULL);
+      _cleanup_free_ char *msg = NULL;
+      if (asprintf(&msg, "Starting 'pv' failed: %s", strerror(errno)) < 0)
+        return -ENOMEM;
+      show_error_popup(msg, NULL, NULL);
       reset_prog_mode();
       reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
@@ -374,7 +398,10 @@ write_local_image(const char *file, const char *device)
     posix_spawn_file_actions_addclose(&fa[1], all_pipes[i]);
   if (posix_spawnp(&pids[1], decomp_args[0], &fa[1], NULL, decomp_args, environ) != 0)
     {
-      show_error_popup("Starting '%s' failed: %s", decomp_args[0], strerror(errno));
+      _cleanup_free_ char *msg = NULL;
+      if (asprintf(&msg, "Starting '%s' failed: %s", decomp_args[0], strerror(errno)) < 0)
+        return -ENOMEM;
+      show_error_popup(msg, NULL, NULL);
       reset_prog_mode();
       reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
@@ -390,7 +417,10 @@ write_local_image(const char *file, const char *device)
     posix_spawn_file_actions_addclose(&fa[2], all_pipes[i]);
   if (posix_spawnp(&pids[2], "dd", &fa[2], NULL, dd_args, environ) != 0)
     {
-      show_error_popup("Starting 'dd' failed: %s", strerror(errno), NULL);
+      _cleanup_free_ char *msg = NULL;
+      if (asprintf(&msg, "Starting 'dd' failed: %s", strerror(errno)) < 0)
+        return -ENOMEM;
+      show_error_popup(msg, NULL, NULL);
       reset_prog_mode();
       reset_all(all_pipes, all_pipe_size, fa, fa_size);
       return -1;
