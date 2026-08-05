@@ -261,18 +261,16 @@ load_directory(const char *path,
 
   MSG_FUNC("path='%s'", path);
 
-  entries = malloc(capacity * sizeof(entry));
+  entries = calloc(capacity, sizeof(entry));
   if (!entries)
     return -ENOMEM;
-
-  for (int i; i < capacity; i++)
-    entries[i].name = NULL;
 
   dir = opendir(path);
   if (!dir)
     {
-      show_error_popup("Cannot open:", path, strerror(errno));
-      return -errno;
+      int r = -errno;
+      show_error_popup("Cannot open:", path, strerror(-r));
+      return r;
     }
 
   while ((ent = readdir(dir)) != NULL)
@@ -295,7 +293,6 @@ load_directory(const char *path,
 	  entry *new_entries = realloc(entries, capacity * sizeof(entry));
 	  if (!new_entries)
             {
-              closedir(dir);
               return -ENOMEM;
             }
 	  entries = new_entries;
@@ -304,7 +301,6 @@ load_directory(const char *path,
       entries[count].name = strdup(ent->d_name);
       if (entries[count].name == NULL)
         {
-          closedir(dir);
           return -ENOMEM;
         }
       entries[count].is_dir = is_dir;
@@ -326,10 +322,8 @@ load_directory(const char *path,
 static int
 get_file(const char *prefill, char **ret)
 {
-  _cleanup_free_ char **options = NULL;
   _cleanup_free_ char *curr_dir = NULL;
   int selected = 0;
-  int num_options = 0;
   int r;
 
   MSG_FUNC("prefill='%s', ret='%s'", strna(prefill), strna(*ret));
@@ -361,6 +355,8 @@ get_file(const char *prefill, char **ret)
     {
       entry *entries = NULL;
       size_t size_entries = 0;
+      _cleanup_free_ char **options = NULL;
+      int num_options = 0;
 
       print_global_header_footer(NULL);
       print_title(curr_dir /*"Select Source Image"*/);
@@ -369,22 +365,17 @@ get_file(const char *prefill, char **ret)
 
       r = load_directory(curr_dir, &entries, &size_entries);
       if (r < 0)
-        {
-          *ret = strdup("");
-          if (!*ret)
-            return -ENOMEM;
-          return r;
-        }
+        return r;
 
       // build options list for menu
       num_options = r;
-      if (options)
-	options = mfree(options);
 
       options = calloc(num_options, sizeof(char *));
+      if (!options)
+        return -ENOMEM;
       for (int i = 0; i < num_options; i++)
         {
-          options[i] = basename(entries[i].name);
+          options[i] = entries[i].name;
           if (prefill)
             {
               const char *base = strrchr(prefill, '/');
