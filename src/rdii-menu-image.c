@@ -346,7 +346,6 @@ get_file(const char *prefill, char **ret)
       if (!curr_dir)
 	return -ENOMEM;
       curr_dir = dirname(curr_dir);
-      // XXX get image name and set "selected"
     }
   else
     {
@@ -384,7 +383,16 @@ get_file(const char *prefill, char **ret)
 
       options = calloc(num_options, sizeof(char *));
       for (int i = 0; i < num_options; i++)
-	options[i] = basename(entries[i].name);
+        {
+          options[i] = basename(entries[i].name);
+          if (prefill)
+            {
+              const char *base = strrchr(prefill, '/');
+              base = base ? base + 1 : prefill; /* If '/' is found, point past it; otherwise use full string */
+              if (streq(options[i], base))
+                  selected = i;
+            }
+        }
 
       selected = choose_entry(4, (const char **)options, num_options, selected);
       if (selected < 0) // canceld or error.
