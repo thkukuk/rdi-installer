@@ -63,10 +63,21 @@ is_device_mounted(const char *device)
   return mounted;
 }
 
+static inline void cleanup_string_array(char ***p) {
+    if (!p || !*p)
+        return;
+    char **arr = *p;
+    for (size_t i = 0; arr[i] != NULL; i++) {
+        free(arr[i]);
+    }
+    free(arr);
+}
+#define _cleanup_str_array_ _cleanup_(cleanup_string_array)
+
 int
 select_target_device(uint64_t minsize, char **device)
 {
-  _cleanup_free_ char **options = NULL;
+  _cleanup_str_array_ char **options = NULL;
   _cleanup_free_ int *mapping = NULL;
   _cleanup_(devices_freep) device_t *disk = NULL;
   int selected = 0;
@@ -94,7 +105,6 @@ select_target_device(uint64_t minsize, char **device)
 	continue;
       if (device && streq(disk[i].device, strempty(*device)))
 	selected = n;
-      // XXX we need to free this later
       if (asprintf(&options[n], "%s - %s (%s, %.1f GB)%s%s",
 		   disk[i].device, strunknown(disk[i].model),
 		   disk[i].bus, disk[i].size_gb,
