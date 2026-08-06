@@ -44,3 +44,15 @@ extern int run_installation(const char *url, const char *device,
 extern void init_ncurses(void);
 extern int rdii_menu(const char *image, const char *image1, const char *image2,
 		     const char *device, const char *mdraid, bool preserve_ssh_hostkey);
+
+static inline void cleanup_string_array(char ***p) {
+    if (!p || !*p)
+        return;
+    char **arr = *p;
+    for (size_t i = 0; arr[i] != NULL; i++) {
+        free(arr[i]);
+    }
+    free(arr);
+}
+#define _cleanup_str_array_ _cleanup_(cleanup_string_array)
+

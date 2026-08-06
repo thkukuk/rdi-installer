@@ -63,17 +63,6 @@ is_device_mounted(const char *device)
   return mounted;
 }
 
-static inline void cleanup_string_array(char ***p) {
-    if (!p || !*p)
-        return;
-    char **arr = *p;
-    for (size_t i = 0; arr[i] != NULL; i++) {
-        free(arr[i]);
-    }
-    free(arr);
-}
-#define _cleanup_str_array_ _cleanup_(cleanup_string_array)
-
 int
 select_target_device(uint64_t minsize, char **device)
 {
