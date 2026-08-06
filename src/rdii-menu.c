@@ -605,6 +605,11 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 		if (asprintf(&image_entry, "Select Image (%s)", cp) < 0)
 		  return -ENOMEM;
 		options[selected] = image_entry;
+		// if we need a device pre-select that, else pre-select installation
+		if (isempty(device))
+		  selected = 1;
+		else
+		  selected = 5;
 	      }
 	  }
 	  break;
@@ -617,6 +622,11 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 		if (asprintf(&target_entry, "Select Target (%s)", device) < 0)
 		  return -ENOMEM;
 		options[selected] = target_entry;
+		// if we have an image, too, pre-select installation, else pre-select image
+		if (isempty(image))
+		  selected = 0;
+		else
+		  selected = 5;
 	      }
 	  }
 	  break;
