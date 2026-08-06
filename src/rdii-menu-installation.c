@@ -24,7 +24,7 @@
 
 extern char **environ;
 
-static bool
+bool
 verify_signature(const char *file, char *key, char **error)
 {
   int r;

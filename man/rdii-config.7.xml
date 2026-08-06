@@ -59,6 +59,19 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><literal>rdii.download_server</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> HTTP URL
+          </para>
+          <para>
+            Specifies the base URL from which raw disk images can be downloaded.
+            The user can select from a list of images based on the
+	    <filename>SHA256SUMS</filename> file.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><literal>rdii.device</literal></term>
         <listitem>
           <para>

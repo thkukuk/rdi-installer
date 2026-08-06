@@ -14,6 +14,7 @@
 #define CP_WARNING 7
 
 extern const char *rdii_tmp_dir;
+extern const char *rdii_download_server;
 
 extern void print_global_header_footer(const char *addkeys);
 extern void print_title(const char *title);
@@ -39,6 +40,7 @@ extern int select_target_device(uint64_t minsize, char **device);
 extern int select_mdraid_devices(uint64_t minsize, char **device1, char **device2);
 extern void select_installation_source(const char *prefill, char **ret);
 extern int show_sysinfo(void);
+extern bool verify_signature(const char *file, char *key, char **error);
 extern int run_installation(const char *url, const char *device,
 		            const char *mdraid, bool preserve_ssh_hostkey);
 extern void init_ncurses(void);

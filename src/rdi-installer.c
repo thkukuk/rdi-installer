@@ -16,11 +16,13 @@
 const char *rdii_config = "/run/rdi-installer/rdii-config";
 const char *rdii_tmp_dir = NULL;
 const char *rdii_log = "/var/log/rdi-installer.log";
+const char *rdii_download_server = "https://download.opensuse.org/tumbleweed/appliances/";
 
 static econf_err
 read_config(const char *config, char **ret_device, char **ret_mdraid,
 	    char **ret_url, char **ret_url1, char **ret_url2,
-	    char **ret_keymap, bool *ret_preserve_ssh_hostkey)
+	    char **ret_keymap, char **ret_download_server,
+	    bool *ret_preserve_ssh_hostkey)
 {
   _cleanup_(econf_freeFilep) econf_file *key_file = NULL;
   _cleanup_free_ char *device = NULL;
@@ -29,6 +31,7 @@ read_config(const char *config, char **ret_device, char **ret_mdraid,
   _cleanup_free_ char *url1 = NULL;
   _cleanup_free_ char *url2 = NULL;
   _cleanup_free_ char *keymap = NULL;
+  _cleanup_free_ char *download_server = NULL;
   bool preserve_ssh_hostkey = false;
   econf_err error;
 
@@ -65,6 +68,10 @@ read_config(const char *config, char **ret_device, char **ret_mdraid,
   if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
     return error;
 
+  error = econf_getStringValue(key_file, NULL, "rdii.download_server", &download_server);
+  if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
+    return error;
+
   error = econf_getBoolValue(key_file, NULL, "rdii.preserve-ssh-hostkey", &preserve_ssh_hostkey);
   if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
     return error;
@@ -85,6 +92,8 @@ read_config(const char *config, char **ret_device, char **ret_mdraid,
     *ret_url2 = TAKE_PTR(url2);
   if (ret_keymap)
     *ret_keymap = TAKE_PTR(keymap);
+  if (ret_download_server)
+    *ret_download_server = TAKE_PTR(download_server);
 
   return ECONF_SUCCESS;
 }
@@ -143,6 +152,7 @@ main(int argc, char **argv)
   _cleanup_free_ char *device = NULL;
   _cleanup_free_ char *mdraid = NULL;
   _cleanup_free_ char *keymap = NULL;
+  _cleanup_free_ char *download_server = NULL;
   bool preserve_ssh_hostkey = false;
   int r;
   econf_err conf_err;
@@ -207,12 +217,16 @@ main(int argc, char **argv)
 
   init_ncurses();
 
-  conf_err = read_config(rdii_config, &device, &mdraid, &image, &image1, &image2, &keymap, &preserve_ssh_hostkey);
+  conf_err = read_config(rdii_config, &device, &mdraid, &image, &image1, &image2, &keymap,
+			 &download_server, &preserve_ssh_hostkey);
   if (conf_err != ECONF_SUCCESS)
     {
       show_error_popup("Failed to read config file:",
                        econf_errString(conf_err), NULL);
     }
+
+  if (download_server)
+    rdii_download_server = download_server;
 
   if (keymap)
     {
