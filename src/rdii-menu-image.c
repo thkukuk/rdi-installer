@@ -322,6 +322,7 @@ static int
 get_file(const char *prefill, char **ret)
 {
   _cleanup_free_ char *curr_dir = NULL;
+  const char *prefill_base = NULL;
   int selected = 0;
   int r;
 
@@ -339,6 +340,9 @@ get_file(const char *prefill, char **ret)
       if (!curr_dir)
 	return -ENOMEM;
       curr_dir = dirname(curr_dir);
+
+      const char *base = strrchr(prefill, '/');
+      prefill_base = base ? base + 1 : prefill; /* If '/' is found, point past it; otherwise use full string */
     }
   else
     {
@@ -375,13 +379,8 @@ get_file(const char *prefill, char **ret)
       for (int i = 0; i < num_options; i++)
         {
           options[i] = entries[i].name;
-          if (prefill)
-            {
-              const char *base = strrchr(prefill, '/');
-              base = base ? base + 1 : prefill; /* If '/' is found, point past it; otherwise use full string */
-              if (streq(options[i], base))
-                  selected = i;
-            }
+          if (prefill_base && streq(options[i], prefill_base))
+            selected = i;
         }
 
       selected = choose_entry(4, (const char **)options, num_options, selected);
@@ -409,6 +408,7 @@ get_file(const char *prefill, char **ret)
 	      if (!curr_dir)
 		return -ENOMEM;
 	      selected = 0;
+	      prefill_base = NULL;
 	    }
 	  else
 	    {
