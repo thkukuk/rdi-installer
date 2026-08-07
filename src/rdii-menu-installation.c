@@ -791,11 +791,12 @@ run_installation(const char *url, const char *device, const char *mdraid,
 	  else
 	    {
               _cleanup_free_ char *ret = NULL;
-              if (asprintf(&ret, "mdadm failed with exit code %i", r) > 0)
-                show_error_popup(ret, NULL, NULL);
-              else
+              MSG_ERROR("mdadm failed with exit code %i", r);
+              if (asprintf(&ret, "mdadm failed with exit code %i", r) < 0)
                 show_error_popup("mdadm failed with exit code",
                                  NULL, NULL);
+              else
+                show_error_popup(ret, NULL, NULL);
 	    }
 	  return false;
 	}
