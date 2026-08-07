@@ -285,7 +285,7 @@ load_directory(const char *path,
       if (!is_dir && !is_supported_image(ent->d_name))
 	continue;
 
-      if (count >= capacity)
+      if (count + 1 >= capacity) /* +1 to leave room for the NULL sentinel below */
 	{
 	  capacity *= 2;
 	  entry *new_entries = realloc(entries, capacity * sizeof(entry));
