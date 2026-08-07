@@ -197,9 +197,7 @@ static void free_entriesp(entry **p) {
 
     /* Free inner heap-allocated strings first */
     for (size_t i = 0; entries[i].name != NULL; i++)
-      {
-        free(entries[i].name);
-      }
+      free(entries[i].name);
 
     /* Free the array itself */
     free(entries);
@@ -220,10 +218,9 @@ is_supported_image(const char *name)
   const size_t num_exts = sizeof(exts) / sizeof(exts[0]);
 
   for (size_t i = 0; i < num_exts; i++)
-    {
-      if (endswith(name, exts[i]))
-	return true;
-    }
+    if (endswith(name, exts[i]))
+      return true;
+
   return false;
 }
 
@@ -292,17 +289,13 @@ load_directory(const char *path,
 	  capacity *= 2;
 	  entry *new_entries = realloc(entries, capacity * sizeof(entry));
 	  if (!new_entries)
-            {
-              return -ENOMEM;
-            }
+            return -ENOMEM;
 	  entries = new_entries;
         }
 
       entries[count].name = strdup(ent->d_name);
       if (entries[count].name == NULL)
-        {
-          return -ENOMEM;
-        }
+        return -ENOMEM;
       entries[count].is_dir = is_dir;
       count++;
     }
