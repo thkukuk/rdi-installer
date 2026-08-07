@@ -186,6 +186,7 @@ wait_for_finish(pid_t pids[], const int pids_size)
 	  _cleanup_free_ char *err_msg = NULL;
 	  if (asprintf(&err_msg, "waitpid(%i) failed: %s\n", i, strerror(r)) < 0)
             return -ENOMEM;
+          reset_prog_mode();
           show_error_popup("Cannot finish installation correctly.",
 			   err_msg, NULL);
 	  return -r;
@@ -204,6 +205,7 @@ wait_for_finish(pid_t pids[], const int pids_size)
               _cleanup_free_ char *err_msg = NULL;
               if (asprintf(&err_msg, "Process %i killed by signal %d", i, WTERMSIG(status)) < 0)
                 return -ENOMEM;
+              reset_prog_mode();
               show_error_popup("Cannot finish installation correctly.",
                                err_msg, NULL);
 	      first_error = 1;
@@ -214,6 +216,7 @@ wait_for_finish(pid_t pids[], const int pids_size)
           _cleanup_free_ char *err_msg = NULL;
           if (asprintf(&err_msg, "Process %i terminated abnormally", i) < 0)
             return -ENOMEM;
+          reset_prog_mode();
           show_error_popup("Cannot finish installation correctly.",
                            err_msg, NULL);
 	  first_error = 1;
