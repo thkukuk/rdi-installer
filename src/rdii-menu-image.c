@@ -300,6 +300,11 @@ load_directory(const char *path,
       count++;
     }
 
+  /* explicitly terminate: realloc() growth above does not zero new
+     memory, so we can't rely on it for the NULL sentinel free_entriesp() needs */
+  entries[count].name = NULL;
+  entries[count].is_dir = false;
+
   MSG_INFO("Starting qsort(%i)", count);
   qsort(&entries[0], count, sizeof(entry), compare_entries);
   MSG_INFO("Finished qsort()");
@@ -346,7 +351,7 @@ get_file(const char *prefill, char **ret)
 
   while (1)
     {
-      entry *entries = NULL;
+      _cleanup_entries_ entry *entries = NULL;
       size_t size_entries = 0;
       _cleanup_free_ char **options = NULL;
       int num_options = 0;

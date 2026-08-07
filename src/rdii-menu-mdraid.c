@@ -28,7 +28,7 @@ select_mdraid_devices(uint64_t minsize, char **device1, char **device2)
   if (r < 0)
     return r;
 
-  options = calloc(count, sizeof(char *));
+  options = calloc(count + 1, sizeof(char *)); /* +1 for the NULL terminator _cleanup_str_array_ relies on */
   if (!options)
     return -ENOMEM;
 
