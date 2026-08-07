@@ -35,7 +35,8 @@ url_is_valid(const char *url, const char **error)
   res = curl_global_init(CURL_GLOBAL_DEFAULT);
   if (res != CURLE_OK)
     {
-      *error = curl_easy_strerror(res);
+      if (error)
+        *error = curl_easy_strerror(res);
       return false;
     }
 
