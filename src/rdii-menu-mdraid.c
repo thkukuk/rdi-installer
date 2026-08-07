@@ -16,7 +16,7 @@
 int
 select_mdraid_devices(uint64_t minsize, char **device1, char **device2)
 {
-  _cleanup_free_ char **options = NULL;
+  _cleanup_str_array_ char **options = NULL;
   _cleanup_free_ int *mapping = NULL;
   _cleanup_(devices_freep) device_t *disk = NULL;
   int selected1 = 0;
@@ -28,7 +28,7 @@ select_mdraid_devices(uint64_t minsize, char **device1, char **device2)
   if (r < 0)
     return r;
 
-  options = calloc(count, sizeof(char *));
+  options = calloc(count + 1, sizeof(char *)); /* +1 for the NULL terminator _cleanup_str_array_ relies on */
   if (!options)
     return -ENOMEM;
 

@@ -16,37 +16,60 @@
 #include "rdii-helper.h"
 #include "logger.h"
 
-/* simple helper function, not very robust */
+/* Parse a size with an optional K/M/G/T suffix (binary units). */
 static int
 parse_size(const char *str, uint64_t *res)
 {
+  const char *p = str;
+  uint64_t size, multiplier = 1;
   char *ep;
-  uint64_t size;
-  unsigned long long ull_size = strtoull(str, &ep, 10);
-  if (ull_size == ULLONG_MAX && errno == ERANGE)
+
+  if (isempty(str))
+    return -EINVAL;
+
+  while (isspace((unsigned char)*p))
+    p++;
+  if (*p == '-') /* strtoull() would silently wrap this around */
     return -ERANGE;
 
-  if (ull_size > UINT64_MAX)
+  errno = 0;
+  size = strtoull(p, &ep, 10);
+  if (errno == ERANGE)
     return -ERANGE;
+  if (ep == p) /* no digits at all */
+    return -EINVAL;
 
-  size = ull_size;
-
-  if (!isempty(ep))
+  switch (toupper((unsigned char)*ep))
     {
-      uint64_t old_size = size;
-      if (toupper(*ep) == 'G')
-	size *= 1024ULL * 1024 * 1024;
-      else if (toupper(*ep) == 'M')
-	size *= 1024ULL * 1024;
-      else if (toupper(*ep) == 'T')
-	size *= 1024ULL * 1024 * 1024 * 1024;
-
-      /* XXX that's not good enough for Terrabyte... */
-      if (size < old_size) // overflow
-	return -ERANGE;
+    case '\0':
+      break;
+    case 'K':
+      multiplier = 1024ULL;
+      ep++;
+      break;
+    case 'M':
+      multiplier = 1024ULL * 1024;
+      ep++;
+      break;
+    case 'G':
+      multiplier = 1024ULL * 1024 * 1024;
+      ep++;
+      break;
+    case 'T':
+      multiplier = 1024ULL * 1024 * 1024 * 1024;
+      ep++;
+      break;
+    default:
+      return -EINVAL;
     }
 
-  *res = size;
+  if (!isempty(ep)) /* trailing garbage */
+    return -EINVAL;
+
+  if (size > UINT64_MAX / multiplier)
+    return -ERANGE;
+
+  *res = size * multiplier;
   return 0;
 }
 
@@ -73,6 +96,7 @@ main_disk(int argc, char **argv)
 
       c = getopt_long (argc, argv, "ads:hv",
                        long_options, &option_index);
+
       if (c == (-1))
         break;
 
@@ -118,6 +142,11 @@ main_disk(int argc, char **argv)
   _cleanup_(devices_freep) device_t *disk = NULL;
   int count;
   r = get_devices(&disk, &count);
+  if (r < 0)
+    {
+      MSG_ERROR("Getting list of devices failed: %s", strerror(-r));
+      return -r;
+    }
 
   for (int i = 0; i < count; i++)
     {

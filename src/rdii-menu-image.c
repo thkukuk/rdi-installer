@@ -33,7 +33,13 @@ url_is_valid(const char *url, const char **error)
   CURLcode res;
   bool is_valid = false;
 
-  curl_global_init(CURL_GLOBAL_DEFAULT); // XXX Don't ignore return code
+  res = curl_global_init(CURL_GLOBAL_DEFAULT);
+  if (res != CURLE_OK)
+    {
+      if (error)
+        *error = curl_easy_strerror(res);
+      return false;
+    }
 
   curl = curl_easy_init();
   if(curl)
@@ -179,9 +185,27 @@ get_url(const char *prefill, char **ret)
  */
 
 typedef struct {
-  char name[PATH_MAX]; // XXX use pointer to save memory, means create free function, too
+  char *name;
   bool is_dir;
 } entry;
+
+/*
+ * Custom cleanup function for array of 'entry' structs.
+ */
+static void free_entriesp(entry **p) {
+    entry *entries = *p;
+    if (!entries)
+      return;
+
+    /* Free inner heap-allocated strings first */
+    for (size_t i = 0; entries[i].name != NULL; i++)
+      free(entries[i].name);
+
+    /* Free the array itself */
+    free(entries);
+}
+
+#define _cleanup_entries_ _cleanup_(free_entriesp)
 
 static bool
 is_supported_image(const char *name)
@@ -196,10 +220,9 @@ is_supported_image(const char *name)
   const size_t num_exts = sizeof(exts) / sizeof(exts[0]);
 
   for (size_t i = 0; i < num_exts; i++)
-    {
-      if (endswith(name, exts[i]))
-	return true;
-    }
+    if (endswith(name, exts[i]))
+      return true;
+
   return false;
 }
 
@@ -229,21 +252,25 @@ static int
 load_directory(const char *path,
 	       entry **entries_ret, size_t *entries_size_ret)
 {
-  _cleanup_free_ entry *entries = NULL;
-  _cleanup_closedir_ DIR *dir;
+  _cleanup_entries_ entry *entries = NULL;
+  _cleanup_closedir_ DIR *dir = NULL;
   struct dirent *ent;
   int capacity = 42;
   int count = 0;
 
   MSG_FUNC("path='%s'", path);
 
-  entries = malloc(capacity * sizeof(entry));
+  entries = calloc(capacity, sizeof(entry));
   if (!entries)
     return -ENOMEM;
 
   dir = opendir(path);
   if (!dir)
-    return -errno;
+    {
+      int r = -errno;
+      show_error_popup("Cannot open:", path, strerror(-r));
+      return r;
+    }
 
   while ((ent = readdir(dir)) != NULL)
     {
@@ -259,21 +286,26 @@ load_directory(const char *path,
       if (!is_dir && !is_supported_image(ent->d_name))
 	continue;
 
-      if (count >= capacity)
+      if (count + 1 >= capacity) /* +1 to leave room for the NULL sentinel below */
 	{
 	  capacity *= 2;
 	  entry *new_entries = realloc(entries, capacity * sizeof(entry));
 	  if (!new_entries)
-	    return -ENOMEM;
+            return -ENOMEM;
 	  entries = new_entries;
         }
 
-      size_t result = strlcpy(entries[count].name, ent->d_name, sizeof(entries[count].name));
-      if (result >= sizeof(entries[count].name))
-	return -ENAMETOOLONG;
+      entries[count].name = strdup(ent->d_name);
+      if (entries[count].name == NULL)
+        return -ENOMEM;
       entries[count].is_dir = is_dir;
       count++;
     }
+
+  /* explicitly terminate: realloc() growth above does not zero new
+     memory, so we can't rely on it for the NULL sentinel free_entriesp() needs */
+  entries[count].name = NULL;
+  entries[count].is_dir = false;
 
   MSG_INFO("Starting qsort(%i)", count);
   qsort(&entries[0], count, sizeof(entry), compare_entries);
@@ -290,12 +322,9 @@ load_directory(const char *path,
 static int
 get_file(const char *prefill, char **ret)
 {
-  _cleanup_free_ char **options = NULL;
-  _cleanup_free_ entry *entries = NULL;
   _cleanup_free_ char *curr_dir = NULL;
-  size_t size_entries = 0;
+  const char *prefill_base = NULL;
   int selected = 0;
-  int num_options = 0;
   int r;
 
   MSG_FUNC("prefill='%s', ret='%s'", strna(prefill), strna(*ret));
@@ -312,7 +341,9 @@ get_file(const char *prefill, char **ret)
       if (!curr_dir)
 	return -ENOMEM;
       curr_dir = dirname(curr_dir);
-      // XXX get image name and set "selected"
+
+      const char *base = strrchr(prefill, '/');
+      prefill_base = base ? base + 1 : prefill; /* If '/' is found, point past it; otherwise use full string */
     }
   else
     {
@@ -326,26 +357,32 @@ get_file(const char *prefill, char **ret)
 
   while (1)
     {
+      _cleanup_entries_ entry *entries = NULL;
+      size_t size_entries = 0;
+      _cleanup_free_ char **options = NULL;
+      int num_options = 0;
+
       print_global_header_footer(NULL);
       print_title(curr_dir /*"Select Source Image"*/);
 
       MSG_INFO("Current directory='%s'", curr_dir);
 
-      if (entries)
-	entries = mfree(entries);
-
       r = load_directory(curr_dir, &entries, &size_entries);
       if (r < 0)
-	return r;
+        return r;
 
       // build options list for menu
       num_options = r;
-      if (options)
-	options = mfree(options);
 
       options = calloc(num_options, sizeof(char *));
+      if (!options)
+        return -ENOMEM;
       for (int i = 0; i < num_options; i++)
-	options[i] = basename(entries[i].name);
+        {
+          options[i] = entries[i].name;
+          if (prefill_base && streq(options[i], prefill_base))
+            selected = i;
+        }
 
       selected = choose_entry(4, (const char **)options, num_options, selected);
       if (selected < 0) // canceld or error.
@@ -372,6 +409,7 @@ get_file(const char *prefill, char **ret)
 	      if (!curr_dir)
 		return -ENOMEM;
 	      selected = 0;
+	      prefill_base = NULL;
 	    }
 	  else
 	    {
