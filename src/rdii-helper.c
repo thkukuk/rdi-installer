@@ -35,6 +35,7 @@ print_help(void)
 
   fputs("Options for disk:\n", stdout);
   fputs("  -a, --all         Print all devices, even if not suitable\n", stdout);
+  fputs("  -s, --minsize     Print devices with size >= given value (e.g., 500G, 1T).\n", stdout);
   fputs("  -d, --debug       Print debug information\n", stdout);
   fputs("\n", stdout);
 
