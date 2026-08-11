@@ -581,7 +581,7 @@ get_url_from_list(char **ret)
     }
 
   print_global_header_footer(NULL);
-  print_title("Select Image from list");
+  print_title("Select image from download server");
 
   selected = choose_entry(4, (const char **)names, num_names, 0);
   if (selected < 0)
@@ -602,7 +602,7 @@ void
 select_installation_source(const char *prefill, char **ret)
 {
   const char *options[] = {
-    "Select from list",
+    "Select image from download server",
     "Provide URL",
     "Use file selection"
   };
