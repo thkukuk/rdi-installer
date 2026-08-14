@@ -30,7 +30,9 @@ print_help(void)
   fputs("Commands: boot, disk, set-default-loader-entry\n\n", stdout);
 
   fputs("Options for boot:\n", stdout);
-  fputs("  -d, --debug       Print debug information\n", stdout);
+  fputs("  -d, --debug                    Print debug information\n", stdout);
+  fputs("      --print-loader-partition   Print only the loader partition\n", stdout);
+  fputs("      --print-loader-url         Print only the loader URL\n", stdout);
   fputs("\n", stdout);
 
   fputs("Options for disk:\n", stdout);
@@ -60,6 +62,8 @@ main_boot(int argc, char **argv)
 {
   _cleanup_efivars_ efivars_t *efi = NULL;
   _cleanup_free_ char *defloaderentry = NULL;
+  bool print_loader_partition = false;
+  bool print_loader_url = false;
   int r;
 
   while (1)
@@ -68,9 +72,11 @@ main_boot(int argc, char **argv)
       int option_index = 0;
       static struct option long_options[] =
         {
-	  {"debug",      no_argument,       NULL, 'd' },
-          {"help",       no_argument,       NULL, 'h' },
-          {"version",    no_argument,       NULL, 'v' },
+	  {"debug",                  no_argument,       NULL, 'd' },
+          {"help",                    no_argument,       NULL, 'h' },
+          {"version",                 no_argument,       NULL, 'v' },
+	  {"print-loader-partition", no_argument,       NULL, '\250' },
+	  {"print-loader-url",       no_argument,       NULL, '\251' },
           {NULL,         0,                 NULL, '\0'}
         };
 
@@ -90,6 +96,12 @@ main_boot(int argc, char **argv)
         case 'v':
           MSG_INFO("rdii-helper (%s) %s", PACKAGE, VERSION);
           return 0;
+	case '\250':
+	  print_loader_partition = true;
+	  break;
+	case '\251':
+	  print_loader_url = true;
+	  break;
         default:
           print_error();
           return EINVAL;
@@ -113,20 +125,37 @@ main_boot(int argc, char **argv)
       return -r;
     }
 
-  r = efi_get_default_loader_entry(&defloaderentry);
-  if (r < 0)
+  if (print_loader_partition || print_loader_url)
     {
-      MSG_ERROR("Couldn't get default loader entry: %s",
-	     strerror(-r));
-    }
+      if (print_loader_partition)
+	{
+	  if (!isempty(efi->partition))
+	    printf("%s", efi->partition);
+	}
 
-  MSG_INFO("Boot Entry:            %s", strna(efi->entry));
-  MSG_INFO("Default Loader Entry:  %s", strna(defloaderentry));
-  MSG_INFO("PXE Boot:              %s", efi->is_pxe_boot?"yes":"no");
-  MSG_INFO("Loader Partition:      %s", strna(efi->partition));
-  MSG_INFO("Loader URL:            %s", strna(efi->url));
-  MSG_INFO("Loader Image:          %s", strna(efi->image));
-  MSG_INFO("Default EFI Partition: %s", strna(efi->def_efi_partition));
+      if (print_loader_url)
+	{
+	  if (!isempty(efi->url))
+	    printf("%s", efi->url);
+	}
+    }
+  else
+    {
+      r = efi_get_default_loader_entry(&defloaderentry);
+      if (r < 0)
+	{
+	  MSG_ERROR("Couldn't get default loader entry: %s",
+		    strerror(-r));
+	}
+
+      MSG_INFO("Boot Entry:            %s", strna(efi->entry));
+      MSG_INFO("Default Loader Entry:  %s", strna(defloaderentry));
+      MSG_INFO("PXE Boot:              %s", efi->is_pxe_boot?"yes":"no");
+      MSG_INFO("Loader Partition:      %s", strna(efi->partition));
+      MSG_INFO("Loader URL:            %s", strna(efi->url));
+      MSG_INFO("Loader Image:          %s", strna(efi->image));
+      MSG_INFO("Default EFI Partition: %s", strna(efi->def_efi_partition));
+    }
   return 0;
 }
 
