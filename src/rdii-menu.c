@@ -497,7 +497,7 @@ show_post_menu(void)
 	{
 	case 0: // Reboot
 	  MSG_INFO("Calling exec_cmd(reboot)");
-	  r = exec_cmd("reboot", "reboot", NULL);
+	  r = exec_cmd(true, "reboot", "reboot", NULL);
 	  if (r != 0)
 	    keywait(LINES-3, 0, NULL, 0);
 	  return r;
@@ -506,7 +506,7 @@ show_post_menu(void)
 	  return 1;
 	case 2: // PowerOff
 	  MSG_INFO("Calling exec_cmd(poweroff)");
-	  r = exec_cmd("poweroff", "poweroff", NULL);
+	  r = exec_cmd(true, "poweroff", "poweroff", NULL);
 	  if (r != 0)
 	    keywait(LINES-3, 0, NULL, 0);
 	  return r;
@@ -713,12 +713,12 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 	  return 0;
 	  break;
 	case 9: // Reboot
-	  r = exec_cmd("reboot", "reboot", NULL);
+	  r = exec_cmd(true, "reboot", "reboot", NULL);
 	  if (r != 0)
 	    keywait(LINES-3, 0, NULL, 0);
 	  return r;
 	case 10: // PowerOff
-	  r = exec_cmd("poweroff", "poweroff", NULL);
+	  r = exec_cmd(true, "poweroff", "poweroff", NULL);
 	  if (r != 0)
 	    keywait(LINES-3, 0, NULL, 0);
 	  return r;

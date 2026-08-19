@@ -2,4 +2,4 @@
 
 #pragma once
 
-extern int exec_cmd(const char *cmd, ...);
+extern int exec_cmd(bool use_ncurses, const char *cmd, ...);

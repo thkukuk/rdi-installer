@@ -36,7 +36,7 @@ verify_signature(const char *file, char *key, char **error)
   move(2,2);
   refresh();
 
-  r = exec_cmd("gpgv", "gpgv", "--keyring", "/etc/systemd/import-pubring.gpg",
+  r = exec_cmd(true, "gpgv", "gpgv", "--keyring", "/etc/systemd/import-pubring.gpg",
 	       (char *)key, (char *)file, NULL);
   if (r < 0)
     {
@@ -79,7 +79,7 @@ fix_partition_table(const char *device)
 
   MSG_FUNC("device='%s'", device);
 
-  r = exec_cmd("/usr/sbin/sgdisk", "sgdisk", "-e", (char *)device, NULL);
+  r = exec_cmd(true, "/usr/sbin/sgdisk", "sgdisk", "-e", (char *)device, NULL);
 
   if (r < 0)
     {
@@ -764,7 +764,7 @@ run_installation(const char *url, const char *device, const char *mdraid,
     {
       // Create /dev/md0
 
-      r = exec_cmd("mdadm", "mdadm", "--create", "--verbose", "/dev/md0",
+      r = exec_cmd(true, "mdadm", "mdadm", "--create", "--verbose", "/dev/md0",
 		   "--level=1", "--metadata=1.0", "--bitmap=internal",
 		   "--raid-devices=2", "--run",
 		   (char *)device, (char *)mdraid, NULL);

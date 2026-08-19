@@ -12,6 +12,7 @@
 #include "basics.h"
 #include "efivars.h"
 #include "rdii-helper.h"
+#include "rdii-menu.h"
 #include "exec_cmd.h"
 #include "logger.h"
 
@@ -44,6 +45,10 @@ print_help(void)
   fputs("Options for set-default-loader-entry:\n", stdout);
   fputs("  -d, --debug       Print debug information\n", stdout);
   fputs("  -V, --verbose     Print information about changes\n", stdout);
+  fputs("\n", stdout);
+
+  fputs("Options for set-keymap:\n", stdout);
+  fputs("  -f, --force       Ignore if not run on a virtual console\n", stdout);
   fputs("\n", stdout);
 
   fputs("Generic options:\n", stdout);
@@ -244,7 +249,7 @@ main_set_default_loader_entry(int argc, char **argv)
   if (verbose)
     MSG_INFO("Setting LoaderEntryDefault to '%s'", efi->entry);
 
-  r = exec_cmd("sdbootutil", "sdbootutil", "set-default", efi->entry, NULL);
+  r = exec_cmd(false, "sdbootutil", "sdbootutil", "set-default", efi->entry, NULL);
   if (r < 0)
     {
       MSG_ERROR("Failed to run sdbootutil: %s", strerror(-r));
@@ -265,6 +270,74 @@ main_set_default_loader_entry(int argc, char **argv)
     }
   return 0;
 }
+
+static int
+main_set_keymap(int argc, char **argv)
+{
+  int f_flag = 0;
+  int r;
+
+  while (1)
+    {
+      int c;
+      int option_index = 0;
+      static struct option long_options[] =
+        {
+	  {"force",      no_argument,       NULL, 'f' },
+          {"help",       no_argument,       NULL, 'h' },
+          {"version",    no_argument,       NULL, 'v' },
+          {NULL,         0,                 NULL, '\0'}
+        };
+
+      c = getopt_long (argc, argv, "fhv",
+                       long_options, &option_index);
+      if (c == (-1))
+        break;
+
+      switch (c)
+        {
+	case 'f':
+	  f_flag = 1;
+	  break;
+	case 'h':
+          print_help();
+          return 0;
+        case 'v':
+          MSG_INFO("rdii-helper (%s) %s", PACKAGE, VERSION);
+          return 0;
+        default:
+          print_error();
+          return EINVAL;
+        }
+    }
+
+  argc -= optind;
+  argv += optind;
+
+  if (argc > 0)
+    {
+      MSG_ERROR("rdii-helper set-keymap: Too many arguments.");
+      print_error();
+      return EINVAL;
+    }
+
+  if (f_flag || is_linux_vt())
+    {
+      init_ncurses();
+      r = select_keymap(NULL);
+      endwin();
+      if (r < 0)
+	return -r;
+    }
+  else
+    {
+      MSG_ERROR("Keymaps can only be configured on a virtual console.");
+      return EOPNOTSUPP;
+    }
+
+  return 0;
+}
+
 
 int
 main(int argc, char **argv)
@@ -289,6 +362,8 @@ main(int argc, char **argv)
     return main_disk(--argc, ++argv);
   else if (streq(argv[1], "set-default-loader-entry"))
     return main_set_default_loader_entry(--argc, ++argv);
+  else if (streq(argv[1], "set-keymap"))
+    return main_set_keymap(--argc, ++argv);
 
   while ((c = getopt_long(argc, argv, "hv", longopts, NULL)) != -1)
     {

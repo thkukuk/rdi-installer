@@ -6,9 +6,7 @@
 #include <stdarg.h>
 #include <spawn.h>
 #include <sys/wait.h>
-#ifdef HAVE_NCURSES
 #include <ncursesw/curses.h>
-#endif
 
 #include "basics.h"
 #include "exec_cmd.h"
@@ -19,7 +17,7 @@ extern char **environ;
    Returns 0 on success, -errno on failure, > 0 exit code of the
    called command. */
 int
-exec_cmd(const char *cmd, ...)
+exec_cmd(bool use_ncurses, const char *cmd, ...)
 {
   _cleanup_free_ char **argv = NULL;
   va_list args, args_copy;
@@ -46,16 +44,15 @@ exec_cmd(const char *cmd, ...)
   va_end(args);
 
   pid_t pid;
-#ifdef HAVE_NCURSES
-  reset_shell_mode();
-#endif
+  if (use_ncurses)
+    reset_shell_mode();
+
   r = posix_spawnp(&pid, cmd, NULL, NULL, argv, environ);
 
   if (r != 0)
     {
-#ifdef HAVE_NCURSES
-      reset_prog_mode();
-#endif
+      if (use_ncurses)
+	reset_prog_mode();
       return -r;
     }
 
@@ -63,15 +60,13 @@ exec_cmd(const char *cmd, ...)
   int wait_status;
   if (waitpid(pid, &wait_status, 0) == -1)
     {
-#ifdef HAVE_NCURSES
-      reset_prog_mode();
-#endif
+      if (use_ncurses)
+	reset_prog_mode();
       return -r;
     }
 
-#ifdef HAVE_NCURSES
-  reset_prog_mode();
-#endif
+  if (use_ncurses)
+    reset_prog_mode();
 
   // Evaluate the exit status
   if (WIFEXITED(wait_status))
