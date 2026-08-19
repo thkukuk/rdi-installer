@@ -82,7 +82,7 @@ log_write(LogLevel level, const char *file, int line, const char *func,
           vfprintf(stderr, fmt, args);
 	  fputc('\n', stderr);
 	}
-      else
+      else if (level != LOG_LEVEL_TRACE) // don't print TRACE messages to stdout.
 	{
           vprintf(fmt, args);
           putchar('\n');
