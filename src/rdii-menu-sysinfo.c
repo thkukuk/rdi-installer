@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "basics.h"
+#include "nc-dialogs.h"
 #include "rdii-menu.h"
 #include "logger.h"
 

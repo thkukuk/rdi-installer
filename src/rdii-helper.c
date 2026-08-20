@@ -12,9 +12,11 @@
 #include "basics.h"
 #include "efivars.h"
 #include "rdii-helper.h"
-#include "rdii-menu.h"
+#include "nc-dialogs.h"
 #include "exec_cmd.h"
 #include "logger.h"
+#include "select_keymap.h"
+#include "is_linux_vt.h"
 
 static void
 print_usage(FILE *stream)
@@ -323,7 +325,7 @@ main_set_keymap(int argc, char **argv)
 
   if (f_flag || is_linux_vt())
     {
-      init_ncurses();
+      init_ncurses(NULL);
       r = select_keymap(NULL);
       endwin();
       if (r < 0)

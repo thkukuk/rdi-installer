@@ -2,40 +2,13 @@
 
 #pragma once
 
-#include <ncursesw/curses.h>
-
-// Color Pair definitions
-#define CP_HEADER 1
-#define CP_SPLASH_BOX 2
-#define CP_TITLE 3
-#define CP_SELECTED 4
-#define CP_UNSELECTED 5
-#define CP_FOOTER 6
-#define CP_WARNING 7
-
 extern const char *rdii_tmp_dir;
 extern const char *rdii_download_server;
-
-extern void print_global_header_footer(const char *addkeys);
-extern void print_title(const char *title);
-extern int show_warning_popup(const char *headline,
-			      const char *descr_line1,
-			      const char *descr_line2);
-extern void show_error_popup(const char *headline,
-			     const char *descr_line1,
-			     const char *descr_line2);
-extern void show_info_popup(const char *headline, const char *descr);
-
-extern int choose_entry(int row, const char *options[], int num_options,
-		 	int start);
 
 extern int is_device_mounted(const char *device);
 
 extern void keywait(int y, int x, const char *text, int sec);
-extern int set_keymap(const char *keymap);
-extern bool is_linux_vt(void);
 
-extern int select_keymap(char **device);
 extern int select_target_device(uint64_t minsize, char **device);
 extern int select_mdraid_devices(uint64_t minsize, char **device1, char **device2);
 extern void select_installation_source(const char *prefill, char **ret);
@@ -43,8 +16,8 @@ extern int show_sysinfo(void);
 extern bool verify_signature(const char *file, char *key, char **error);
 extern int run_installation(const char *url, const char *device,
 		            const char *mdraid, bool preserve_ssh_hostkey);
-extern void init_ncurses(void);
-extern int rdii_menu(const char *image, const char *image1, const char *image2,
+extern int rdii_menu(const char *title, const char *image,
+		     const char *image1, const char *image2,
 		     const char *device, const char *mdraid, bool preserve_ssh_hostkey);
 
 static inline void cleanup_string_array(char ***p) {

@@ -17,6 +17,7 @@
 #include "basics.h"
 #include "download.h"
 #include "mkdir_p.h"
+#include "nc-dialogs.h"
 #include "rdii-menu.h"
 #include "logger.h"
 #include "zap_partition_table.h"

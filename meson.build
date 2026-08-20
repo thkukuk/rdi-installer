@@ -83,8 +83,8 @@ libdevices = static_library(
 
 librdii_c = files('lib/exec_cmd.c', 'lib/mkdir_p.c', 'lib/tmpfile-util.c',
 	          'lib/logger.c', 'lib/zap_partition_table.c',
-		  'lib/rm_rf.c', 'lib/download.c',
-                  'src/rdii-ssh-hostkey.c')
+		  'lib/rm_rf.c', 'lib/download.c', 'lib/nc-dialogs.c',
+                  'lib/select_keymap.c', 'lib/is_linux_vt.c')
 librdii = static_library(
   'rdii',
   librdii_c,
@@ -111,7 +111,7 @@ executable('rdii-fetch-config',
            dependencies : [libcurl],
            install : true)
 
-rdii_helper_c = ['src/rdii-helper.c', 'src/rdii-helper-disk.c', 'src/rdii-menu.c', 'src/rdii-menu-keymap.c' ]
+rdii_helper_c = ['src/rdii-helper.c', 'src/rdii-helper-disk.c', 'src/rdii-menu.c']
 executable('rdii-helper',
            rdii_helper_c,
            include_directories : inc,
@@ -120,7 +120,7 @@ executable('rdii-helper',
            install : true)
 
 rdi_installer_c = ['src/rdi-installer.c',
-                   'src/rdii-menu.c', 'src/rdii-menu-keymap.c',
+                   'src/rdii-menu.c', 'src/rdii-ssh-hostkey.c',
                    'src/rdii-menu-disk.c', 'src/rdii-menu-image.c',
                    'src/rdii-menu-sysinfo.c', 'src/rdii-menu-installation.c',
                    'src/rdii-menu-mdraid.c']

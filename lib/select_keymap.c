@@ -12,7 +12,8 @@
 
 #include "basics.h"
 #include "exec_cmd.h"
-#include "rdii-menu.h"
+#include "nc-dialogs.h"
+#include "select_keymap.h"
 #include "logger.h"
 
 int

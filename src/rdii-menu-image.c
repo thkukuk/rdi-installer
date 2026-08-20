@@ -14,6 +14,7 @@
 
 #include "basics.h"
 #include "logger.h"
+#include "nc-dialogs.h"
 #include "rdii-menu.h"
 #include "download.h"
 

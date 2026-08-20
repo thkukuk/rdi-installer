@@ -10,8 +10,13 @@
 #include "rm_rf.h"
 #include "tmpfile-util.h"
 #include "tmpfile-util.h"
+#include "nc-dialogs.h"
 #include "rdii-menu.h"
 #include "logger.h"
+#include "select_keymap.h"
+#include "is_linux_vt.h"
+
+#define TITLE "Raw Disk Installer Version " VERSION
 
 const char *rdii_config = "/run/rdi-installer/rdii-config";
 const char *rdii_tmp_dir = NULL;
@@ -215,7 +220,7 @@ main(int argc, char **argv)
       return EINVAL;
     }
 
-  init_ncurses();
+  init_ncurses(TITLE);
 
   conf_err = read_config(rdii_config, &device, &mdraid, &image, &image1, &image2, &keymap,
 			 &download_server, &preserve_ssh_hostkey);
@@ -248,7 +253,7 @@ main(int argc, char **argv)
   // we cannot make rdii_tmp_dir_cleanup global because of _cleanup_
   rdii_tmp_dir = rdii_tmp_dir_cleanup;
 
-  r = rdii_menu(image, image1, image2, device, mdraid, preserve_ssh_hostkey);
+  r = rdii_menu(TITLE, image, image1, image2, device, mdraid, preserve_ssh_hostkey);
 
   MSG_INFO("rdi-installer stopped (retval=%i)", r);
 
