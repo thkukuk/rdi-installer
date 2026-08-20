@@ -61,7 +61,7 @@ if [ "$ENABLE_SSH" -eq 1 ]; then
 
 	if [ ! -d /root/.ssh ]; then
             # Create .ssh directory with correct permissions
-            mkdir -p -m 0700 /root/.ssh
+            mkdir -m 0700 /root/.ssh
         fi
 	if [ ! -f /root/.ssh/authorized_keys ]; then
 	    # avoid a race/window where the file would briefly exist with default permissions
