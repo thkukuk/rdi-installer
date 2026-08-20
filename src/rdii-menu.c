@@ -190,7 +190,8 @@ show_post_menu(void)
 }
 
 static int
-show_main_menu(const char *def_image, const char *def_device, const char *def_mdraid, bool preserve_ssh_hostkey)
+show_main_menu(const char *def_image, const char *def_device, const char *def_mdraid,
+		const char *def_keymap, bool preserve_ssh_hostkey)
 {
   uint64_t minsize = 10 * 1000ULL * 1000 * 1000; // 10G min disk size
   _cleanup_free_ char *image_entry = NULL;
@@ -250,6 +251,12 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
       if (asprintf(&target_entry, "%s (%s)", options[1], device) < 0)
 	return -ENOMEM;
       options[1] = target_entry;
+    }
+  if (!isempty(def_keymap))
+    {
+      if (asprintf(&keymap_entry, "%s (%s)", options[3], def_keymap) < 0)
+	return -ENOMEM;
+      options[3] = keymap_entry;
     }
 
   if (!isempty(image) && !isempty(device))
@@ -430,14 +437,14 @@ select_image(const char *image1, const char *image2,
 int
 rdii_menu(const char *title, const char *image0, const char *image1,
 	  const char *image2, const char *device, const char *mdraid,
-	  bool preserve_ssh_hostkey)
+	  const char *keymap, bool preserve_ssh_hostkey)
 {
   const char *image = NULL;
   int r;
 
-  MSG_FUNC("image0='%s', image1='%s', image2='%s', device='%s', mdraid='%s', preserve_ssh_hostkey=%i",
+  MSG_FUNC("image0='%s', image1='%s', image2='%s', device='%s', mdraid='%s', keymap='%s', preserve_ssh_hostkey=%i",
 	   strempty(image0), strempty(image1), strempty(image2),
-	   strempty(device), strempty(mdraid), preserve_ssh_hostkey);
+	   strempty(device), strempty(mdraid), strempty(keymap), preserve_ssh_hostkey);
 
   show_splash_screen(title);
 
@@ -468,7 +475,7 @@ rdii_menu(const char *title, const char *image0, const char *image1,
   else
     image = image0;
 
-  r = show_main_menu(image, device, mdraid, preserve_ssh_hostkey);
+  r = show_main_menu(image, device, mdraid, keymap, preserve_ssh_hostkey);
   endwin();
 
   return r;

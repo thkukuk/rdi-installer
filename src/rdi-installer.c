@@ -253,7 +253,7 @@ main(int argc, char **argv)
   // we cannot make rdii_tmp_dir_cleanup global because of _cleanup_
   rdii_tmp_dir = rdii_tmp_dir_cleanup;
 
-  r = rdii_menu(TITLE, image, image1, image2, device, mdraid, preserve_ssh_hostkey);
+  r = rdii_menu(TITLE, image, image1, image2, device, mdraid, keymap, preserve_ssh_hostkey);
 
   MSG_INFO("rdi-installer stopped (retval=%i)", r);
 

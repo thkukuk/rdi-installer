@@ -18,7 +18,8 @@ extern int run_installation(const char *url, const char *device,
 		            const char *mdraid, bool preserve_ssh_hostkey);
 extern int rdii_menu(const char *title, const char *image,
 		     const char *image1, const char *image2,
-		     const char *device, const char *mdraid, bool preserve_ssh_hostkey);
+		     const char *device, const char *mdraid, const char *keymap,
+		     bool preserve_ssh_hostkey);
 
 static inline void cleanup_string_array(char ***p) {
     if (!p || !*p)
