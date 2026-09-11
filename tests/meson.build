@@ -17,6 +17,7 @@ endif
 
 test('tst_ifcfg_networkd_1', find_program('tst-ifcfg-networkd-1.sh'))
 test('tst_ifcfg_networkd_2', find_program('tst-ifcfg-networkd-2.sh'))
+test('tst_ifcfg_networkd_3', find_program('tst-ifcfg-networkd-3.sh'))
 test('tst_ip_networkd_1', find_program('tst-ip-networkd-1.sh'))
 test('tst_ip_networkd_2', find_program('tst-ip-networkd-2.sh'))
 test('tst_ip_networkd_3', find_program('tst-ip-networkd-3.sh'))

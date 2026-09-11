@@ -201,7 +201,7 @@ parse_ifcfg_arg(const char *output_dir, int nr, const char *arg)
   char *dns_list = trim_whitespace(strsep(&str, ","));
   char *domains = trim_whitespace(strsep(&str, ","));
 
-  if (strneq(ip_list, "dhcp", 4))
+  if (!isempty(ip_list) && strneq(ip_list, "dhcp", 4))
     {
       cfg.autoconf = ip_list;
       cfg.autoconf_networkd = map_ifcfg_to_networkd(cfg.autoconf);
