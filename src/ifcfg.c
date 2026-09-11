@@ -102,15 +102,10 @@ write_vlan_file(const char *output_dir, const char *interface, int vlanid)
   return 0;
 }
 
-typedef struct {
-    const char *ifcfg;
-    const char *networkd;
-} dhcp_ifcfg_networkd_t;
-
 static const char*
 map_ifcfg_to_networkd(const char *input)
 {
-  const dhcp_ifcfg_networkd_t mappings[] =
+  static const kv_map_t mappings[] =
     {
       { "dhcp",       "yes" },
       { "dhcp4",      "ipv4" },
@@ -118,19 +113,7 @@ map_ifcfg_to_networkd(const char *input)
       { NULL,         NULL }
     };
 
-  if (isempty(input))
-    return NULL;
-
-  for (int i = 0; mappings[i].ifcfg != NULL; i++)
-    {
-      // Use strcmp for exact match, or strcasecmp for case-insensitive
-      if (streq(input, mappings[i].ifcfg))
-        return mappings[i].networkd;
-    }
-
-  MSG_ERROR("Unknown autoconf option '%s', valid are {dhcp|dhcp4|dhcp6}", input);
-
-  return NULL;
+  return map_lookup(mappings, input, "{dhcp|dhcp4|dhcp6}");
 }
 
 /* Parses a single ifcfg string */

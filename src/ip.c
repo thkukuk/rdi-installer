@@ -148,15 +148,28 @@ extract_word(char **str, const char *sep, bool required, char **ret)
   return 0;
 }
 
-typedef struct {
-    const char *dracut;
-    const char *networkd;
-} dhcp_dracut_networkd_t;
+const char *
+map_lookup(const kv_map_t *table, const char *input, const char *valid)
+{
+  if (isempty(input))
+    return NULL;
+
+  for (int i = 0; table[i].key != NULL; i++)
+    {
+      // Use strcmp for exact match, or strcasecmp for case-insensitive
+      if (streq(input, table[i].key))
+        return table[i].value;
+    }
+
+  MSG_ERROR("Unknown autoconf option '%s', valid are %s", input, valid);
+
+  return NULL;
+}
 
 static const char*
 map_dracut_to_networkd(const char *input)
 {
-  const dhcp_dracut_networkd_t mappings[] =
+  static const kv_map_t mappings[] =
     {
       { "none",       "no" },
       { "off",        "no" },
@@ -172,19 +185,7 @@ map_dracut_to_networkd(const char *input)
       { NULL,         NULL }
     };
 
-  if (isempty(input))
-    return NULL;
-
-  for (int i = 0; mappings[i].dracut != NULL; i++)
-    {
-      // Use strcmp for exact match, or strcasecmp for case-insensitive
-      if (streq(input, mappings[i].dracut))
-        return mappings[i].networkd;
-    }
-
-  MSG_ERROR("Unknown autoconf option '%s', valid are {dhcp|on|any|dhcp6|auto6|either6|link6|single-dhcp}", input);
-
-  return NULL;
+  return map_lookup(mappings, input, "{dhcp|on|any|dhcp6|auto6|either6|link6|single-dhcp}");
 }
 
 int
