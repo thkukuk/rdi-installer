@@ -424,21 +424,21 @@ write_netdev_config(const char *output_dir)
 }
 
 
-static bool
-is_duplicate(vlan_t *list, int count, int new_id)
-{
-  for (int i = 0; i < count; i++)
-    if (list[i].id == new_id)
-        return true;
-
-  return false;
-}
-
 int
 register_vlan_netdev(int vlanid, const char *name, const char *prefix)
 {
-  if (is_duplicate(vlans, nr_vlanids, vlanid))
-    return 0;
+  for (int i = 0; i < nr_vlanids; i++)
+    if (vlans[i].id == vlanid)
+      {
+	if (!streq(vlans[i].prefix, prefix))
+	  {
+	    MSG_ERROR("VLAN ID %d already configured as '%s' via '%s', cannot "
+		      "also configure it as '%s' via '%s': conflicting VLAN configuration",
+		      vlanid, vlans[i].name, vlans[i].prefix, name, prefix);
+	    return -EEXIST;
+	  }
+	return 0;
+      }
 
   if ((nr_vlanids+1) == vlan_capacity)
     {
