@@ -70,11 +70,25 @@ extract_ip_addr(char **str, bool required, char **ret)
 {
   char *token;
 
+  /* A field that is present but empty (e.g. the client-IP in
+     "ip=:::::eth0:dhcp") is valid dracut syntax and different from
+     a field that is entirely missing because the argument ran out. */
+  if (*str == NULL)
+    {
+      if (required)
+	return -EINVAL;
+      *ret = NULL;
+      return 0;
+    }
+
   if ((*str)[0] == '[') // IPv6, e.g. [2001:DB8::1]
     {
       token = strsep(str, "]");
       if (isempty(token) || isempty(*str)) // str == NULL means no "]:..." found
-	return -EINVAL;
+	{
+	  *ret = token;
+	  return -EINVAL;
+	}
       // token points to '['
       token++;
       // str points to ':'
@@ -91,9 +105,6 @@ extract_ip_addr(char **str, bool required, char **ret)
 	  return -EINVAL;
 	}
     }
-
-  if (required && isempty(token))
-    return -EINVAL;
 
   *ret = token;
 
@@ -234,31 +245,38 @@ parse_ip_arg(int nr, char *arg, ip_t *cfg)
           if (r < 0)
             return r;
 
-	  r = extract_word(&arg, ":", true, &token);
+	  // netmask is optional: an empty field (e.g. "ip=:::::eth0:dhcp") just
+	  // means "no netmask given", not a syntax error.
+	  r = extract_word(&arg, ":", false, &token);
 	  if (r < 0)
 	    return return_syntax_error(nr, orig, r);
-	  if (strchr(token, '.')) // something like 255.255.0.0
+	  if (token == NULL)
+	    return return_syntax_error(nr, orig, -EINVAL);
+	  if (!isempty(token))
 	    {
-	      int cidr;
-
-	      r = netmask_to_cidr(token, &cidr);
-	      if (r < 0)
-		return return_syntax_error(nr, orig, r);
-	      cfg->netmask = cidr;
-	    }
-	  else
-	    {
-	      char *ep;
-	      long l;
-
-	      l = strtol(token, &ep, 10);
-	      if (errno == ERANGE || l < 0 || l > 128 ||
-		  token == ep || *ep != '\0')
+	      if (strchr(token, '.')) // something like 255.255.0.0
 		{
-                  MSG_ERROR( "Invalid netmask: %s", token);
-		  return -EINVAL;
+		  int cidr;
+
+		  r = netmask_to_cidr(token, &cidr);
+		  if (r < 0)
+		    return return_syntax_error(nr, orig, r);
+		  cfg->netmask = cidr;
 		}
-	      cfg->netmask = l;
+	      else
+		{
+		  char *ep;
+		  long l;
+
+		  l = strtol(token, &ep, 10);
+		  if (errno == ERANGE || l < 0 || l > 128 ||
+		      token == ep || *ep != '\0')
+		    {
+		      MSG_ERROR( "Invalid netmask: %s", token);
+		      return -EINVAL;
+		    }
+		  cfg->netmask = l;
+		}
 	    }
 
 	  r = extract_word(&arg, ":", false, &token);

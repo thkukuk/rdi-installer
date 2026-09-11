@@ -34,6 +34,7 @@ test('tst_ip_networkd_13', find_program('tst-ip-networkd-13.sh'))
 test('tst_ip_networkd_14', find_program('tst-ip-networkd-14.sh'))
 test('tst_ip_networkd_15', find_program('tst-ip-networkd-15.sh'))
 test('tst_ip_networkd_16', find_program('tst-ip-networkd-16.sh'))
+test('tst_ip_networkd_17', find_program('tst-ip-networkd-17.sh'))
 
 test('tst_route_networkd_1', find_program('tst-route-networkd-1.sh'))
 test('tst_route_networkd_2', find_program('tst-route-networkd-2.sh'))
