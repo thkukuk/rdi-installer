@@ -21,7 +21,7 @@ set_keymap(const char *keymap)
 {
   int r;
 
-  print_global_header_footer(NULL);
+  print_global_header_footer(NULL, NO_SELECTION);
   move(2,2);
   refresh();
 
@@ -174,7 +174,7 @@ update_filter(void)
 static void
 draw_ui(void)
 {
-  print_global_header_footer(NULL);
+  print_global_header_footer(NULL, SELECTION);
   print_title("Keyboard Settings");
 
   attron(COLOR_PAIR(CP_UNSELECTED));

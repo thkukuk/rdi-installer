@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <locale.h>
 #include <wchar.h>
+#include <ctype.h>
 
 #include "basics.h"
 #include "logger.h"
@@ -45,7 +46,7 @@ init_colors(void)
 }
 
 void
-print_global_header_footer(const char *addkeys)
+print_global_header_footer(const char *addkeys, const bool selection)
 {
   MSG_FUNC("addkeys='%s'", strempty(addkeys));
 
@@ -57,7 +58,8 @@ print_global_header_footer(const char *addkeys)
   attroff(COLOR_PAIR(CP_HEADER) | A_BOLD);
 
   // Draw Footer
-  const char *footer_text = "Up/Down: Navigate | Enter: Select | ESC: Abort/Quit";
+  const char *footer_text = (selection ? "Up/Down: Navigate | Enter: Select | ESC: Abort/Quit" :
+                             "ESC: Abort/Quit");
   attron(COLOR_PAIR(CP_FOOTER) | A_REVERSE);
   mvhline(LINES - 1, 0, ' ', COLS);
   if (addkeys)
@@ -308,14 +310,233 @@ show_info_popup(const char *headline, const char *descr)
   delwin(win);
   refresh();
 }
+static int
+clamp_scroll_offset(int offset, int line_count, int text_win_h)
+{
+  int max_offset = line_count - text_win_h;
+  if (max_offset < 0) max_offset = 0;
+  if (offset > max_offset) offset = max_offset;
+  if (offset < 0) offset = 0;
+  return offset;
+}
+
+void show_help_dialog(const char *title, const char *text) {
+  int max_y, max_x;
+  getmaxyx(stdscr, max_y, max_x);
+
+  if (!text)
+    return;
+
+  // Use maximum available width (with a 2-character margin on each side)
+  // and up to 80% screen height for better vertical proportions.
+  int width = max_x - 2;
+  int height = max_y * 0.8;
+
+  // Fallback bounds for smaller terminals
+  if (width < 20) width = max_x;
+  if (height < 8) height = 8;
+  if (height > max_y) height = max_y;
+
+  int start_y = (max_y - height) / 2;
+  int start_x = (max_x - width) / 2;
+
+  int prev_cursor = curs_set(0);
+
+  // Save current mouse mask and enable mouse events
+  mmask_t old_mouse_mask;
+  mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, &old_mouse_mask);
+
+  // Create main window and internal text pad area
+  WINDOW *help_win = newwin(height, width, start_y, start_x);
+  int text_win_h = height - 4;
+  int text_win_w = width - 4;
+  if (text_win_h < 1) text_win_h = 1;
+  if (text_win_w < 1) text_win_w = 1;
+  WINDOW *text_win = derwin(help_win, text_win_h, text_win_w, 2, 2);
+
+  keypad(help_win, TRUE);
+
+  // --- Line Wrapping Logic ---
+  int max_lines = 2048;
+  char **lines = malloc(sizeof(char *) * max_lines);
+  int line_count = 0;
+
+  const char *ptr = text;
+  while (*ptr && line_count < max_lines)
+    {
+      if (*ptr == '\n')
+        {
+          lines[line_count] = strdup("");
+          line_count++;
+          ptr++;
+          continue;
+        }
+
+      int len = 0;
+      int break_point = -1;
+
+      while (ptr[len] && ptr[len] != '\n' && len < text_win_w)
+        {
+          if (isspace((unsigned char)ptr[len]))
+            {
+              break_point = len;
+            }
+          len++;
+        }
+
+      if (len == text_win_w && ptr[len] != '\0' && ptr[len] != '\n' && break_point > 0)
+        {
+          len = break_point;
+        }
+
+      char *line_buf = malloc(len + 1);
+      strncpy(line_buf, ptr, len);
+      line_buf[len] = '\0';
+      lines[line_count++] = line_buf;
+
+      ptr += len;
+      if (*ptr == ' ' || *ptr == '\n')
+        {
+          ptr++;
+        }
+    }
+
+  int scroll_offset = 0;
+  int ch;
+
+  // --- Main Event Loop ---
+  while (1)
+    {
+      werase(help_win);
+      box(help_win, 0, 0);
+
+      if (title)
+        {
+          int title_x = (width - (int)strlen(title) - 2) / 2;
+          if (title_x < 0) title_x = 0;
+          mvwprintw(help_win, 0, title_x, " %s ", title);
+        }
+
+      const char *footer = (line_count > text_win_h) ? " Up/Down/Wheel: Scroll | Press any key to exit " :
+        "  Press any key to exit ";
+
+      int footer_x = (width - (int)strlen(footer)) / 2;
+      if (footer_x < 0) footer_x = 0;
+      mvwprintw(help_win, height - 1, footer_x, "%s", footer);
+
+      // Render visible slice of text
+      werase(text_win);
+      for (int i = 0; i < text_win_h; i++)
+        {
+          int current_line = scroll_offset + i;
+          if (current_line < line_count)
+            {
+              mvwprintw(text_win, i, 0, "%s", lines[current_line]);
+            }
+        }
+
+      // Draw scroll bar if text overflows window height
+      if (line_count > text_win_h)
+        {
+          int track_height = text_win_h;
+          int bar_size = (track_height * text_win_h) / line_count;
+          if (bar_size < 1) bar_size = 1;
+
+          int max_offset = line_count - text_win_h;
+          int bar_pos = (scroll_offset * (track_height - bar_size)) / max_offset;
+
+          // Draw track
+          for (int y = 0; y < track_height; y++)
+            {
+              mvwaddch(help_win, 2 + y, width - 1, ACS_VLINE);
+            }
+
+          // Draw scroll bar handle
+          wattron(help_win, A_REVERSE);
+          for (int y = 0; y < bar_size; y++)
+            {
+              mvwaddch(help_win, 2 + bar_pos + y, width - 1, ' ');
+            }
+          wattroff(help_win, A_REVERSE);
+        }
+
+      wrefresh(help_win);
+      wrefresh(text_win);
+
+      // Input processing
+      ch = wgetch(help_win);
+
+      if (ch == KEY_MOUSE)
+        {
+          MEVENT event;
+          if (getmouse(&event) == OK)
+            {
+              // Mouse Wheel Up
+              if (event.bstate & BUTTON4_PRESSED)
+                {
+                  scroll_offset = clamp_scroll_offset(scroll_offset - 3, line_count, text_win_h);
+                }
+              // Mouse Wheel Down
+              else if (event.bstate & BUTTON5_PRESSED)
+                {
+                  scroll_offset = clamp_scroll_offset(scroll_offset + 3, line_count, text_win_h);
+                }
+            }
+        }
+      else if (ch == KEY_UP)
+        {
+          scroll_offset = clamp_scroll_offset(scroll_offset - 1, line_count, text_win_h);
+        }
+      else if (ch == KEY_DOWN)
+        {
+          scroll_offset = clamp_scroll_offset(scroll_offset + 1, line_count, text_win_h);
+        }
+      else if (ch == KEY_NPAGE)
+        { // Page Down
+          scroll_offset = clamp_scroll_offset(scroll_offset + text_win_h, line_count, text_win_h);
+        }
+      else if (ch == KEY_PPAGE)
+        { // Page Up
+          scroll_offset = clamp_scroll_offset(scroll_offset - text_win_h, line_count, text_win_h);
+        }
+      else
+        {
+          // Exit loop on any non-navigation key press
+          break;
+        }
+    }
+
+  // Cleanup allocated lines memory
+  for (int i = 0; i < line_count; i++)
+    {
+      free(lines[i]);
+    }
+  free(lines);
+
+  // Restore previous mouse state
+  mousemask(old_mouse_mask, NULL);
+
+  // Cleanup ncurses resources
+  delwin(text_win);
+  delwin(help_win);
+
+  curs_set(prev_cursor);
+  touchwin(stdscr);
+  refresh();
+}
 
 int
-choose_entry(int row, const char *options[], int num_options, int start)
+choose_entry(int row, const char *options[], int num_options, int start,
+             const char *title, const char *help_text)
 {
   int selected = start;
 
-  MSG_FUNC("row=%i, options[0]='%s', num_options=%i, start=%i",
-	   row, options[0], num_options, start);
+  MSG_FUNC("row=%i, options[0]='%s', num_options=%i, start=%i, title=%s",
+           row, options[0], num_options, start, title);
+
+  print_global_header_footer((help_text ? "F1: Help" : NULL),
+                             SELECTION);
+  print_title((title ? title : ""));
 
   while (1)
     {
@@ -349,6 +570,8 @@ choose_entry(int row, const char *options[], int num_options, int start)
 	selected = (selected - 1 + num_options) % num_options;
       else if (ch == KEY_DOWN)
 	selected = (selected + 1) % num_options;
+      else if (ch == KEY_F1)
+        show_help_dialog(title, help_text);
       else if (ch == '\n' || ch == KEY_ENTER)
 	{
 	  MSG_INFO("Selected entry %i", selected);

@@ -27,7 +27,7 @@ error_handler(int err, const char *info, const char *device, char **error)
   return -err;
 }
 
-/* Zaps the MBR, Primary GPT, and Backup GPT on a block device,
+/* Zaps the MBR, Primary GPT and Backup GPT on a block device,
    replicating `sgdisk --zap-all`.
    returns 0 on success, -errno on failure. */
 int

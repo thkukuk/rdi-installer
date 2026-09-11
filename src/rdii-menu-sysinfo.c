@@ -122,7 +122,7 @@ show_sysinfo(void)
   uint64_t mem_total = 0, mem_free = 0, mem_available = 0;
   int y = 2;
 
-  print_global_header_footer(NULL);
+  print_global_header_footer(NULL, NO_SELECTION);
   refresh();
 
   if (get_cpu_model(&line) && !isempty(line))

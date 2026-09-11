@@ -160,8 +160,7 @@ show_post_menu(void)
 
   while (1)
     {
-      print_global_header_footer(NULL);
-      selected = choose_entry(4, options, num_options, selected);
+      selected = choose_entry(4, options, num_options, selected, NULL, NULL);
       switch(selected)
 	{
 	case 0: // Reboot
@@ -188,6 +187,94 @@ show_post_menu(void)
 	}
     }
 }
+
+static const char *main_menu_help_text =
+  "RDI-installer is a raw disk image installer, whose main "
+  "purpose is to have a comfortable and robust tool to boot on bare metal "
+  "and install a raw disk image on that hardware.\n\n"
+
+  "Hardware Requirements\n"
+  "---------------------\n"
+  "Currently, only x86-64 systems with UEFI firmware and a minimum of 2GB of memory are supported.\n\n"
+  "Compressed Raw Images\n"
+  "---------------------\n"
+  "Raw Images compressed with xz, gzip, bzip2, or zstd are supported. The images will be decompressed on the fly while writing to disk.\n\n"
+  "Raw Image Verification\n"
+  "----------------------\n"
+  "The rdi-installer application tries to download a GPG-signed sha256 hash for an image and uses that to verify the image.\n\n"
+  "If the image URL is:\n"
+  "   https://download.example.org/example-image.raw.xz\n\n"
+  "Attempts will be made to also download:\n"
+  "   https://download.example.org/example-image.raw.xz.sha256\n"
+  "   https://download.example.org/example-image.raw.xz.sha256.asc\n\n"
+  "Signature verification is performed by gpgv using a keyring located at /etc/systemd/import-pubring.gpg. The signing key must be imported"
+  " into that keyring for verification to succeed. If the signature file cannot be downloaded or verification fails, the installer will warn "
+  "the user but still allow the installation to proceed.\n\n"
+  "Options\n"
+  "-------\n"
+  "Options can be provided either via the kernel cmdline during boot or through a configuration file.\n\n"
+  "Parameters:\n\n"
+  "* rdii.url\n"
+  "  - Format: HTTP URL or local file path\n"
+  "  - Description: Specifies the URL or filename from which the image to be installed can be downloaded.\n\n"
+  "* rdii.device\n"
+  "  - Format: /dev/...\n"
+  "  - Description: The target device on which the image should be installed.\n\n"
+  "* rdii.mdraid\n"
+  "  - Format: /dev/...\n"
+  "  - Description: Second device to pair with rdii.device for an MD Raid 1 setup.\n\n"
+  "* rdii.keymap\n"
+  " - Format: Keymap name\n"
+  " - Description: Configures the keyboard key mapping table. This is only applied when running on a Linux virtual console\n"
+  "   (ignored on serial consoles and pseudo terminals).\n\n"
+  "* rdii.preserve-ssh-hostkey\n"
+  " - Format: true / false / yes / no / 1 / 0\n"
+  " - Description: Preserves SSH host keys from the existing installation and restores them to the new installation.\n\n"
+  "* rdii.download_server\n"
+  " - Format: HTTP URL\n"
+  " - Description: Base URL from which a list of raw disk images can be retrieved for selection.\n\n"
+  "Note: Additional images can be specified using rdii.url1 and rdii.url2. When rdi-installer starts, the user will be prompted"
+  " to select which image to install.\n\n"
+  "SSH Host Key Preservation\n"
+  "-------------------------\n"
+  "The rdii.preserve-ssh-hostkey option enables automatic preservation of SSH host keys during installation. When enabled, the installer "
+  "performs the following:\n\n"
+  "1. Before writing the new image, it scans all partitions on the target device using supported filesystems (ext2, ext3, ext4, xfs, btrfs) "
+  "for /etc/ssh/ssh_host_* files.\n"
+  "2. It backs up any discovered SSH host keys to a temporary directory.\n"
+  "3. After writing and mounting the new image, it restores the backed-up keys to the new installation's /etc/ssh/ directory (only if no "
+  "host keys already exist in the new installation).\n\n"
+  "This feature prevents SSH \"host key changed\" warnings on client systems connecting to the reinstalled machine.\n\n"
+  "MD Raid (Raid 1)\n"
+  "----------------\n"
+  "During installation a MD Raid can be created and used as device for the image. If rdii.mdraid is set, rdii.device is the first "
+  "device of the MD Raid and rdii.mdraid is the second device. rdi-intaller does not make any modifications to the image, it needs "
+  " to contain already everything to assembly the MD device during boot.\n\n"
+  "Configuration File\n"
+  "------------------\n"
+  "The rdii-config configuration file is used by rdi-installer to "
+  "provision installation sources, targets, network interfaces, proxies, and remote SSH access.\n\n"
+  "Syntax rules:\n"
+  "- Define one key=value parameter per line.\n"
+  "- Empty lines are ignored.\n"
+  "- Text following the comment character (#) is ignored.\n\n"
+  "File locations:\n"
+  "- If a configuration file is not specified on the command line, tools search for /run/rdi-installer/rdii-config.\n"
+  "- During boot, rdii-fetch-config checks the installer's boot source location to fetch a configuration file, saving it to /run/rdi-installer/rdii-config.\n"
+  "- The fetching process replaces the .efi extension with .rdii-config.\n"
+  "  Examples:\n"
+  "  * Booting via UEFI HTTP from http://192.168.122.1/rdi-installer.x86-64.efi causes rdii-fetch-config to \n"
+  "    look for http://192.168.122.1/rdi-installer.x86-64.rdii-config.\n"
+  "  * Booting a UKI image from <ESP>/EFI/Linux/rdi-installer.efi causes rdii-fetch-config to look for <ESP>/EFI/Linux/rdi-installer.rdii-config.\n\n"
+  "Example configuration file content:\n\n"
+  "  rdii.device=/dev/vda\n"
+  "  rdii.url=https://download.opensuse.org/tumbleweed/appliances/Tumbleweed-OEM.x86_64-KDE.raw.xz\n"
+  "  rdii.url1=https://download.opensuse.org/tumbleweed/appliances/openSUSE-MicroOS.x86_64-SelfInstall.raw.xz\n"
+  "  rdii.keymap=de-nodeadkeys\n"
+  "  rdii.preserve-ssh-hostkey=true\n"
+  "  ssh=1\n"
+  "  ssh.key=ZXhhbXBsZSBzc2ggcHVibGljIGtleQo=\n\n\n"
+  "Explore the rdi-installer GitHub page (https://github.com/thkukuk/rdi-installer) for detailed information, available parameters, and supplementary tools.\n";
 
 static int
 show_main_menu(const char *def_image, const char *def_device, const char *def_mdraid,
@@ -264,10 +351,8 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 
   while (1)
     {
-      print_global_header_footer(NULL);
-      print_title("Configuration Settings");
-
-      selected = choose_entry(4, options, num_options, selected);
+      selected = choose_entry(4, options, num_options,
+                              selected, "Raw Disk Installer", main_menu_help_text);
       switch(selected)
 	{
 	case 0: // Select Image
@@ -291,7 +376,8 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 	  break;
 	case 1: // Select Target
 	  {
-	    select_target_device(minsize, &device);
+            const char *help_text_select = "Select the device on which the image should be installed.";
+	    select_target_device(minsize, &device, help_text_select);
 	    if (!isempty(device))
 	      {
 		target_entry = mfree(target_entry);
@@ -358,7 +444,10 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 	    }
 	  break;
 	case 6: // Destroy partition table
-	  select_target_device(0, &device);
+          const char *help_text_destroy = "Select the device which has to be destroyed.\n"
+            "Proceeding will wipe the MBR, Primary GPT, and Backup GPT partition tables from the selected block device.";
+
+	  select_target_device(0, &device, help_text_destroy);
 	  if (!isempty(device))
 	    {
 	      _cleanup_free_ char *errmsg = NULL;
@@ -376,7 +465,7 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 	      else
 		{
 		  MSG_INFO("Destroying partition table on device '%s' successful.", device);
-		  print_global_header_footer(NULL); // remove warning popup
+		  print_global_header_footer(NULL, SELECTION); // remove warning popup
 		  refresh();
 		  show_info_popup("Destroying partition table was successful", NULL);
 		}
@@ -428,10 +517,8 @@ select_image(const char *image1, const char *image2,
   options[1] = truncate_middle(strna(image2), COLS-8);
   options[2] = truncate_middle(strna(image3), COLS-8);
 
-  print_global_header_footer(NULL);
-  print_title("Select Installation Source");
-
-  return choose_entry(4, (const char **)options, 3, 0);
+  return choose_entry(4, (const char **)options, 3, 0,
+                      "Select Installation Source", NULL);
 }
 
 int

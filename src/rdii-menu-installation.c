@@ -33,7 +33,7 @@ verify_signature(const char *file, char *key, char **error)
 
   MSG_FUNC("file='%s', key='%s'", file, key);
 
-  print_global_header_footer(NULL);
+  print_global_header_footer(NULL, NO_SELECTION);
   move(2,2);
   refresh();
 
@@ -613,7 +613,7 @@ run_installation(const char *url, const char *device, const char *mdraid,
 	return -EINTR;
     }
 
-  print_global_header_footer(NULL);
+  print_global_header_footer(NULL, NO_SELECTION);
   move(2,0);
 
   // assume network url style
@@ -731,7 +731,7 @@ run_installation(const char *url, const char *device, const char *mdraid,
 	return -ENOMEM;
     }
 
-  print_global_header_footer(NULL);
+  print_global_header_footer(NULL, NO_SELECTION);
   refresh();
   if (!show_warning_popup("WARNING: PERMANENT DATA LOSS - Are you absolutely sure?",
 			  url, device_line))
@@ -754,7 +754,7 @@ run_installation(const char *url, const char *device, const char *mdraid,
         }
     }
 
-  print_global_header_footer(NULL);
+  print_global_header_footer(NULL, NO_SELECTION);
   const char *start_installation_str = "Starting installation...";
   mvprintw(2, (COLS - strlen(start_installation_str)) / 2,
 	   "%s", start_installation_str);

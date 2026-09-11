@@ -65,7 +65,7 @@ is_device_mounted(const char *device)
 }
 
 int
-select_target_device(uint64_t minsize, char **device)
+select_target_device(uint64_t minsize, char **device, const char *help_text)
 {
   _cleanup_str_array_ char **options = NULL;
   _cleanup_free_ int *mapping = NULL;
@@ -105,10 +105,8 @@ select_target_device(uint64_t minsize, char **device)
       n++;
     }
 
-  print_global_header_footer(NULL);
-  print_title("Select Target Device");
-
-  selected = choose_entry(4, (const char **)options, n, selected);
+  selected = choose_entry(4, (const char **)options, n, selected,
+                          "Select Target Device", help_text);
   if (selected < 0)
     return selected;
 

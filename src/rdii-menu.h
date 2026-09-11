@@ -9,7 +9,8 @@ extern int is_device_mounted(const char *device);
 
 extern void keywait(int y, int x, const char *text, int sec);
 
-extern int select_target_device(uint64_t minsize, char **device);
+extern int select_target_device(uint64_t minsize, char **device,
+                                const char *help_text);
 extern int select_mdraid_devices(uint64_t minsize, char **device1, char **device2);
 extern void select_installation_source(const char *prefill, char **ret);
 extern int show_sysinfo(void);

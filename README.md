@@ -1,6 +1,6 @@
 # Raw Disk Image Installer (rdi-installer)
 
-This project consists of various utilities and a UKI image for an raw disk image installer, which main purpose is to have a comfortable and robust tool to boot on bare metal and install a raw disk image on that hardware.
+This project consists of various utilities and a UKI image for a raw disk image installer, which main purpose is to have a comfortable and robust tool to boot on bare metal and install a raw disk image on that hardware.
 
 ## Images
 
