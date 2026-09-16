@@ -16,6 +16,15 @@
 
 static const char *header_title = NULL;
 
+// Confirmation and timeout behaviour for the popups below, configurable via
+// rdii.autoinstall.confirm_infos / confirm_warnings / confirm_errors /
+// popup_timeout. Defaults reproduce the previous, purely interactive
+// behaviour: every popup is shown and blocks until the user responds.
+bool confirm_infos = true;
+bool confirm_warnings = true;
+bool confirm_errors = true;
+int popup_timeout = 0; // 0 = wait forever
+
 static void
 init_colors(void)
 {
@@ -152,6 +161,11 @@ show_warning_popup(const char *headline,
   wbkgd(win, COLOR_PAIR(CP_WARNING));
   keypad(win, TRUE); // Enable arrow keys for this specific window
 
+  // Only auto-dismiss when confirmation isn't required; otherwise wait
+  // indefinitely for an explicit answer, regardless of popup_timeout.
+  if (!confirm_warnings && popup_timeout > 0)
+    wtimeout(win, popup_timeout * 1000);
+
   int btn_selected = 1; // 0 = YES, 1 = NO (Defaulting to NO for safety)
   int choice = -1;
 
@@ -186,7 +200,12 @@ show_warning_popup(const char *headline,
 
       // Handle input locally inside the popup
       int key = wgetch(win);
-      if (key == KEY_LEFT || key == KEY_RIGHT || key == '\t')
+      if (key == ERR) // popup_timeout expired without any input
+	{
+	  choice = 0; // Confirmation not required: proceed as if YES was chosen
+	  break;
+	}
+      else if (key == KEY_LEFT || key == KEY_RIGHT || key == '\t')
 	  btn_selected = 1 - btn_selected; // Toogle
       else if (key == '\n' || key == KEY_ENTER)
 	{
@@ -247,11 +266,16 @@ show_error_popup(const char *headline,
   mvwprintw(win, height - 3, width / 2 - 3, "[ OK ]");
   wrefresh(win);
 
+  // Only auto-dismiss when confirmation isn't required; otherwise wait
+  // indefinitely for an explicit answer, regardless of popup_timeout.
+  if (!confirm_errors && popup_timeout > 0)
+    wtimeout(win, popup_timeout * 1000);
+
   while (1)
     {
       // Handle input locally inside the popup
       int key = wgetch(win);
-      if (key == '\n' || key == 27) // RETURN || ESC
+      if (key == '\n' || key == 27 || key == ERR) // RETURN || ESC || timeout
 	break;
     }
 
@@ -294,8 +318,11 @@ show_info_popup(const char *headline, const char *descr)
   const char spinner[] = "|/-\\";
   int spinner_idx = 0;
   int elapsed_ms = 0;
+  // Only auto-dismiss when confirmation isn't required; otherwise wait
+  // indefinitely for an explicit answer, regardless of popup_timeout.
+  int timeout_ms = (!confirm_infos && popup_timeout > 0) ? popup_timeout * 1000 : -1;
 
-  while (elapsed_ms < 30 * 1000)
+  while (timeout_ms < 0 || elapsed_ms < timeout_ms)
     {
       mvwprintw(win, height - 2, width - 2, "%c", spinner[spinner_idx]);
       spinner_idx = (spinner_idx + 1) % 4;

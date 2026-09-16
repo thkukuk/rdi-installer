@@ -143,7 +143,7 @@ truncate_middle(const char *str, size_t max_len)
 }
 
 
-static int
+int
 show_post_menu(void)
 {
   const char *options[] = {
@@ -444,7 +444,8 @@ rdii_menu(const char *title, const char *image0, const char *image1,
 
   MSG_FUNC("image0='%s', image1='%s', image2='%s', device='%s', mdraid='%s', keymap='%s', preserve_ssh_hostkey=%i",
 	   strempty(image0), strempty(image1), strempty(image2),
-	   strempty(device), strempty(mdraid), strempty(keymap), preserve_ssh_hostkey);
+	   strempty(device), strempty(mdraid), strempty(keymap),
+	   preserve_ssh_hostkey);
 
   show_splash_screen(title);
 

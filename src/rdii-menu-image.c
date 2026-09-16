@@ -26,7 +26,7 @@
 
 /* verify if an URL exists
   (curl -o /dev/null --silent --show-error --head --fail --max-time $TIMEOUT "$URL") */
-static bool
+bool
 url_is_valid(const char *url, const char **error)
 {
   long timeout = 5; // 5 seconds

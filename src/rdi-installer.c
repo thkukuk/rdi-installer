@@ -4,6 +4,8 @@
 
 #include <getopt.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/stat.h>
 #include <libeconf.h>
 
 #include "basics.h"
@@ -12,6 +14,7 @@
 #include "tmpfile-util.h"
 #include "nc-dialogs.h"
 #include "rdii-menu.h"
+#include "rdii-autoinstall.h"
 #include "logger.h"
 #include "select_keymap.h"
 #include "is_linux_vt.h"
@@ -27,7 +30,8 @@ static econf_err
 read_config(const char *config, char **ret_device, char **ret_mdraid,
 	    char **ret_url, char **ret_url1, char **ret_url2,
 	    char **ret_keymap, char **ret_download_server,
-	    bool *ret_preserve_ssh_hostkey)
+	    bool *ret_preserve_ssh_hostkey, bool *ret_autoinstall,
+	    char **ret_autoinstall_finish)
 {
   _cleanup_(econf_freeFilep) econf_file *key_file = NULL;
   _cleanup_free_ char *device = NULL;
@@ -37,12 +41,13 @@ read_config(const char *config, char **ret_device, char **ret_mdraid,
   _cleanup_free_ char *url2 = NULL;
   _cleanup_free_ char *keymap = NULL;
   _cleanup_free_ char *download_server = NULL;
+  _cleanup_free_ char *autoinstall_finish = NULL;
   bool preserve_ssh_hostkey = false;
+  bool autoinstall = false;
   econf_err error;
 
   error = econf_readFile(&key_file, config,
 			 "=", "#");
-
   if (error == ECONF_NOFILE)
     {
       MSG_WARN("No rdi-installer configuration file found");
@@ -85,6 +90,54 @@ read_config(const char *config, char **ret_device, char **ret_mdraid,
   if (error == ECONF_SUCCESS && ret_preserve_ssh_hostkey)
     *ret_preserve_ssh_hostkey = preserve_ssh_hostkey;
 
+  error = econf_getBoolValue(key_file, NULL, "rdii.autoinstall", &autoinstall);
+  if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
+    return error;
+  if (error == ECONF_SUCCESS && ret_autoinstall)
+    *ret_autoinstall = autoinstall;
+
+  error = econf_getStringValue(key_file, NULL, "rdii.autoinstall.finish", &autoinstall_finish);
+  if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
+    return error;
+  if (autoinstall_finish &&
+      strcmp(autoinstall_finish, "reboot") != 0 &&
+      strcmp(autoinstall_finish, "poweroff") != 0 &&
+      strcmp(autoinstall_finish, "manual") != 0)
+    MSG_WARN("No valid value for rdii.autoinstall.finish: %s", autoinstall_finish);
+
+  // These settings only apply to an automatic installation; in the normal
+  // interactive menu, popups always keep requiring explicit confirmation.
+  if (autoinstall)
+    {
+      bool confirm_info_cfg = confirm_infos;
+      error = econf_getBoolValue(key_file, NULL, "rdii.autoinstall.confirm_infos", &confirm_info_cfg);
+      if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
+	return error;
+      if (error == ECONF_SUCCESS)
+	confirm_infos = confirm_info_cfg;
+
+      bool confirm_warnings_cfg = confirm_warnings;
+      error = econf_getBoolValue(key_file, NULL, "rdii.autoinstall.confirm_warnings", &confirm_warnings_cfg);
+      if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
+	return error;
+      if (error == ECONF_SUCCESS)
+	confirm_warnings = confirm_warnings_cfg;
+
+      bool confirm_errors_cfg = confirm_errors;
+      error = econf_getBoolValue(key_file, NULL, "rdii.autoinstall.confirm_errors", &confirm_errors_cfg);
+      if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
+	return error;
+      if (error == ECONF_SUCCESS)
+	confirm_errors = confirm_errors_cfg;
+
+      int32_t popup_timeout_cfg = popup_timeout;
+      error = econf_getIntValue(key_file, NULL, "rdii.autoinstall.popup_timeout", &popup_timeout_cfg);
+      if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
+	return error;
+      if (error == ECONF_SUCCESS)
+	popup_timeout = popup_timeout_cfg;
+    }
+
   if (ret_device)
     *ret_device = TAKE_PTR(device);
   if (ret_mdraid)
@@ -99,6 +152,8 @@ read_config(const char *config, char **ret_device, char **ret_mdraid,
     *ret_keymap = TAKE_PTR(keymap);
   if (ret_download_server)
     *ret_download_server = TAKE_PTR(download_server);
+  if (ret_autoinstall_finish)
+    *ret_autoinstall_finish = TAKE_PTR(autoinstall_finish);
 
   return ECONF_SUCCESS;
 }
@@ -121,6 +176,58 @@ rm_rf_and_freep(char **p)
 {
   if (*p)
     *p = rm_rf_and_free(*p);
+}
+
+static void
+validate_image_url(char **url)
+{
+  const char *error_msg = NULL;
+
+  if (isempty(*url) ||
+      (!startswith(*url, "https://") && !startswith(*url, "http://")))
+    return;
+
+  if (!url_is_valid(*url, &error_msg) &&
+      !show_warning_popup("URL doesn't seem to be valid:",
+			   error_msg, "Really use this URL?"))
+    *url = mfree(*url);
+}
+
+/* verify if a device path exists and is a block device */
+static bool
+device_exists(const char *device, const char **error)
+{
+  struct stat st;
+
+  if (stat(device, &st) < 0)
+    {
+      if (error)
+	*error = strerror(errno);
+      return false;
+    }
+
+  if (!S_ISBLK(st.st_mode))
+    {
+      if (error)
+	*error = "not a block device";
+      return false;
+    }
+
+  return true;
+}
+
+static void
+validate_device(char **device)
+{
+  const char *error_msg = NULL;
+
+  if (isempty(*device))
+    return;
+
+  if (!device_exists(*device, &error_msg) &&
+      !show_warning_popup("Device doesn't seem to be available:",
+			   error_msg, "Really use this device?"))
+    *device = mfree(*device);
 }
 
 static void
@@ -158,7 +265,9 @@ main(int argc, char **argv)
   _cleanup_free_ char *mdraid = NULL;
   _cleanup_free_ char *keymap = NULL;
   _cleanup_free_ char *download_server = NULL;
+  _cleanup_free_ char *autoinstall_finish = NULL;
   bool preserve_ssh_hostkey = false;
+  bool autoinstall = false;
   int r;
   econf_err conf_err;
 
@@ -223,11 +332,25 @@ main(int argc, char **argv)
   init_ncurses(TITLE);
 
   conf_err = read_config(rdii_config, &device, &mdraid, &image, &image1, &image2, &keymap,
-			 &download_server, &preserve_ssh_hostkey);
+			 &download_server, &preserve_ssh_hostkey, &autoinstall,
+			 &autoinstall_finish);
   if (conf_err != ECONF_SUCCESS)
     {
       show_error_popup("Failed to read config file:",
                        econf_errString(conf_err), NULL);
+    }
+
+  // Only needed to decide whether an automatic installation can start;
+  // the interactive menu validates URLs/devices lazily as the user
+  // selects or enters them, to avoid blocking on network I/O at startup.
+  if (autoinstall)
+    {
+      validate_image_url(&image);
+      validate_image_url(&image1);
+      validate_image_url(&image2);
+
+      validate_device(&device);
+      validate_device(&mdraid);
     }
 
   if (download_server)
@@ -253,7 +376,10 @@ main(int argc, char **argv)
   // we cannot make rdii_tmp_dir_cleanup global because of _cleanup_
   rdii_tmp_dir = rdii_tmp_dir_cleanup;
 
-  r = rdii_menu(TITLE, image, image1, image2, device, mdraid, keymap, preserve_ssh_hostkey);
+  if (!autoinstall || !rdii_autoinstall(image, device, mdraid, preserve_ssh_hostkey,
+					autoinstall_finish, &r))
+    r = rdii_menu(TITLE, image, image1, image2, device, mdraid, keymap,
+		  preserve_ssh_hostkey);
 
   MSG_INFO("rdi-installer stopped (retval=%i)", r);
 

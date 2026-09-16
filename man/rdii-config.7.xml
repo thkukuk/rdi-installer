@@ -99,6 +99,130 @@
           </para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><literal>rdii.autoinstall</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> true/false/yes/no/1/0
+          </para>
+          <para>
+            Starts the installation automatically, without user
+            interaction, as soon as a valid <literal>rdii.device</literal>
+            and installation image (<literal>rdii.url</literal>) are
+            defined. If either the device or the image is missing or
+            invalid, <command>rdi-installer</command> falls back to
+            the normal interactive menu.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>rdii.autoinstall.finish</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> manual/reboot/poweroff
+          </para>
+          <para>
+            Controls what happens after an automatic installation
+            (<literal>rdii.autoinstall</literal>) finishes.
+            <literal>manual</literal> (the default) shows the normal
+            post-installation menu; <literal>reboot</literal> and
+            <literal>poweroff</literal> reboot or power off the
+            machine directly. If that command fails, or the
+            installation itself fails, <command>rdi-installer</command>
+            falls back to the normal interactive menu.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>rdii.autoinstall.confirm_infos</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> true/false/yes/no/1/0
+          </para>
+          <para>
+            Only takes effect if <literal>rdii.autoinstall</literal> is
+            <literal>true</literal>; otherwise the default
+            (<literal>true</literal>) always applies.
+          </para>
+          <para>
+            Default: <literal>true</literal>. Informational popups are
+            always shown. If set to <literal>false</literal> and
+            <literal>rdii.autoinstall.popup_timeout</literal> is
+            greater than <literal>0</literal>, the popup is
+            automatically dismissed after that many seconds instead of
+            waiting for a keypress.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>rdii.autoinstall.confirm_warnings</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> true/false/yes/no/1/0
+          </para>
+          <para>
+            Only takes effect if <literal>rdii.autoinstall</literal> is
+            <literal>true</literal>; otherwise the default
+            (<literal>true</literal>) always applies.
+          </para>
+          <para>
+            Default: <literal>true</literal>. Warning popups that ask
+            for confirmation are always shown. If set to
+            <literal>false</literal> and
+            <literal>rdii.autoinstall.popup_timeout</literal> is
+            greater than <literal>0</literal>, the popup is
+            automatically dismissed after that many seconds and
+            treated as if it had been answered with
+            <literal>YES</literal>, instead of waiting for a keypress.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>rdii.autoinstall.confirm_errors</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> true/false/yes/no/1/0
+          </para>
+          <para>
+            Only takes effect if <literal>rdii.autoinstall</literal> is
+            <literal>true</literal>; otherwise the default
+            (<literal>true</literal>) always applies.
+          </para>
+          <para>
+            Default: <literal>true</literal>. Error popups are always
+            shown. If set to <literal>false</literal> and
+            <literal>rdii.autoinstall.popup_timeout</literal> is
+            greater than <literal>0</literal>, the popup is
+            automatically dismissed after that many seconds instead of
+            waiting for a keypress.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>rdii.autoinstall.popup_timeout</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> integer (seconds)
+          </para>
+          <para>
+            Only takes effect if <literal>rdii.autoinstall</literal> is
+            <literal>true</literal>; otherwise the default
+            (<literal>0</literal>) always applies.
+          </para>
+          <para>
+            Default: <literal>0</literal>. Number of seconds after
+            which a popup is automatically dismissed, but only for
+            popups whose corresponding
+            <literal>rdii.autoinstall.confirm_infos</literal>,
+            <literal>rdii.autoinstall.confirm_warnings</literal> or
+            <literal>rdii.autoinstall.confirm_errors</literal> setting
+            is <literal>false</literal>. Popups that still require
+            confirmation always wait indefinitely for a keypress,
+            regardless of this setting. A value of <literal>0</literal>
+            disables the automatic dismissal.
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

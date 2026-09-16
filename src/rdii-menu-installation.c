@@ -860,7 +860,10 @@ run_installation(const char *url, const char *device, const char *mdraid,
         }
     }
 
-  keywait(LINES-3, 0, NULL, 0);
+  // Only auto-dismiss when confirmation isn't required; otherwise wait
+  // indefinitely for an explicit answer, regardless of popup_timeout.
+  int wait_sec = (!confirm_infos && popup_timeout > 0) ? popup_timeout : 0;
+  keywait(LINES-3, 0, NULL, wait_sec);
 
   return r;
 }

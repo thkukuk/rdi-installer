@@ -13,6 +13,11 @@
 #define CP_FOOTER 6
 #define CP_WARNING 7
 
+extern bool confirm_infos;
+extern bool confirm_warnings;
+extern bool confirm_errors;
+extern int popup_timeout;
+
 extern void print_global_header_footer(const char *addkeys);
 extern void print_title(const char *title);
 extern int show_warning_popup(const char *headline,
