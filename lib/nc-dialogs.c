@@ -667,6 +667,7 @@ choose_entry(int row, const char *options[], int num_options, int start,
              const char *title, const char *help_text)
 {
   int selected = start;
+  int scroll_offset = 0;
 
   MSG_FUNC("row=%i, options[0]='%s', num_options=%i, start=%i, title=%s",
            row, options[0], num_options, start, title);
@@ -677,50 +678,92 @@ choose_entry(int row, const char *options[], int num_options, int start,
 
   while (1)
     {
-      for (int i = 0; i < num_options; i++)
-	{
-	  int y = row + i;
+      int max_y, max_x;
+      getmaxyx(stdscr, max_y, max_x);
 
-	  if (i == selected)
-	    {
-	      attron(COLOR_PAIR(CP_SELECTED) | A_BOLD);
-	      mvprintw(y, 2, "-> %s", options[i]);
-	      attroff(COLOR_PAIR(CP_SELECTED) | A_BOLD);
-	    }
-	  else
-	    {
-	      attron(COLOR_PAIR(CP_UNSELECTED));
-	      mvprintw(y, 2, "   %s", options[i]);
-	      attroff(COLOR_PAIR(CP_UNSELECTED));
-	    }
-	}
+      // Reserve the last line for the footer drawn by print_global_header_footer()
+      int max_visible = max_y - row - 1;
+      if (max_visible < 1) max_visible = 1;
+
+      // Adjust scroll offset to keep 'selected' visible
+      if (selected < scroll_offset)
+        scroll_offset = selected;
+      else if (selected >= scroll_offset + max_visible)
+        scroll_offset = selected - max_visible + 1;
+
+      // Leave room for the scrollbar column so long entries can't overwrite it
+      bool show_scrollbar = num_options > max_visible;
+      int text_width = (show_scrollbar ? max_x - 2 : max_x) - 2 - 3;
+      if (text_width < 1) text_width = 1;
+
+      // Render visible options
+      for (int i = 0; i < max_visible; i++)
+        {
+          int item_idx = scroll_offset + i;
+          int y = row + i;
+
+          // Clear line to avoid leftover artifacts from previously rendered text
+          move(y, 0);
+          clrtoeol();
+
+          if (item_idx < num_options)
+            {
+              if (item_idx == selected)
+                {
+                  attron(COLOR_PAIR(CP_SELECTED) | A_BOLD);
+                  mvprintw(y, 2, "-> %.*s", text_width, options[item_idx]);
+                  attroff(COLOR_PAIR(CP_SELECTED) | A_BOLD);
+                }
+              else
+                {
+                  attron(COLOR_PAIR(CP_UNSELECTED));
+                  mvprintw(y, 2, "   %.*s", text_width, options[item_idx]);
+                  attroff(COLOR_PAIR(CP_UNSELECTED));
+                }
+            }
+        }
+
+      // Render scrollbar on right margin if list exceeds viewport
+      if (show_scrollbar)
+        {
+          int sb_x = max_x - 2;
+          int thumb_pos = (selected * (max_visible - 1)) / (num_options - 1);
+
+          for (int i = 0; i < max_visible; i++)
+            {
+              mvaddch(row + i, sb_x, (i == thumb_pos) ? ACS_CKBOARD : '|');
+            }
+        }
 
       refresh();
 
       int ch = getch();
-      if (ch == 27) // 27 is the ASCII code for ESC
-	{
-	  MSG_INFO("Canceld with ESC");
-	  return -ECANCELED;
-	}
+      if (ch == 27) // ESC
+        {
+          MSG_INFO("Canceled with ESC");
+          return -ECANCELED;
+        }
       else if (ch == KEY_UP)
-	selected = (selected - 1 + num_options) % num_options;
+        selected = (selected - 1 + num_options) % num_options;
       else if (ch == KEY_DOWN)
-	selected = (selected + 1) % num_options;
+        selected = (selected + 1) % num_options;
+      else if (ch == KEY_PPAGE) // Page Up
+        selected = (selected - max_visible < 0) ? 0 : selected - max_visible;
+      else if (ch == KEY_NPAGE) // Page Down
+        selected = (selected + max_visible >= num_options) ? num_options - 1 : selected + max_visible;
       else if (ch == KEY_F1)
         show_help_dialog(title, help_text);
       else if (ch == '\n' || ch == KEY_ENTER)
-	{
-	  MSG_INFO("Selected entry %i", selected);
-	  return selected;
-	}
+        {
+          MSG_INFO("Selected entry %i", selected);
+          return selected;
+        }
     }
 
   MSG_ERROR("quit while loop without return!");
-
-  // we should never reach this
   return -2;
 }
+
 
 void
 init_ncurses(const char *title)
