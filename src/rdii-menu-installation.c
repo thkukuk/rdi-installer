@@ -868,9 +868,12 @@ run_installation(const char *url, const char *device, const char *mdraid,
         }
     }
 
-  // Only auto-dismiss when confirmation isn't required; otherwise wait
-  // indefinitely for an explicit answer, regardless of popup_timeout.
-  int wait_sec = (!confirm_infos && popup_timeout > 0) ? popup_timeout : 0;
+  // Only wait indefinitely when explicit confirmation was requested;
+  // otherwise auto-dismiss after popup_timeout, or after
+  // INFO_POPUP_DEFAULT_TIMEOUT_MS if no custom timeout was configured.
+  // keywait() treats sec == 0 as "wait forever".
+  int wait_sec = confirm_infos ? 0 :
+    (popup_timeout > 0 ? popup_timeout : INFO_POPUP_DEFAULT_TIMEOUT_MS / 1000);
   keywait(LINES-3, 0, NULL, wait_sec);
 
   return r;

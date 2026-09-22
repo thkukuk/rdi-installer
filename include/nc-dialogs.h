@@ -19,6 +19,11 @@ extern bool confirm_warnings;
 extern bool confirm_errors;
 extern int popup_timeout;
 
+// Info popups are status notices rather than decisions, so once confirmation
+// isn't required for them, they auto-dismiss even if popup_timeout itself
+// wasn't configured.
+#define INFO_POPUP_DEFAULT_TIMEOUT_MS (30 * 1000)
+
 #define KEY_F1	(KEY_F0+(1))
 #define SELECTION true
 #define NO_SELECTION false

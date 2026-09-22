@@ -19,8 +19,11 @@ static const char *header_title = NULL;
 
 // Confirmation and timeout behaviour for the popups below, configurable via
 // rdii.autoinstall.confirm_infos / confirm_warnings / confirm_errors /
-// popup_timeout. Defaults reproduce the previous, purely interactive
-// behaviour: every popup is shown and blocks until the user responds.
+// popup_timeout. These only get overridden away from their defaults for an
+// automatic installation (see rdi-installer.c); the normal interactive menu
+// always keeps the defaults below, i.e. every popup blocks until the user
+// responds.
+
 bool confirm_infos = true;
 bool confirm_warnings = true;
 bool confirm_errors = true;
@@ -320,9 +323,13 @@ show_info_popup(const char *headline, const char *descr)
   const char spinner[] = "|/-\\";
   int spinner_idx = 0;
   int elapsed_ms = 0;
-  // Only auto-dismiss when confirmation isn't required; otherwise wait
-  // indefinitely for an explicit answer, regardless of popup_timeout.
-  int timeout_ms = (!confirm_infos && popup_timeout > 0) ? popup_timeout * 1000 : -1;
+  // Only wait indefinitely when explicit confirmation was requested;
+  // otherwise auto-dismiss after popup_timeout, or after
+  // INFO_POPUP_DEFAULT_TIMEOUT_MS if no custom timeout was configured. Info
+  // popups are status notices rather than decisions, so unlike warning/error
+  // popups they still time out even when popup_timeout itself is unset.
+  int timeout_ms = confirm_infos ? -1 :
+    (popup_timeout > 0 ? popup_timeout * 1000 : INFO_POPUP_DEFAULT_TIMEOUT_MS);
 
   while (timeout_ms < 0 || elapsed_ms < timeout_ms)
     {
