@@ -94,8 +94,8 @@ librdii = static_library(
 )
 
 executable('rdii-networkd', 'src/rdii-networkd.c', 'lib/mkdir_p.c',
-           'lib/string-util-fundamental.c', 'src/ip.c', 'src/ifcfg.c',
-	   'lib/logger.c',
+           'lib/string-util-fundamental.c', 'lib/cmdline-util.c',
+	   'src/ip.c', 'src/ifcfg.c', 'lib/logger.c',
            include_directories : inc,
            install : true)
 
@@ -103,7 +103,8 @@ executable('keywait', 'src/keywait.c',
            include_directories : inc,
            install : true)
 
-rdii_fetch_config_c = ['src/rdii-fetch-config.c']
+rdii_fetch_config_c = ['src/rdii-fetch-config.c', 'lib/string-util-fundamental.c',
+                        'lib/cmdline-util.c']
 executable('rdii-fetch-config',
            rdii_fetch_config_c,
            include_directories : inc,

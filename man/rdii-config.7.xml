@@ -42,6 +42,42 @@
   </refsect1>
 
   <refsect1>
+    <title>Configuration File Discovery</title>
+    <para>
+      If a configuration file is not specified on the command line,
+      the tools look for
+      <filename>/run/rdi-installer/rdii-config</filename>.
+    </para>
+    <para>
+      During boot, <citerefentry><refentrytitle>rdii-fetch-config</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      tries to locate a configuration file and store it as
+      <filename>/run/rdi-installer/rdii-config</filename>. Unless
+      overridden as described below, it looks up the boot source of
+      the installer image and replaces the <literal>.efi</literal>
+      suffix with <literal>.rdii-config</literal>. For example, if the
+      system booted via UEFI HTTP from
+      <literal>http://192.168.122.1/rdi-installer.x86-64.efi</literal>,
+      <command>rdii-fetch-config</command> looks for
+      <literal>http://192.168.122.1/rdi-installer.x86-64.rdii-config</literal>.
+      If the UKI image was booted from
+      <filename>&lt;ESP&gt;/EFI/Linux/rdi-installer.efi</filename>,
+      it looks for
+      <filename>&lt;ESP&gt;/EFI/Linux/rdi-installer.rdii-config</filename>.
+    </para>
+    <para>
+      If the kernel command line (<filename>/proc/cmdline</filename>)
+      contains <literal>rdii.config=<replaceable>url</replaceable></literal>,
+      that URL is used instead and takes precedence over the boot
+      source location. If the URL is an absolute path (starting with
+      <literal>/</literal>) or starts with <literal>file://</literal>,
+      it is treated as a local configuration file and copied instead
+      of downloaded; in that case it is used even when
+      <command>rdii-fetch-config</command> is run with
+      <option>--local-only</option>.
+    </para>
+  </refsect1>
+
+  <refsect1>
     <title>Installer Options</title>
     <para>
       The following options are used specifically by <command>rdi-installer</command>:
@@ -317,6 +353,7 @@
   <refsect1>
     <title>See Also</title>
     <para>
+      <citerefentry><refentrytitle>rdii-fetch-config</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>rdii-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>rdii-ssh-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>

@@ -15,6 +15,7 @@
 #include <sys/types.h>
 
 #include "basics.h"
+#include "cmdline-util.h"
 #include "mkdir_p.h"
 #include "rdii-networkd.h"
 #include "ifcfg.h"
@@ -543,6 +544,80 @@ print_error(void)
   MSG_ERROR("Try `rdii-networkd --help' for more information.");
 }
 
+struct cmdline_arg_ctx
+{
+  const char *output_dir;
+  bool parse_all;
+  int nr;
+};
+
+static int
+parse_cmdline_arg(char *arg, void *userdata)
+{
+  struct cmdline_arg_ctx *ctx = userdata;
+  int r = 0;
+
+  if (startswith(arg, "ifcfg="))
+    {
+      char *val = arg + 6;
+
+      // Strip quotes surround the value part
+      if (val[0] == '"')
+	{
+	  val++;
+	  size_t l = strlen(val);
+	  if (l > 0 && val[l-1] == '"')
+	    val[l-1] = '\0';
+	}
+      r = parse_ifcfg_arg(ctx->output_dir, ctx->nr++, val);
+      // quit if out of memory, else ignore entry
+      if (r != 0)
+	{
+	  if (r == -ENOMEM)
+	    exit(ENOMEM);
+	  else
+	    MSG_ERROR("Skip '%s' due to errors", val);
+	  r = 0;
+	}
+    }
+  else if (ctx->parse_all)
+    {
+      ip_t cfg = {0};
+      bool merge = true;
+
+      cfg.netmask = -1;
+
+      // this options are normally handled by systemd-network-generator
+      if (startswith(arg, "ip="))
+	r = parse_ip_arg(ctx->nr++, arg+3, &cfg);
+      else if (startswith(arg, "nameserver="))
+	r = parse_nameserver_arg(ctx->nr++, arg+11, &cfg);
+      else if (startswith(arg, "rd.peerdns="))
+	r = parse_rd_peerdns_arg(ctx->nr++, arg+11, &cfg);
+      else if (startswith(arg, "rd.route="))
+	r = parse_rd_route_arg(ctx->nr++, arg+9, &cfg);
+      else if (startswith(arg, "vlan="))
+	r = parse_vlan_arg(ctx->nr++, arg+5, &cfg);
+      else
+	{
+	  MSG_DEBUG("skip: '%s'", arg);
+	  merge = false;
+	}
+
+      if (r < 0)
+	return r;
+
+      if (merge)
+	{
+	  r = merge_configs(&cfg);
+	  if (r < 0)
+	    return r;
+	}
+    }
+
+  return 0;
+}
+
 /* Reads /proc/cmdline and parses quoted arguments */
 int
 main(int argc, char *argv[])
@@ -754,82 +829,13 @@ main(int argc, char *argv[])
 
   init_configs();
 
-  // Parse loop handling quotes
-  char *cp = line;
-  char *arg_start = cp;
-  int in_quote = 0;
-  int nr = 1;
+  {
+    struct cmdline_arg_ctx ctx = { .output_dir = output_dir, .parse_all = parse_all, .nr = 1 };
 
-  while (*cp)
-    {
-      if (*cp == '"')
-	in_quote = !in_quote;
-
-      if (cp[1] == '\0' || (*cp == ' ' && !in_quote))
-	{
-	  if (*cp == ' ')
-	    *cp = '\0'; // Terminate current arg
-
-	  if (startswith(arg_start, "ifcfg="))
-	    {
-	      char *val = arg_start + 6;
-
-	      // Strip quotes surround the value part
-	      if (val[0] == '"')
-		{
-		  val++;
-		  size_t l = strlen(val);
-		  if (l > 0 && val[l-1] == '"')
-		    val[l-1] = '\0';
-		}
-	      r = parse_ifcfg_arg(output_dir, nr++, val);
-	      // quit if out of memory, else ignore entry
-	      if (r != 0)
-		{
-		  if (r == -ENOMEM)
-		    exit(ENOMEM);
-		  else
-		    MSG_ERROR("Skip '%s' due to errors", val);
-		}
-	    }
-	  else if (parse_all)
-	    {
-	      ip_t cfg = {0};
-	      bool merge = true;
-
-	      cfg.netmask = -1;
-
-	      // this options are normally handled by systemd-network-generator
-	      if (startswith(arg_start, "ip="))
-		r = parse_ip_arg(nr++, arg_start+3, &cfg);
-	      else if (startswith(arg_start, "nameserver="))
-		r = parse_nameserver_arg(nr++, arg_start+11, &cfg);
-	      else if (startswith(arg_start, "rd.peerdns="))
-		r = parse_rd_peerdns_arg(nr++, arg_start+11, &cfg);
-	      else if (startswith(arg_start, "rd.route="))
-		r = parse_rd_route_arg(nr++, arg_start+9, &cfg);
-	      else if (startswith(arg_start, "vlan="))
-		r = parse_vlan_arg(nr++, arg_start+5, &cfg);
-	      else
-		{
-		  MSG_DEBUG("skip: '%s'", arg_start);
-		  merge = false;
-		}
-
-	      if (r < 0)
-		return -r;
-
-	      if (merge)
-		{
-                  r = merge_configs(&cfg);
-	          if (r < 0)
-		    return -r;
-		}
-	    }
-	  arg_start = cp + 1;
-	}
-      cp++;
-    }
+    r = foreach_cmdline_arg(line, parse_cmdline_arg, &ctx);
+    if (r < 0)
+      return -r;
+  }
 
   if (verify_only) // don't write configs
     return 0;

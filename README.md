@@ -55,6 +55,7 @@ The options can be provided either via the kernel cmdline during boot or with a 
 
 | Parameter | Format | Description |
 | --------- | ------ | ----------- |
+| rdii.config | http url/local file | Specifies the URL or the filename for a configuration file, used by `rdii-fetch-config` |
 | rdii.url  | http url/local file | Specifies a the URL or the filename under which the to be installed image can be downloaded |
 | rdii.device | /dev/... | Device on which the image should be installed |
 | rdii.mdraid | /dev/... | Second device together with rdii.device for MD Raid 1 |
@@ -116,6 +117,11 @@ So if your system did boot via UEFI HTTP the image `http://192.168.122.1/rdi-ins
 `rdii-fetch-config` will look for `http://192.168.122.1/rdi-installer.x86-64.rdii-config`.
 If the UKI image got booted from `<ESP>/EFI/Linux/` as `rdi-installer.efi`, `rdii-fetch-config` will
 look for `<ESP>/EFI/Linux/rdi-installer.rdii-config`.
+
+If the kernel command line (`/proc/cmdline`) contains `rdii.config=<url>`, `rdii-fetch-config` uses
+that URL instead, taking precedence over the boot source location. If the URL is an absolute path
+(starting with `/`) or starts with `file://`, it is treated as a local config file and copied
+instead of downloaded, and is used even when `--local-only` is given.
 
 An example configuration file may look like:
 

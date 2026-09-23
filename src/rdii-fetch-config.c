@@ -5,15 +5,20 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <getopt.h>
 #include <sys/sendfile.h>
 #include <curl/curl.h>
 
 #include "basics.h"
+#include "cmdline-util.h"
 #include "efivars.h"
 #include "mkdir_p.h"
 #include "download.h"
 #include "logger.h"
+
+#define CMDLINE_PATH "/proc/cmdline"
 
 static const char *output_dir = "/run/rdi-installer";
 
@@ -35,6 +40,9 @@ print_help(void)
   fputs("  -u, --url         URL to download as rdii-config\n", stdout);
   fputs("  -h, --help        Give this help list\n", stdout);
   fputs("  -v, --version     Print program version\n", stdout);
+
+  fputs("\nIf the kernel command line (/proc/cmdline) contains rdii.config=<url>,\n"
+	"that URL is used and takes precedence over the boot source location.\n", stdout);
 }
 
 static void
@@ -112,12 +120,84 @@ copy_file(const char *src, const char *dst)
   return 0;
 }
 
+static int
+cmdline_config_url_cb(char *arg, void *userdata)
+{
+  char **ret = userdata;
+  char *val;
+  char *new_ret;
+
+  if (!(val = startswith(arg, "rdii.config=")))
+    return 0;
+
+  // Strip quotes surrounding the value part
+  if (val[0] == '"')
+    {
+      val++;
+      size_t l = strlen(val);
+      if (l > 0 && val[l-1] == '"')
+	val[l-1] = '\0';
+    }
+
+  if (isempty(val))
+    return -EINVAL;
+
+  new_ret = strdup(val);
+  if (!new_ret)
+    return -ENOMEM;
+
+  free(*ret);
+  *ret = new_ret;
+
+  /* Keep scanning: if rdii.config= appears more than once, the last
+     occurrence wins. */
+  return 0;
+}
+
+/* Reads /proc/cmdline and returns  the value of "rdii.config=<url>" if
+   present, a negative errno in error case.
+   Caller has to free the returned string. */
+static int
+get_cmdline_config_url(char **ret)
+{
+  _cleanup_fclose_ FILE *fp = NULL;
+  _cleanup_free_ char *line = NULL;
+  size_t line_size = 0;
+  ssize_t nread;
+  int r;
+
+  *ret = NULL;
+
+  fp = fopen(CMDLINE_PATH, "r");
+  if (!fp)
+    return -errno;
+
+  nread = getline(&line, &line_size, fp);
+  if (nread == -1)
+    return -errno;
+
+  if (nread > 0 && line[nread-1] == '\n')
+    line[nread-1] = '\0';
+
+  r = foreach_cmdline_arg(line, cmdline_config_url_cb, ret);
+  if (r < 0)
+    {
+      free(*ret);
+      *ret = NULL;
+      return r;
+    }
+
+  return 0;
+}
+
 int
 main(int argc, char **argv)
 {
   _cleanup_efivars_ efivars_t *efi = NULL;
   _cleanup_free_ char *cfgfile = NULL;
+  _cleanup_free_ char *cmdline_url = NULL;
   const char *arg_url = NULL;
+  bool url_from_cmdline = false;
   bool no_network = false;
   int r;
 
@@ -177,12 +257,41 @@ main(int argc, char **argv)
       return EINVAL;
     }
 
-  if (!isempty(arg_url) && no_network)
+  if (isempty(arg_url))
     {
+      // The kernel commandline takes precedence over guessing the
+      // config location from the EFI boot source.
+      r = get_cmdline_config_url(&cmdline_url);
+      if (r == 0 && !isempty(cmdline_url))
+	{
+	  arg_url = cmdline_url;
+	  url_from_cmdline = true;
+	}
+    }
+
+  const char *local_path = NULL;
+
+  if (!isempty(arg_url))
+    {
+      local_path = startswith(arg_url, "file://");
+      if (local_path == NULL && arg_url[0] == '/')
+	local_path = arg_url;
+    }
+
+  if (!isempty(arg_url) && no_network && local_path == NULL)
+    {
+      if (url_from_cmdline)
+	{
+	  MSG_INFO("Found rdii.config=%s on kernel cmdline but running with \"--local-only\", skipping", arg_url);
+	  return 0;
+	}
       MSG_ERROR("The options '--local-only' and '--url' cannot be used together.");
       print_error();
       return EINVAL;
     }
+
+  if (url_from_cmdline)
+    MSG_INFO("Preferring rdii.config=%s found on kernel cmdline", arg_url);
 
   r = mkdir_p(output_dir, 0755);
   if (r < 0)
@@ -198,7 +307,20 @@ main(int argc, char **argv)
       return ENOMEM;
     }
 
-  if (!isempty(arg_url) && !no_network)
+  if (!isempty(arg_url) && local_path != NULL)
+    {
+      MSG_INFO("Attempting copying %s...", local_path);
+      r = copy_file(local_path, cfgfile);
+      if (r < 0)
+	{
+	  MSG_ERROR("Error copying '%s' to '%s': %s",
+		 local_path, cfgfile, strerror(-r));
+	  return -r;
+	}
+      MSG_INFO("Copy successful! Saved to '%s'", cfgfile);
+      return 0;
+    }
+  else if (!isempty(arg_url) && !no_network)
     {
       MSG_INFO("Attempting download (%s)...", arg_url);
       r = curl_download_file(arg_url, cfgfile);
