@@ -11,11 +11,15 @@ echo "mkosi.postoutput ${IMAGE}" "$@"
 SCRIPTS_DIR="scripts"
 # Hack for OBS: it redefines the directories
 if [ -d mkosi.output ]; then
-	MKOSI_OUTPUT="mkosi.output"
+	MKOSI_OUTPUT="$PWD/mkosi.output"
 else
         MKOSI_OUTPUT="/usr/src/packages/OTHER"
 fi
 BOOTLOADER_DIR="${MKOSI_OUTPUT}/bootloader"
+
+RDII_VERSION=$(rpm --root "${BOOTLOADER_DIR}" -q --qf '%{VERSION}' rdi-installer)
+# Could be in the form of "1.0.0+git20260923.8f88a3f"
+RDII_VERSION="${RDII_VERSION%+*}"
 
 # shim + systemd-boot
 echo "Building ${IMAGE_FULL}"
@@ -28,7 +32,7 @@ timeout  5
 #console-mode keep
 EOF
         cat <<EOF > "${TEMPDIR}/rdii-image.conf"
-title   Raw Disk Image Installer ${IMAGE_VERSION}
+title   Raw Disk Image Installer ${RDII_VERSION}-${IMAGE_VERSION}
 version 1@$KERNEL_VERSION
 options quiet systemd.show_status=yes
 linux   /${KERNEL_VERSION}/linux
