@@ -42,4 +42,8 @@ extern void show_help_dialog(const char *title, const char *text);
 
 extern int choose_entry(int row, const char *options[], int num_options,
                         int start, const char *title, const char *help_text);
+extern void render_scrollable_list(int row, int max_visible, const char *options[],
+                                   int num_options, int selected, int scroll_offset);
+extern int list_viewport_height(int row);
+extern int scroll_offset_for_selection(int selected, int scroll_offset, int max_visible);
 extern void init_ncurses(const char *title);

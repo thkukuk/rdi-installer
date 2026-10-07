@@ -669,6 +669,94 @@ void show_help_dialog(const char *title, const char *text) {
   refresh();
 }
 
+// Number of list rows that fit below `row`, reserving the last line for the
+// footer drawn by print_global_header_footer(). Shared by every scrollable
+// list widget so their viewport height and scroll-offset clamping agree.
+int
+list_viewport_height(int row)
+{
+  int max_y, max_x;
+  getmaxyx(stdscr, max_y, max_x);
+  (void)max_x;
+
+  int max_visible = max_y - row - 1;
+  return (max_visible < 1) ? 1 : max_visible;
+}
+
+// Returns an updated scroll_offset that keeps 'selected' within the visible
+// window [scroll_offset, scroll_offset + max_visible), moving the window by
+// the minimum amount needed (sticky scrolling) rather than recentering it
+// every frame. Shared by every scrollable list widget.
+int
+scroll_offset_for_selection(int selected, int scroll_offset, int max_visible)
+{
+  if (selected < scroll_offset)
+    return selected;
+  if (selected >= scroll_offset + max_visible)
+    return selected - max_visible + 1;
+  return scroll_offset;
+}
+
+// Renders a scrollable list widget: the visible viewport slice of `options`
+// (clipped/padded to fit), the selection highlight, and a scrollbar thumb
+// when the list overflows the viewport. Shared by choose_entry() and any
+// other widget that lays out a scrollable list below its own header row.
+// `max_visible` is taken from the caller (via list_viewport_height()) rather
+// than recomputed here, since every caller already needs it beforehand to
+// drive scroll_offset_for_selection().
+void
+render_scrollable_list(int row, int max_visible, const char *options[],
+                       int num_options, int selected, int scroll_offset)
+{
+  int max_y, max_x;
+  getmaxyx(stdscr, max_y, max_x);
+  (void)max_y;
+
+  // Leave room for the scrollbar column so long entries can't overwrite it
+  bool show_scrollbar = num_options > max_visible;
+  int text_width = (show_scrollbar ? max_x - 2 : max_x) - 2 - 3;
+  if (text_width < 1) text_width = 1;
+
+  // Render visible options
+  for (int i = 0; i < max_visible; i++)
+    {
+      int item_idx = scroll_offset + i;
+      int y = row + i;
+
+      // Clear line to avoid leftover artifacts from previously rendered text
+      move(y, 0);
+      clrtoeol();
+
+      if (item_idx < num_options)
+        {
+          if (item_idx == selected)
+            {
+              attron(COLOR_PAIR(CP_SELECTED) | A_BOLD);
+              mvprintw(y, 2, "-> %.*s", text_width, options[item_idx]);
+              attroff(COLOR_PAIR(CP_SELECTED) | A_BOLD);
+            }
+          else
+            {
+              attron(COLOR_PAIR(CP_UNSELECTED));
+              mvprintw(y, 2, "   %.*s", text_width, options[item_idx]);
+              attroff(COLOR_PAIR(CP_UNSELECTED));
+            }
+        }
+    }
+
+  // Render scrollbar on right margin if list exceeds viewport
+  if (show_scrollbar)
+    {
+      int sb_x = max_x - 2;
+      int thumb_pos = (selected * (max_visible - 1)) / (num_options - 1);
+
+      for (int i = 0; i < max_visible; i++)
+        {
+          mvaddch(row + i, sb_x, (i == thumb_pos) ? ACS_CKBOARD : '|');
+        }
+    }
+}
+
 int
 choose_entry(int row, const char *options[], int num_options, int start,
              const char *title, const char *help_text)
@@ -685,62 +773,11 @@ choose_entry(int row, const char *options[], int num_options, int start,
 
   while (1)
     {
-      int max_y, max_x;
-      getmaxyx(stdscr, max_y, max_x);
+      int max_visible = list_viewport_height(row);
 
-      // Reserve the last line for the footer drawn by print_global_header_footer()
-      int max_visible = max_y - row - 1;
-      if (max_visible < 1) max_visible = 1;
+      scroll_offset = scroll_offset_for_selection(selected, scroll_offset, max_visible);
 
-      // Adjust scroll offset to keep 'selected' visible
-      if (selected < scroll_offset)
-        scroll_offset = selected;
-      else if (selected >= scroll_offset + max_visible)
-        scroll_offset = selected - max_visible + 1;
-
-      // Leave room for the scrollbar column so long entries can't overwrite it
-      bool show_scrollbar = num_options > max_visible;
-      int text_width = (show_scrollbar ? max_x - 2 : max_x) - 2 - 3;
-      if (text_width < 1) text_width = 1;
-
-      // Render visible options
-      for (int i = 0; i < max_visible; i++)
-        {
-          int item_idx = scroll_offset + i;
-          int y = row + i;
-
-          // Clear line to avoid leftover artifacts from previously rendered text
-          move(y, 0);
-          clrtoeol();
-
-          if (item_idx < num_options)
-            {
-              if (item_idx == selected)
-                {
-                  attron(COLOR_PAIR(CP_SELECTED) | A_BOLD);
-                  mvprintw(y, 2, "-> %.*s", text_width, options[item_idx]);
-                  attroff(COLOR_PAIR(CP_SELECTED) | A_BOLD);
-                }
-              else
-                {
-                  attron(COLOR_PAIR(CP_UNSELECTED));
-                  mvprintw(y, 2, "   %.*s", text_width, options[item_idx]);
-                  attroff(COLOR_PAIR(CP_UNSELECTED));
-                }
-            }
-        }
-
-      // Render scrollbar on right margin if list exceeds viewport
-      if (show_scrollbar)
-        {
-          int sb_x = max_x - 2;
-          int thumb_pos = (selected * (max_visible - 1)) / (num_options - 1);
-
-          for (int i = 0; i < max_visible; i++)
-            {
-              mvaddch(row + i, sb_x, (i == thumb_pos) ? ACS_CKBOARD : '|');
-            }
-        }
+      render_scrollable_list(row, max_visible, options, num_options, selected, scroll_offset);
 
       refresh();
 
