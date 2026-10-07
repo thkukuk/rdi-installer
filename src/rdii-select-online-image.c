@@ -37,10 +37,10 @@ typedef struct {
 } ImageList;
 
 static const ArchMap arch_map[] = {
-  {"x86-64", "x86_64"},
-  {"x86_64", "x86_64"},
-  {"amd64",  "x86_64"},
-  {"x64",    "x86_64"},
+  {"x86-64", "x86-64"},
+  {"x86_64", "x86-64"},
+  {"amd64",  "x86-64"},
+  {"x64",    "x86-64"},
   {"x86",    "x86"},
   {"i386",   "x86"},
   {"i486",   "x86"},
@@ -150,6 +150,28 @@ is_supported_image(const char *name)
     ".img.bz2", ".raw.bz2",
     ".img.xz",  ".raw.xz",
     ".img.zst", ".raw.zst"
+  };
+  const size_t num_exts = sizeof(exts) / sizeof(exts[0]);
+
+  for (size_t i = 0; i < num_exts; i++)
+    if (endswith(name, exts[i]))
+      return true;
+
+  return false;
+}
+
+// sysext images are only meant to be picked explicitly (via the "all"
+// filter), not offered under "matching" or a specific architecture, since
+// they are overlay images rather than bootable system images.
+static bool
+is_sysext_image(const char *name)
+{
+  const char *exts[] = {
+    ".sysext.raw",
+    ".sysext.raw.gz",
+    ".sysext.raw.bz2",
+    ".sysext.raw.xz",
+    ".sysext.raw.zst"
   };
   const size_t num_exts = sizeof(exts) / sizeof(exts[0]);
 
@@ -363,13 +385,18 @@ parse_sha256sums(const char *path, ImageList *ret_images)
 
 // Helper to determine if an item matches the active filter
 static bool
-item_matches_filter(const char *image_arch, int arch_idx)
+item_matches_filter(const char *image_name, const char *image_arch, int arch_idx)
 {
   const char *target_arch = arch_options[arch_idx];
 
   if (streq(target_arch, "all"))
     // "all architectures" selected: show complete array of ALL_ITEMS
     return true;
+
+  if (is_sysext_image(image_name))
+    // sysext images are only shown with "all", never under "matching" or a
+    // specific architecture filter
+    return false;
 
   if (streq(target_arch, "matching"))
     // "matching" selected: show only images compatible with this system's architecture
@@ -443,7 +470,7 @@ rebuild_filtered_list(const ImageList *image_list, ImageList *filtered,
   filtered->capacity = image_list->size;
 
   for (size_t i = 0; i < image_list->size; i++)
-    if (item_matches_filter(image_list->data[i].arch, current_arch_idx))
+    if (item_matches_filter(image_list->data[i].name, image_list->data[i].arch, current_arch_idx))
       filtered->data[filtered->size++] = image_list->data[i];
 
   if (filtered->size == 0)
