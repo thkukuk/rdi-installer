@@ -185,38 +185,18 @@ draw_ui(void)
   attroff(COLOR_PAIR(CP_UNSELECTED) | A_UNDERLINE);
 
   int list_start_y = 6;
-  int visible_lines = LINES - list_start_y - 2;
+  int visible_lines = list_viewport_height(list_start_y);
 
-  // Adjust scrolling offset
-  if (selected_index >= list_offset + visible_lines)
-    list_offset = selected_index - visible_lines + 1;
-  else if (selected_index < list_offset && selected_index != -1)
-    list_offset = selected_index;
+  if (selected_index != -1)
+    list_offset = scroll_offset_for_selection(selected_index, list_offset, visible_lines);
 
   if (total_keymaps == 0)
     mvprintw(list_start_y, 2, "(Error: Could not find system keymaps)");
   else if (filtered_count == 0)
     mvprintw(list_start_y, 2, "(No keymaps match filter)");
   else
-    {
-      for (int i = 0; i < visible_lines && (list_offset + i) < filtered_count; i++)
-	{
-	  int current_item = list_offset + i;
-
-	  if (current_item == selected_index)
-	    {
-	      attron(COLOR_PAIR(CP_SELECTED));
-	      mvprintw(list_start_y + i, 2, "-> %s", filtered_keymaps[current_item]);
-	      attroff(COLOR_PAIR(CP_SELECTED));
-            }
-	  else
-	    {
-	      attron(COLOR_PAIR(CP_UNSELECTED));
-	      mvprintw(list_start_y + i, 2, "   %s", filtered_keymaps[current_item]);
-	      attroff(COLOR_PAIR(CP_UNSELECTED));
-            }
-        }
-    }
+    render_scrollable_list(list_start_y, visible_lines, filtered_keymaps,
+                           filtered_count, selected_index, list_offset);
   move(4, 10 + strlen(filter_buf));
   curs_set(1);
   refresh();
