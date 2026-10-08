@@ -84,7 +84,7 @@ libdevices = static_library(
 librdii_c = files('lib/exec_cmd.c', 'lib/mkdir_p.c', 'lib/tmpfile-util.c',
 	          'lib/logger.c', 'lib/zap_partition_table.c',
 		  'lib/rm_rf.c', 'lib/download.c', 'lib/nc-dialogs.c',
-                  'lib/select_keymap.c', 'lib/is_linux_vt.c')
+                  'lib/keymap.c', 'lib/select_keymap.c', 'lib/is_linux_vt.c')
 librdii = static_library(
   'rdii',
   librdii_c,
