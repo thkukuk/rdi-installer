@@ -20,7 +20,7 @@
 // Top-to-bottom field order of the Settings screen
 enum focus
 {
-  FOCUS_CHECKBOX,         // "Copy hosts ssh keys into installed system" checkbox
+  FOCUS_CHECKBOX,         // "Copy preserved host ssh keys into installed system." checkbox
   FOCUS_DOWNLOAD_SERVER,  // download server URL field
   FOCUS_LIST,             // keymap filter + list (selected_index is valid)
 };
@@ -47,16 +47,33 @@ draw_settings(const char *filter_buf, const char **filtered_keymaps,
              int filtered_count, enum focus focus, int selected_index,
              int *list_offset, bool preserve_ssh_hostkey, const char *url_buf)
 {
-  print_global_header_footer("Tab: Switch Field", SELECTION);
+  print_global_header_footer(NULL, NO_SELECTION);
   print_title("Settings");
+
+  // Custom footer: "Up/Down: Navigate" only makes sense while the keymap
+  // list has focus, so only show it there.
+  {
+    const char *footer_text = (focus == FOCUS_LIST) ?
+      "Tab: Switch Field | Up/Down: Navigate | Enter: Select | ESC: Quit" :
+      "Tab: Switch Field | Enter: Select | ESC: Quit";
+
+    attron(COLOR_PAIR(CP_FOOTER) | A_REVERSE);
+    mvhline(LINES - 1, 0, ' ', COLS);
+    mvprintw(LINES - 1, 1, "%s", footer_text);
+    attroff(COLOR_PAIR(CP_FOOTER) | A_REVERSE);
+  }
 
   int checkbox_row = 4;
   bool checkbox_focused = (focus == FOCUS_CHECKBOX);
   attron(COLOR_PAIR(checkbox_focused ? CP_SELECTED : CP_UNSELECTED));
-  mvprintw(checkbox_row, 2, "[%s] Copy hosts ssh keys into installed system", preserve_ssh_hostkey ? "x" : " ");
+  mvprintw(checkbox_row, 2, "[%s] Copy preserved host ssh keys into installed system.", preserve_ssh_hostkey ? "x" : " ");
   attroff(COLOR_PAIR(checkbox_focused ? CP_SELECTED : CP_UNSELECTED));
 
-  int download_row = checkbox_row + 2; // +1 blank separator line
+  attron(COLOR_PAIR(CP_UNSELECTED));
+  mvhline(checkbox_row + 1, 2, ACS_HLINE, COLS - 4);
+  attroff(COLOR_PAIR(CP_UNSELECTED));
+
+  int download_row = checkbox_row + 2; // separator line drawn above
   bool download_focused = (focus == FOCUS_DOWNLOAD_SERVER);
   attron(COLOR_PAIR(download_focused ? CP_SELECTED : CP_UNSELECTED));
   mvprintw(download_row, 2, "Image Download Server: ");
@@ -65,7 +82,11 @@ draw_settings(const char *filter_buf, const char **filtered_keymaps,
   printw("%s", url_buf);
   attroff(COLOR_PAIR(download_focused ? CP_SELECTED : CP_UNSELECTED) | A_UNDERLINE);
 
-  int filter_row = download_row + 2; // +1 blank separator line
+  attron(COLOR_PAIR(CP_UNSELECTED));
+  mvhline(download_row + 1, 2, ACS_HLINE, COLS - 4);
+  attroff(COLOR_PAIR(CP_UNSELECTED));
+
+  int filter_row = download_row + 2; // separator line drawn above
   bool filter_focused = (focus == FOCUS_LIST);
   attron(COLOR_PAIR(filter_focused ? CP_SELECTED : CP_UNSELECTED));
   mvprintw(filter_row, 2, "Keymap Filter: ");
