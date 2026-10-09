@@ -125,7 +125,8 @@ rdi_installer_c = ['src/rdi-installer.c',
                    'src/rdii-menu-disk.c', 'src/rdii-menu-image.c',
                    'src/rdii-select-online-image.c',
                    'src/rdii-menu-sysinfo.c', 'src/rdii-menu-installation.c',
-                   'src/rdii-menu-mdraid.c', 'src/rdii-autoinstall.c']
+                   'src/rdii-menu-mdraid.c', 'src/rdii-menu-settings.c',
+                   'src/rdii-autoinstall.c']
 executable('rdi-installer',
            rdi_installer_c,
            include_directories : inc,
