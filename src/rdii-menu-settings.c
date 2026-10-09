@@ -17,11 +17,12 @@
 #define FILTER_BUF_LEN 50
 #define URL_BUF_LEN 256
 
+// Top-to-bottom field order of the Settings screen
 enum focus
 {
-  FOCUS_LIST,             // keymap list (selected_index is valid)
   FOCUS_CHECKBOX,         // "Copy hosts ssh keys into installed system" checkbox
   FOCUS_DOWNLOAD_SERVER,  // download server URL field
+  FOCUS_LIST,             // keymap filter + list (selected_index is valid)
 };
 
 static void
@@ -49,19 +50,32 @@ draw_settings(const char *filter_buf, const char **filtered_keymaps,
   print_global_header_footer("Tab: Switch Field", SELECTION);
   print_title("Settings");
 
+  int checkbox_row = 4;
+  bool checkbox_focused = (focus == FOCUS_CHECKBOX);
+  attron(COLOR_PAIR(checkbox_focused ? CP_SELECTED : CP_UNSELECTED));
+  mvprintw(checkbox_row, 2, "[%s] Copy hosts ssh keys into installed system", preserve_ssh_hostkey ? "x" : " ");
+  attroff(COLOR_PAIR(checkbox_focused ? CP_SELECTED : CP_UNSELECTED));
+
+  int download_row = checkbox_row + 2; // +1 blank separator line
+  bool download_focused = (focus == FOCUS_DOWNLOAD_SERVER);
+  attron(COLOR_PAIR(download_focused ? CP_SELECTED : CP_UNSELECTED));
+  mvprintw(download_row, 2, "Image Download Server: ");
+  attroff(COLOR_PAIR(download_focused ? CP_SELECTED : CP_UNSELECTED));
+  attron(COLOR_PAIR(download_focused ? CP_SELECTED : CP_UNSELECTED) | A_UNDERLINE);
+  printw("%s", url_buf);
+  attroff(COLOR_PAIR(download_focused ? CP_SELECTED : CP_UNSELECTED) | A_UNDERLINE);
+
+  int filter_row = download_row + 2; // +1 blank separator line
   bool filter_focused = (focus == FOCUS_LIST);
   attron(COLOR_PAIR(filter_focused ? CP_SELECTED : CP_UNSELECTED));
-  mvprintw(4, 2, "Keymap Filter: ");
+  mvprintw(filter_row, 2, "Keymap Filter: ");
   attroff(COLOR_PAIR(filter_focused ? CP_SELECTED : CP_UNSELECTED));
   attron(COLOR_PAIR(filter_focused ? CP_SELECTED : CP_UNSELECTED) | A_UNDERLINE);
   printw("%s", filter_buf);
   attroff(COLOR_PAIR(filter_focused ? CP_SELECTED : CP_UNSELECTED) | A_UNDERLINE);
 
-  // Reserve blank separator lines around the checkbox and download server rows
-  int list_start_y = 6;
-  int visible_lines = list_viewport_height(list_start_y) - 5;
-  if (visible_lines < 1)
-    visible_lines = 1;
+  int list_start_y = filter_row + 2; // +1 blank separator line
+  int visible_lines = list_viewport_height(list_start_y);
 
   int list_selected = (focus == FOCUS_LIST) ? selected_index : -1;
   if (focus == FOCUS_LIST)
@@ -75,34 +89,19 @@ draw_settings(const char *filter_buf, const char **filtered_keymaps,
     render_scrollable_list(list_start_y, visible_lines, filtered_keymaps,
                            filtered_count, list_selected, *list_offset);
 
-  bool checkbox_focused = (focus == FOCUS_CHECKBOX);
-  int checkbox_row = list_start_y + visible_lines + 1; // +1 for the blank separator line
-  attron(COLOR_PAIR(checkbox_focused ? CP_SELECTED : CP_UNSELECTED));
-  mvprintw(checkbox_row, 2, "[%s] Copy hosts ssh keys into installed system", preserve_ssh_hostkey ? "x" : " ");
-  attroff(COLOR_PAIR(checkbox_focused ? CP_SELECTED : CP_UNSELECTED));
-
-  int download_row = checkbox_row + 2; // +1 blank separator, +1 checkbox row
-  bool download_focused = (focus == FOCUS_DOWNLOAD_SERVER);
-  attron(COLOR_PAIR(download_focused ? CP_SELECTED : CP_UNSELECTED));
-  mvprintw(download_row, 2, "Image Download Server: ");
-  attroff(COLOR_PAIR(download_focused ? CP_SELECTED : CP_UNSELECTED));
-  attron(COLOR_PAIR(download_focused ? CP_SELECTED : CP_UNSELECTED) | A_UNDERLINE);
-  printw("%s", url_buf);
-  attroff(COLOR_PAIR(download_focused ? CP_SELECTED : CP_UNSELECTED) | A_UNDERLINE);
-
   switch (focus)
     {
-    case FOCUS_LIST:
-      move(4, 17 + strlen(filter_buf));
-      curs_set(1);
+    case FOCUS_CHECKBOX:
+      curs_set(0);
       break;
     case FOCUS_DOWNLOAD_SERVER:
       move(download_row, 25 + strlen(url_buf));
       curs_set(1);
       break;
-    case FOCUS_CHECKBOX:
+    case FOCUS_LIST:
     default:
-      curs_set(0);
+      move(filter_row, 17 + strlen(filter_buf));
+      curs_set(1);
       break;
     }
 
@@ -119,7 +118,7 @@ settings(char **keymap, bool *preserve_ssh_hostkey)
   int selected_index = 0;
   int saved_list_index = 0; // remembers the list position while another field has focus
   int list_offset = 0;
-  enum focus focus = FOCUS_LIST;
+  enum focus focus = FOCUS_CHECKBOX;
   int ch;
   int r;
 
@@ -204,61 +203,65 @@ settings(char **keymap, bool *preserve_ssh_hostkey)
 	}
       else if (ch == KEY_UP)
 	{
-	  if (focus == FOCUS_DOWNLOAD_SERVER)
-	    focus = FOCUS_CHECKBOX;
-	  else if (focus == FOCUS_CHECKBOX)
-	    {
-	      focus = FOCUS_LIST;
-	      selected_index = (filtered_count > 0) ?
-		(saved_list_index < filtered_count ? saved_list_index : filtered_count - 1) : -1;
-	    }
-	  else if (selected_index > 0)
-	    selected_index--;
-	}
-      else if (ch == KEY_DOWN)
-	{
 	  if (focus == FOCUS_LIST)
 	    {
-	      if (selected_index < filtered_count - 1)
-		selected_index++;
+	      if (selected_index > 0)
+		selected_index--;
 	      else
 		{
 		  saved_list_index = selected_index;
-		  focus = FOCUS_CHECKBOX;
+		  focus = FOCUS_DOWNLOAD_SERVER;
 		}
 	    }
-	  else if (focus == FOCUS_CHECKBOX)
+	  else if (focus == FOCUS_DOWNLOAD_SERVER)
+	    focus = FOCUS_CHECKBOX;
+	  // FOCUS_CHECKBOX is the top-most field, nothing above it
+	}
+      else if (ch == KEY_DOWN)
+	{
+	  if (focus == FOCUS_CHECKBOX)
 	    focus = FOCUS_DOWNLOAD_SERVER;
-	  // FOCUS_DOWNLOAD_SERVER is the last field, nothing below it
+	  else if (focus == FOCUS_DOWNLOAD_SERVER)
+	    {
+	      focus = FOCUS_LIST;
+	      selected_index = (filtered_count > 0) ?
+		(saved_list_index < filtered_count ? saved_list_index : 0) : -1;
+	    }
+	  else if (selected_index < filtered_count - 1)
+	    selected_index++;
+	  // else: already at the bottom of the list, the last field
 	}
       else if (ch == '\t') // Tab: cycle focus forward
 	{
-	  if (focus == FOCUS_LIST)
+	  if (focus == FOCUS_CHECKBOX)
+	    focus = FOCUS_DOWNLOAD_SERVER;
+	  else if (focus == FOCUS_DOWNLOAD_SERVER)
+	    {
+	      focus = FOCUS_LIST;
+	      selected_index = (filtered_count > 0) ?
+		(saved_list_index < filtered_count ? saved_list_index : 0) : -1;
+	    }
+	  else
 	    {
 	      saved_list_index = selected_index;
 	      focus = FOCUS_CHECKBOX;
 	    }
-	  else if (focus == FOCUS_CHECKBOX)
-	    focus = FOCUS_DOWNLOAD_SERVER;
-	  else
-	    {
-	      focus = FOCUS_LIST;
-	      selected_index = (filtered_count > 0) ?
-		(saved_list_index < filtered_count ? saved_list_index : 0) : -1;
-	    }
 	}
       else if (ch == KEY_BTAB) // Shift-Tab: cycle focus backward
 	{
-	  if (focus == FOCUS_LIST)
-	    focus = FOCUS_DOWNLOAD_SERVER;
-	  else if (focus == FOCUS_DOWNLOAD_SERVER)
-	    focus = FOCUS_CHECKBOX;
-	  else
+	  if (focus == FOCUS_CHECKBOX)
 	    {
 	      focus = FOCUS_LIST;
 	      selected_index = (filtered_count > 0) ?
 		(saved_list_index < filtered_count ? saved_list_index : 0) : -1;
 	    }
+	  else if (focus == FOCUS_LIST)
+	    {
+	      saved_list_index = selected_index;
+	      focus = FOCUS_DOWNLOAD_SERVER;
+	    }
+	  else
+	    focus = FOCUS_CHECKBOX;
 	}
       else if (ch == KEY_BACKSPACE || ch == 127 || ch == '\b')
 	{
