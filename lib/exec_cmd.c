@@ -58,11 +58,13 @@ exec_cmd(bool use_ncurses, const char *cmd, ...)
 
   // Wait for the child process to complete
   int wait_status;
-  if (waitpid(pid, &wait_status, 0) == -1)
+  while (waitpid(pid, &wait_status, 0) == -1)
     {
+      if (errno == EINTR)
+	continue;
       if (use_ncurses)
 	reset_prog_mode();
-      return -r;
+      return -errno;
     }
 
   if (use_ncurses)
