@@ -15,9 +15,7 @@
 #include "nc-dialogs.h"
 #include "rdii-menu.h"
 #include "logger.h"
-#include "select_keymap.h"
 #include "zap_partition_table.h"
-#include "is_linux_vt.h"
 
 void
 keywait(int y, int x, const char *text, int sec)
@@ -285,15 +283,15 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
   _cleanup_free_ char *image_entry = NULL;
   _cleanup_free_ char *target_entry = NULL;
   _cleanup_free_ char *mdraid_entry = NULL;
-  _cleanup_free_ char *keymap_entry = NULL;
   _cleanup_free_ char *image = NULL;
   _cleanup_free_ char *device = NULL; // standard device or first device of mdraid
   _cleanup_free_ char *mdraid = NULL; // second device for mdraid
+  _cleanup_free_ char *keymap = NULL;
   const char *options[] = {
     "Select Image",
     "Select Target",
     "Enable MD Raid1",
-    "Select Keymap",
+    "Settings",
     "System Information",
     "Start Installation",
     "Destroy Partition Table",
@@ -324,6 +322,12 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
       if (!mdraid)
 	return -ENOMEM;
     }
+  if (def_keymap)
+    {
+      keymap = strdup(def_keymap);
+      if (!keymap)
+	return -ENOMEM;
+    }
 
   // Adjust menu entries
   if (!isempty(image))
@@ -339,12 +343,6 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
       if (asprintf(&target_entry, "%s (%s)", options[1], device) < 0)
 	return -ENOMEM;
       options[1] = target_entry;
-    }
-  if (!isempty(def_keymap))
-    {
-      if (asprintf(&keymap_entry, "%s (%s)", options[3], def_keymap) < 0)
-	return -ENOMEM;
-      options[3] = keymap_entry;
     }
 
   if (!isempty(image) && !isempty(device))
@@ -408,23 +406,8 @@ show_main_menu(const char *def_image, const char *def_device, const char *def_md
 	      }
 	  }
 	  break;
-	case 3: // Select Keymap
-	  {
-	    if (is_linux_vt() ||
-		show_warning_popup("Keymaps can only be configured directly on a virtual console.",
-				   NULL, "Continue?"))
-	      {
-		_cleanup_free_ char *keymap = NULL;
-		if (select_keymap(&keymap) == 0)
-		  {
-		    keymap_entry = mfree(keymap_entry);
-		    if (asprintf(&keymap_entry, "Select Keymap (%s)",
-				 strna(keymap)) < 0)
-		      return -ENOMEM;
-		    options[selected] = keymap_entry;
-		  }
-	      }
-	  }
+	case 3: // Settings
+	  settings(&keymap, &preserve_ssh_hostkey);
 	  break;
 	case 4: // System Information
 	  show_sysinfo();

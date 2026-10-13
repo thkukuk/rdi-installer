@@ -13,6 +13,7 @@ extern int select_target_device(uint64_t minsize, char **device,
                                 const char *help_text);
 extern int select_mdraid_devices(uint64_t minsize, char **device1, char **device2);
 extern void select_installation_source(const char *prefill, char **ret);
+extern int settings(char **keymap, bool *preserve_ssh_hostkey);
 extern bool url_is_valid(const char *url, const char **error);
 extern int show_sysinfo(void);
 extern bool verify_signature(const char *file, char *key, char **error);

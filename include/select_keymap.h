@@ -2,5 +2,6 @@
 
 #pragma once
 
-extern int set_keymap(const char *keymap);
+#include "keymap.h"
+
 extern int select_keymap(char **device);
