@@ -245,12 +245,11 @@ main_set_default_loader_entry(int argc, char **argv)
   if (streq(strempty(efi->entry), strempty(defloaderentry)))
     {
       if (verbose)
-	MSG_INFO("Booted and default entry are equal, no changes done.");
+	MSG_INFO("Booted and default entry are identical, no changes were made.");
       return 0;
     }
 
-  if (verbose)
-    MSG_INFO("Setting LoaderEntryDefault to '%s'", efi->entry);
+  MSG_INFO("Setting LoaderEntryDefault to '%s'", efi->entry);
 
   r = exec_cmd(false, "sdbootutil", "sdbootutil", "set-default", efi->entry, NULL);
   if (r < 0)
