@@ -36,7 +36,7 @@ update_filter(const char *filter_buf, const char **filtered_keymaps,
         filtered_keymaps[(*filtered_count)++] = all_keymaps[i];
     }
 
-  if (*selected_index >= *filtered_count)
+  if (*selected_index < 0 || *selected_index >= *filtered_count)
     *selected_index = *filtered_count > 0 ? 0 : -1;
 
   *list_offset = 0; // Reset scroll on new filter input
@@ -206,7 +206,7 @@ settings(char **keymap, bool *preserve_ssh_hostkey)
 		return -ENOMEM;
 	      rdii_download_server = new_server; // intentionally not freeing the previous value
 	    }
-	  else if (focus == FOCUS_LIST && filtered_count > 0)
+	  else if (focus == FOCUS_LIST && filtered_count > 0 && selected_index != -1)
 	    {
 	      if (is_linux_vt() ||
 		  show_warning_popup("Keymaps can only be configured directly on a virtual console.",

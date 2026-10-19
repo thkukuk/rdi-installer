@@ -30,7 +30,7 @@ update_filter(void)
 	  strstr(all_keymaps[i], filter_buf))
 	filtered_keymaps[filtered_count++] = all_keymaps[i];
     }
-  if (selected_index >= filtered_count)
+  if (selected_index < 0 || selected_index >= filtered_count)
     selected_index = filtered_count > 0 ? 0 : -1;
 
   list_offset = 0; // Reset scroll on new filter input
