@@ -38,6 +38,26 @@ if [ -z "$DEVICES" ]; then
     exit 0
 fi
 
+# Root is normally read-only, so "/images" is expected to already exist
+# (created at image build time). Handle the read-only root fallback cases
+# before trying to create any mount points below it.
+if [ ! -d "$MOUNT_BASE" ]; then
+    if [ ! -w / ]; then
+        log_err "\"${MOUNT_BASE}\" does not exist and \"/\" is not writable."
+        exit 1
+    fi
+    if ! mkdir -p "$MOUNT_BASE"; then
+        log_err "Failed to create \"${MOUNT_BASE}\"."
+        exit 1
+    fi
+elif [ ! -w "$MOUNT_BASE" ]; then
+    log_info "\"${MOUNT_BASE}\" is not writable, mounting tmpfs on it."
+    if ! mount -t tmpfs tmpfs "$MOUNT_BASE"; then
+        log_err "Failed to mount tmpfs on \"${MOUNT_BASE}\"."
+        exit 1
+    fi
+fi
+
 EXIT_CODE=0
 
 while IFS= read -r DEV; do
