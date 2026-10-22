@@ -4,7 +4,7 @@ set -e
 
 # for rdi-installer to mount images
 # root is read-only, so we need to create it upfront
-mkdir /buildroot/images
+mkdir -p /buildroot/images
 
 # Import gpg-pubkey
 mkdir -m 700 gnupg
