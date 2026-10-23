@@ -4,7 +4,6 @@ set -x
 set -e
 
 IMAGE="${IMAGE_ID}-${IMAGE_VERSION}.${ARCHITECTURE}"
-IMAGE_FULL="${IMAGE_ID}-${IMAGE_VERSION}.${ARCHITECTURE}.img"
 
 echo "mkosi.postoutput ${IMAGE}" "$@"
 
@@ -20,6 +19,9 @@ BOOTLOADER_DIR="${MKOSI_OUTPUT}/bootloader"
 RDII_VERSION=$(rpm --root "${BOOTLOADER_DIR}" -q --qf '%{VERSION}' rdi-installer)
 # Could be in the form of "1.0.0+git20260923.8f88a3f"
 RDII_VERSION="${RDII_VERSION%+*}"
+
+IMAGE_BASE="${IMAGE_ID}-${RDII_VERSION}-${IMAGE_VERSION}.${ARCHITECTURE}"
+IMAGE_FULL="${IMAGE_BASE}.img"
 
 # shim + systemd-boot
 echo "Building ${IMAGE_FULL}"
@@ -67,7 +69,9 @@ EOF
         echo "No raw disk image will be generated." >&2
 esac
 
-
+# rename
+mv -v "${OUTPUTDIR}/${IMAGE}.efi" "${OUTPUTDIR}/${IMAGE_BASE}.efi"
+mv -v "${OUTPUTDIR}/${IMAGE}.manifest" "${OUTPUTDIR}/${IMAGE_BASE}.manifest"
 # cleanup
 rm -v "${OUTPUTDIR}/${IMAGE}"
 rm -v "${OUTPUTDIR}/${IMAGE}.initrd"
