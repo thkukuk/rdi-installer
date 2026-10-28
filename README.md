@@ -1,33 +1,33 @@
 # Raw Disk Image Installer (rdi-installer)
 
-This project consists of various utilities and a UKI image for a raw disk image installer, which main purpose is to have a comfortable and robust tool to boot on bare metal and install a raw disk image on that hardware.
+This project consists of various utilities and a UKI image for a raw disk image installer, whose main purpose is to have a comfortable and robust tool to boot on bare metal and install a raw disk image on that hardware.
 
 ## Images
 
-This project will build the folowing images:
+This project will build the following images:
 
 * `rdi-installer-<version>.<arch>.efi` (UKI EFI binary)
 * `rdi-installer-<version>.<arch>.img` (USB stick)
 
-Images will be build in the [home:kukuk:mkosi-images](https://build.opensuse.org/project/monitor/home:kukuk:mkosi-images) OBS project.
+Images will be built in the [home:kukuk:mkosi-images](https://build.opensuse.org/project/monitor/home:kukuk:mkosi-images) OBS project.
 
 ### rdi-installer-&lt;version&gt;.&lt;arch&gt;.efi
 
 This is a UKI EFI binary file that can be stored on an ESP partition (e.g. <ESP>/EFI/Linux/ will automatically be sourced by `systemd-boot`), on a tftpboot server or on a http server.
 It can be booted directly from the UEFI firmware from the hard disk, via PXE, or HTTP. The kernel command line cannot be modified with UKI binary files. Since the image is *not* signed with an official Microsoft key, Secure Boot will only work if the key used is registered in the UEFI firmware.
 
-This binary runs completley from a RAM disk in memory.
+This binary runs completely from a RAM disk in memory.
 
 
-###  rdi-installer-&lt;version&gt;.&lt;arch&gt;.img
+### rdi-installer-&lt;version&gt;.&lt;arch&gt;.img
 
-This is a disk image which can be written to an USB stick and uses
+This is a disk image which can be written to a USB stick and uses
 `shim` and `systemd-boot` as bootloader with the classical linux kernel
 and initrd setup. This image allows to modify the kernel cmdline during boot.
 
-This system also runs completley from a RAM disk in memory.
+This system also runs completely from a RAM disk in memory.
 
-There is a script [add_extra_partition.sh](images/scripts/add_extra_partition.sh) with extends the image with an additional partition. This can be used to create a parition `images`, on which raw disk images can be copied and the installer will automatically mount the partition and provides the images on it as installation source. Or a `combustion` partition with a combustion config to personalize the image later. The script can create as many partitions with a filesystem, label and size as needed.
+There is a script [add_extra_partition.sh](images/scripts/add_extra_partition.sh) which extends the image with an additional partition. This can be used to create a partition `images`, on which raw disk images can be copied and the installer will automatically mount the partition and provide the images on it as installation source. Or a `combustion` partition with a combustion config to personalize the image later. The script can create as many partitions with a filesystem, label and size as needed.
 
 Usage:
 ```
@@ -56,7 +56,7 @@ The options can be provided either via the kernel cmdline during boot or with a 
 | Parameter | Format | Description |
 | --------- | ------ | ----------- |
 | rdii.config | http url/local file | Specifies the URL or the filename for a configuration file, used by `rdii-fetch-config` |
-| rdii.url  | http url/local file | Specifies a the URL or the filename under which the to be installed image can be downloaded |
+| rdii.url  | http url/local file | Specifies the URL or the filename under which the to be installed image can be downloaded |
 | rdii.device | /dev/... | Device on which the image should be installed |
 | rdii.mdraid | /dev/... | Second device together with rdii.device for MD Raid 1 |
 | rdii.keymap | name | Configures the key mapping table for the keyboard. Only applied when running on a Linux virtual console; ignored on serial consoles and pseudo terminals |
@@ -69,7 +69,7 @@ The options can be provided either via the kernel cmdline during boot or with a 
 | rdii.autoinstall.confirm_errors | true/false/yes/no/1/0 | Only takes effect if `rdii.autoinstall` is `true`. Default `true`: error popups are always shown. If `false` and `rdii.autoinstall.popup_timeout` is greater than `0`, the popup is automatically dismissed after that many seconds instead of waiting for a keypress |
 | rdii.autoinstall.popup_timeout | integer (seconds) | Only takes effect if `rdii.autoinstall` is `true`. Default `0` (disabled). Number of seconds after which a popup is automatically dismissed, but only for popups whose corresponding `confirm_infos`/`confirm_warnings`/`confirm_errors` setting is `false`. Popups that still require confirmation always wait indefinitely for a keypress |
 
-With `rdii.url1` and `rdii.url2` additional images can be specified. At the start of `rdi-installer`, the user has to selected the one he wants to install.
+With `rdii.url1` and `rdii.url2` additional images can be specified. At the start of `rdi-installer`, the user has to select the one they want to install.
 
 ### SSH Host Key Preservation
 
@@ -96,13 +96,13 @@ By default, informational, warning and error popups still wait for a keypress ev
 
 ### MD Raid (Raid 1)
 
-During installation a MD Raid can be created and used as device for the image. If `rdii.mdraid` is set, `rdii.device` is the first device of the MD Raid and `rdii.mdraid` is the second device. `rdi-intaller` does not make any modifications to the image, it needs to contain already everything to assembly the MD device during boot.
+During installation a MD Raid can be created and used as device for the image. If `rdii.mdraid` is set, `rdii.device` is the first device of the MD Raid and `rdii.mdraid` is the second device. `rdi-installer` does not make any modifications to the image, it needs to contain already everything to assemble the MD device during boot.
 
 ### Configuration file
 
 The rdii-config configuration file is used by rdi-installer,
 rdii-networkd, rdii-proxy-setup.service and rdii-ssh-setup.service to provision installation
-sources and targets, network interfaces, proxys and remote SSH access.
+sources and targets, network interfaces, proxies and remote SSH access.
 It follows a simple syntax:
 * One key=value parameter is defined per line.
 * Empty lines are ignored.
@@ -231,7 +231,7 @@ Vlans can be setup by adding a vlan id to the _interface_
 
 This script provides a systemd service and shell script that parses
 the Linux kernel command line (`/proc/cmdline`) and config file at
-boot time and setups the /etc/sysconfig/proxy file.
+boot time and sets up the /etc/sysconfig/proxy file.
 The supported proxy URL format is protocol://[user[:password]@]host[:port].
 
 The format for the kernel command line and config file is:
