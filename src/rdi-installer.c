@@ -15,6 +15,7 @@
 #include "nc-dialogs.h"
 #include "rdii-menu.h"
 #include "rdii-autoinstall.h"
+#include "parse-size.h"
 #include "logger.h"
 #include "select_keymap.h"
 #include "is_linux_vt.h"
@@ -31,7 +32,7 @@ read_config(const char *config, char **ret_device, char **ret_mdraid,
 	    char **ret_url, char **ret_url1, char **ret_url2,
 	    char **ret_keymap, char **ret_download_server,
 	    bool *ret_preserve_ssh_hostkey, bool *ret_autoinstall,
-	    char **ret_autoinstall_finish)
+	    char **ret_autoinstall_finish, uint64_t *ret_minsize)
 {
   _cleanup_(econf_freeFilep) econf_file *key_file = NULL;
   _cleanup_free_ char *device = NULL;
@@ -42,6 +43,7 @@ read_config(const char *config, char **ret_device, char **ret_mdraid,
   _cleanup_free_ char *keymap = NULL;
   _cleanup_free_ char *download_server = NULL;
   _cleanup_free_ char *autoinstall_finish = NULL;
+  _cleanup_free_ char *minsize_str = NULL;
   bool preserve_ssh_hostkey = false;
   bool autoinstall = false;
   econf_err error;
@@ -81,6 +83,20 @@ read_config(const char *config, char **ret_device, char **ret_mdraid,
   error = econf_getStringValue(key_file, NULL, "rdii.download_server", &download_server);
   if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
     return error;
+
+  error = econf_getStringValue(key_file, NULL, "rdii.minsize", &minsize_str);
+  if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
+    return error;
+  if (minsize_str)
+    {
+      uint64_t minsize;
+      int r = parse_size(minsize_str, &minsize);
+
+      if (r < 0)
+	MSG_WARN("Invalid value for rdii.minsize '%s': %s", minsize_str, strerror(-r));
+      else if (ret_minsize)
+	*ret_minsize = minsize;
+    }
 
   error = econf_getBoolValue(key_file, NULL, "rdii.preserve-ssh-hostkey", &preserve_ssh_hostkey);
   if (error != ECONF_SUCCESS && error != ECONF_NOKEY)
@@ -271,6 +287,7 @@ main(int argc, char **argv)
   _cleanup_free_ char *autoinstall_finish = NULL;
   bool preserve_ssh_hostkey = false;
   bool autoinstall = false;
+  uint64_t minsize = 10 * 1000ULL * 1000 * 1000; // 10G min disk size
   int r;
   econf_err conf_err;
 
@@ -336,7 +353,7 @@ main(int argc, char **argv)
 
   conf_err = read_config(rdii_config, &device, &mdraid, &image, &image1, &image2, &keymap,
 			 &download_server, &preserve_ssh_hostkey, &autoinstall,
-			 &autoinstall_finish);
+			 &autoinstall_finish, &minsize);
   if (conf_err != ECONF_SUCCESS)
     {
       show_error_popup("Failed to read config file:",
@@ -382,7 +399,7 @@ main(int argc, char **argv)
   if (!autoinstall || !rdii_autoinstall(image, device, mdraid, preserve_ssh_hostkey,
 					autoinstall_finish, &r))
     r = rdii_menu(TITLE, image, image1, image2, device, mdraid, keymap,
-		  preserve_ssh_hostkey);
+		  preserve_ssh_hostkey, minsize);
 
   MSG_INFO("rdi-installer stopped (retval=%i)", r);
 

@@ -136,6 +136,22 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><literal>rdii.minsize</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> A plain number of bytes, or a
+            number followed by <literal>KB</literal>,
+            <literal>MB</literal>, <literal>GB</literal>, or
+            <literal>TB</literal>.
+          </para>
+          <para>
+            Default: <literal>10GB</literal>. Minimum size a disk must
+            have to be offered as an installation target in the
+            interactive target selection menu.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><literal>rdii.autoinstall</literal></term>
         <listitem>
           <para>

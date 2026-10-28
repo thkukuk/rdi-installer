@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <locale.h>
 #include <wchar.h>
+#include <inttypes.h>
 
 #include "basics.h"
 #include "exec_cmd.h"
@@ -231,6 +232,9 @@ static const char *main_menu_help_text =
   "* rdii.download_server\n"
   " - Format: HTTP URL\n"
   " - Description: Base URL from which a list of raw disk images can be retrieved for selection.\n\n"
+  "* rdii.minsize\n"
+  " - Format: Number of bytes, or a number followed by KB, MB, GB, or TB\n"
+  " - Description: Minimum disk size for a device to be offered as installation target. Default: 10GB.\n\n"
   "Note: Additional images can be specified using rdii.url1 and rdii.url2. When rdi-installer starts, the user will be prompted"
   " to select which image to install.\n\n"
   "SSH Host Key Preservation\n"
@@ -277,9 +281,8 @@ static const char *main_menu_help_text =
 
 static int
 show_main_menu(const char *def_image, const char *def_device, const char *def_mdraid,
-		const char *def_keymap, bool preserve_ssh_hostkey)
+		const char *def_keymap, bool preserve_ssh_hostkey, uint64_t minsize)
 {
-  uint64_t minsize = 10 * 1000ULL * 1000 * 1000; // 10G min disk size
   _cleanup_free_ char *image_entry = NULL;
   _cleanup_free_ char *target_entry = NULL;
   _cleanup_free_ char *mdraid_entry = NULL;
@@ -508,15 +511,15 @@ select_image(const char *image1, const char *image2,
 int
 rdii_menu(const char *title, const char *image0, const char *image1,
 	  const char *image2, const char *device, const char *mdraid,
-	  const char *keymap, bool preserve_ssh_hostkey)
+	  const char *keymap, bool preserve_ssh_hostkey, uint64_t minsize)
 {
   const char *image = NULL;
   int r;
 
-  MSG_FUNC("image0='%s', image1='%s', image2='%s', device='%s', mdraid='%s', keymap='%s', preserve_ssh_hostkey=%i",
+  MSG_FUNC("image0='%s', image1='%s', image2='%s', device='%s', mdraid='%s', keymap='%s', preserve_ssh_hostkey=%i, minsize=%" PRIu64,
 	   strempty(image0), strempty(image1), strempty(image2),
 	   strempty(device), strempty(mdraid), strempty(keymap),
-	   preserve_ssh_hostkey);
+	   preserve_ssh_hostkey, minsize);
 
   show_splash_screen(title);
 
@@ -547,7 +550,7 @@ rdii_menu(const char *title, const char *image0, const char *image1,
   else
     image = image0;
 
-  r = show_main_menu(image, device, mdraid, keymap, preserve_ssh_hostkey);
+  r = show_main_menu(image, device, mdraid, keymap, preserve_ssh_hostkey, minsize);
   endwin();
 
   return r;

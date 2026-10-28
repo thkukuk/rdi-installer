@@ -23,7 +23,7 @@ extern int show_post_menu(void);
 extern int rdii_menu(const char *title, const char *image,
 		     const char *image1, const char *image2,
 		     const char *device, const char *mdraid, const char *keymap,
-		     bool preserve_ssh_hostkey);
+		     bool preserve_ssh_hostkey, uint64_t minsize);
 
 static inline void cleanup_string_array(char ***p) {
     if (!p || !*p)
