@@ -43,4 +43,11 @@ custom_target('rdii-ssh-setup.service.8',
               command : xslt_cmd + [custom_man_xsl, '@INPUT@'],
               install : want_man,
               install_dir : mandir8)
+
+custom_target('rdii-pubkey-setup.service.8',
+              input : 'rdii-pubkey-setup.service.8.xml',
+              output : 'rdii-pubkey-setup.service.8',
+              command : xslt_cmd + [custom_man_xsl, '@INPUT@'],
+              install : want_man,
+              install_dir : mandir8)
 endif

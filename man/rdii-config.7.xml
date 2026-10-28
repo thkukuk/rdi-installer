@@ -9,17 +9,18 @@
 
   <refnamediv>
     <refname>rdii-config</refname>
-    <refpurpose>Configuration file for rdi-installer, rdii-networkd, and rdii-ssh-setup.service</refpurpose>
+    <refpurpose>Configuration file for rdi-installer, rdii-networkd, rdii-ssh-setup.service, and rdii-pubkey-setup.service</refpurpose>
   </refnamediv>
 
   <refsect1>
     <title>Description</title>
     <para>
       The <filename>rdii-config</filename> configuration file is used by
-      <command>rdi-installer</command>, <command>rdii-networkd</command>
-      and <command>rdii-ssh-setup.service</command> to provision
-      installation sources and targets, network interfaces and
-      remote SSH access.
+      <command>rdi-installer</command>, <command>rdii-networkd</command>,
+      <command>rdii-ssh-setup.service</command> and
+      <command>rdii-pubkey-setup.service</command> to provision
+      installation sources and targets, network interfaces, remote SSH
+      access and additional gpg public keys.
     </para>
   </refsect1>
 
@@ -367,11 +368,41 @@
   </refsect1>
 
   <refsect1>
+    <title>GPG Public Key Options</title>
+    <para>
+      Additional gpg public keys used to verify downloaded raw disk
+      images are imported at boot by
+      <command>rdii-pubkey-setup.service</command>.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><literal>rdii.pubkey</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> HTTP(S)/FTP URL or Base64 Encoded
+          </para>
+          <para>
+            If the value starts with <literal>http://</literal>,
+            <literal>https://</literal> or <literal>ftp://</literal>, the
+            ASCII armored gpg public key is downloaded from that URL. Otherwise
+            the value is treated as a Base64 encoded ASCII armored gpg public
+            key and decoded directly. In both cases the key is imported into
+            the keyring <filename>/etc/systemd/import-pubring.gpg</filename>
+            used by <command>rdi-installer</command> to verify downloaded
+            images. May be specified more than once to import several keys.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>rdii-fetch-config</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>rdii-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>rdii-ssh-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>rdii-ssh-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>rdii-pubkey-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 

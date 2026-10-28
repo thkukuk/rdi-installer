@@ -5,6 +5,7 @@ enable rdii-mount-img-part.service
 enable rdii-networkd.service
 enable rdii-proxy-setup.service
 enable rdii-ssh-setup.service
+enable rdii-pubkey-setup.service
 enable systemd-networkd.service
 enable systemd-networkd-wait-online.service
 enable systemd-resolved.service

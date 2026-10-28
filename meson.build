@@ -138,6 +138,7 @@ executable('rdi-installer',
 # additional tools
 install_data('scripts/rdii-proxy-setup.sh', rename : 'rdii-proxy-setup', install_mode : 'rwxr-xr-x', install_dir : bindir)
 install_data('scripts/rdii-ssh-setup.sh', rename : 'rdii-ssh-setup', install_mode : 'rwxr-xr-x', install_dir : bindir)
+install_data('scripts/rdii-pubkey-setup.sh', rename : 'rdii-pubkey-setup', install_mode : 'rwxr-xr-x', install_dir : bindir)
 install_data('scripts/mount-part-by-label.sh', rename : 'mount-part-by-label', install_mode : 'rwxr-xr-x', install_dir : rdiidir)
 
 configure_file(output: 'config.h', configuration: conf)

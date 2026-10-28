@@ -9,6 +9,10 @@ test('shellcheck-rdii-ssh-setup',
   shellcheck_exe,
   args: [files('../scripts/rdii-ssh-setup.sh')]
 )
+test('shellcheck-rdii-pubkey-setup',
+  shellcheck_exe,
+  args: [files('../scripts/rdii-pubkey-setup.sh')]
+)
 test('shellcheck-mount-part-by-label',
   shellcheck_exe,
   args: [files('../scripts/mount-part-by-label.sh')]

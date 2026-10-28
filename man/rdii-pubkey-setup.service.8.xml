@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<refentry xmlns="http://docbook.org/ns/docbook" version="5.0" xml:id="rdii-pubkey-setup.service" xml:lang="en">
+  <refmeta>
+    <refentrytitle>rdii-pubkey-setup.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+    <refmiscinfo class="source">rdi-installer %version%</refmiscinfo>
+    <refmiscinfo class="manual">rdii-pubkey-setup.service</refmiscinfo>
+  </refmeta>
+
+  <refnamediv>
+    <refname>rdii-pubkey-setup.service</refname>
+    <refpurpose>Import additional gpg public keys from kernel parameters or config file</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      <command>rdii-pubkey-setup.service</command> is a systemd service calling
+      a script to parse a transient configuration file
+      (<filename>/run/rdi-installer/rdii-config</filename>) and the Linux
+      kernel command line (<filename>/proc/cmdline</filename>) at boot time.
+    </para>
+    <para>
+      <command>rdi-installer</command> verifies downloaded raw disk images
+      with <command>gpgv</command> against the keyring
+      <filename>/etc/systemd/import-pubring.gpg</filename>, which already
+      contains the key used for the official repositories. If an image is
+      signed with a different key, that key must be imported into the keyring
+      first. This service allows doing so dynamically at boot via the
+      <literal>rdii.pubkey</literal> parameter, without having to rebuild the
+      installer image.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Boot Parameters</title>
+    <para>The service looks for the following parameter to import gpg public keys:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>rdii.pubkey</literal></term>
+        <listitem>
+          <para>
+            <emphasis>Format:</emphasis> HTTP(S)/FTP URL or Base64 Encoded
+          </para>
+          <para>
+            If the value starts with <literal>http://</literal>,
+            <literal>https://</literal> or <literal>ftp://</literal>, it is
+            treated as the URL of an ASCII armored gpg public key, e.g.
+            <literal>https://download.opensuse.org/repositories/devel:/microos:/images/Tumbleweed/repodata/repomd.xml.key</literal>.
+            The key is downloaded and imported.
+          </para>
+          <para>
+            Otherwise the value is treated as a Base64 encoded ASCII
+            armored gpg public key and decoded and imported directly,
+            without any network access.
+          </para>
+          <para>
+            In both cases the key is added to the keyring
+            <filename>/etc/systemd/import-pubring.gpg</filename> used by
+            <command>rdi-installer</command> to verify downloaded images.
+            <literal>rdii.pubkey</literal> may be specified more than once
+            to import several keys.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Files</title>
+    <variablelist>
+      <varlistentry>
+        <term><filename>/run/rdi-installer/rdii-config</filename></term>
+        <listitem>
+          <para>The transient configuration file parsed by the script at boot.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>/proc/cmdline</filename></term>
+        <listitem>
+          <para>The Linux kernel command line parsed for the parameter described above.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>/etc/systemd/import-pubring.gpg</filename></term>
+        <listitem>
+          <para>The gpg keyring the public key(s) are imported into.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>rdii-config</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>rdii-fetch-config</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>

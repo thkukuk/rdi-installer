@@ -9,7 +9,7 @@ This project will build the following images:
 * `rdi-installer-<version>.<arch>.efi` (UKI EFI binary)
 * `rdi-installer-<version>.<arch>.img` (USB stick)
 
-Images will be built in the [home:kukuk:mkosi-images](https://build.opensuse.org/project/monitor/home:kukuk:mkosi-images) OBS project.
+Images will be built in the [devel:microos:images](https://build.opensuse.org/project/monitor/devel:microos:images) OBS project.
 
 ### rdi-installer-&lt;version&gt;.&lt;arch&gt;.efi
 
@@ -48,6 +48,8 @@ Raw Images compressed with xz, gzip, bzip2 or zstd are supported. The images wil
 The `rdi-installer` application tries to download a gpg signed sha256 hash for an image and uses that to verify the image. If the image URL is `https://download.example.org/example-image.raw.xz`, attempts will be made to also download the files `https://download.example.org/example-image.raw.xz.sha256` and `https://download.example.org/example-image.raw.xz.sha256.asc`.
 
 Signature verification is done by `gpgv` with a keyring at `/etc/systemd/import-pubring.gpg`. The signing key must be imported into that keyring for verification to succeed. If the signature file cannot be downloaded or verification fails, the installer will warn the user but still allow the installation to proceed.
+
+The keyring already contains the key used for the official repositories. To verify images signed with a different key, import that key at boot time via the `rdii.pubkey` option, processed by `rdii-pubkey-setup.service`.
 
 ## Options
 
@@ -256,3 +258,19 @@ and injection of SSH public keys via boot parameters.
 | ssh=1     | N/A    | Enables and starts the sshd service immediately. |
 | ssh.key   | Base64 Encoded | Decodes the string and appends it to `/root/.ssh/authorized_keys`.|
 | ssh.password | Plaintext | (Insecure) Sets the root password to the provided string. Sets PermitRootLogin yes.|
+
+### rdii-pubkey-setup
+
+This script provides a systemd service and a bash script that parses
+the Linux kernel command line (`/proc/cmdline`) and config file at
+boot time and imports additional gpg public keys into the keyring
+(`/etc/systemd/import-pubring.gpg`) used by `rdi-installer` to verify
+downloaded raw disk images. This is needed if an image is signed with
+a key other than the one used for the official repositories, which is
+already contained in the keyring.
+
+| Parameter | Format | Description |
+| --------- | ------ | ----------- |
+| rdii.pubkey | http(s)/ftp url or Base64 Encoded | Downloads the ASCII armored gpg public key from the given URL, or decodes it directly if the value is not a URL. Can be specified more than once. |
+
+Example: `rdii.pubkey=https://download.opensuse.org/repositories/devel:/microos:/images/Tumbleweed/repodata/repomd.xml.key`
