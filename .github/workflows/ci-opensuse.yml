@@ -8,7 +8,7 @@ jobs:
     container: registry.opensuse.org/opensuse/tumbleweed:latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Install devel packages
       run: |
@@ -31,7 +31,7 @@ jobs:
     container: registry.opensuse.org/opensuse/tumbleweed:latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Install devel packages
       run: |
@@ -52,7 +52,7 @@ jobs:
     container: registry.opensuse.org/opensuse/tumbleweed:latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Install devel packages
       run: |
